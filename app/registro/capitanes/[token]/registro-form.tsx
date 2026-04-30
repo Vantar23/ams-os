@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { useRouter } from "next/navigation"
-import { Turnstile } from "@marsidev/react-turnstile"
+import { Turnstile, type TurnstileInstance } from "@marsidev/react-turnstile"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import { z } from "zod"
@@ -66,6 +66,7 @@ export function CapitanRegistroForm({
 }) {
   const router = useRouter()
   const supabase = React.useMemo(() => createClient(), [])
+  const turnstileRef = React.useRef<TurnstileInstance>(null)
   const [captchaToken, setCaptchaToken] = React.useState<string | null>(null)
   const [submitError, setSubmitError] = React.useState<string | null>(null)
   const [submitting, setSubmitting] = React.useState(false)
@@ -88,54 +89,72 @@ export function CapitanRegistroForm({
     },
   })
 
+  function resetCaptcha() {
+    setCaptchaToken(null)
+    turnstileRef.current?.reset()
+  }
+
   async function onSubmit(values: Values) {
-    if (!captchaToken) return
+    if (!captchaToken) {
+      setSubmitError("Confirma el captcha antes de continuar.")
+      return
+    }
     setSubmitError(null)
     setSubmitting(true)
+    let success = false
 
-    const { data, error } = await supabase.auth.signUp({
-      email: values.email,
-      password: values.password,
-      options: {
-        captchaToken,
-        data: {
-          nombre: values.nombre,
-          apellido: values.apellido,
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email: values.email,
+        password: values.password,
+        options: {
+          captchaToken,
+          data: {
+            nombre: values.nombre,
+            apellido: values.apellido,
+          },
         },
-      },
-    })
+      })
 
-    if (error) {
-      setSubmitting(false)
-      setSubmitError(error.message)
-      return
-    }
-    if (!data.session) {
-      setSubmitting(false)
+      if (error) {
+        setSubmitError(error.message)
+        return
+      }
+      if (!data.session) {
+        setSubmitError(
+          "Tu cuenta se creó pero falta confirmar el correo. Pídele al organizador que apague 'Confirm email' o que te re-envíe el enlace.",
+        )
+        return
+      }
+
+      const { ok, error: registroError } = await submitCapitanRegistro({
+        token,
+        nombre: values.nombre,
+        apellido: values.apellido,
+        congregacion: values.congregacion,
+        telefono: values.telefono,
+        area: values.area as AreaCapitan,
+        notas: values.notas ?? "",
+        disponibilidad,
+      })
+      if (!ok) {
+        setSubmitError(registroError)
+        return
+      }
+      success = true
+    } catch (e) {
       setSubmitError(
-        "Tu cuenta se creó pero falta confirmar el correo. Pídele al organizador que apague 'Confirm email' o que te re-envíe el enlace.",
+        e instanceof Error ? e.message : "Algo salió mal, vuelve a intentar.",
       )
-      return
+    } finally {
+      setSubmitting(false)
+      if (!success) resetCaptcha()
     }
 
-    const { ok, error: registroError } = await submitCapitanRegistro({
-      token,
-      nombre: values.nombre,
-      apellido: values.apellido,
-      congregacion: values.congregacion,
-      telefono: values.telefono,
-      area: values.area as AreaCapitan,
-      notas: values.notas ?? "",
-      disponibilidad,
-    })
-    setSubmitting(false)
-    if (!ok) {
-      setSubmitError(registroError)
-      return
+    if (success) {
+      router.replace("/capitanes")
+      router.refresh()
     }
-
-    router.replace("/capitanes")
-    router.refresh()
   }
 
   return (
@@ -348,6 +367,7 @@ export function CapitanRegistroForm({
 
             <div>
               <Turnstile
+                ref={turnstileRef}
                 siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY!}
                 onSuccess={setCaptchaToken}
                 onExpire={() => setCaptchaToken(null)}
