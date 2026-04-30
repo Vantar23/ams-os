@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import { useRouter } from "next/navigation"
+import { MessageCircleIcon } from "lucide-react"
 
 import {
   AlertDialog,
@@ -42,6 +43,7 @@ type Acomodador = {
   congregacion: string
   telefono: string
   capitan_id: string | null
+  access_token: string
   disponibilidad: string[]
   asistencia_confirmada: string[]
   asistencia_self_confirmada: string[]
@@ -61,6 +63,19 @@ const ALL_SLOTS: { slot: DisponibilidadSlot; dia: string; sesion: string }[] =
 type Filtro = "todos" | "capitanes" | "acomodadores" | "hermanas"
 type Tipo = "capitan" | "acomodador" | "hermana"
 
+function buildDisponibilidadShareUrl(
+  origin: string,
+  basePath: "/acomodador/" | "/hermana-apoyo/",
+  accessToken: string,
+  telefono: string,
+  nombre: string,
+): string {
+  const phone = telefono.replace(/\D/g, "")
+  const url = `${origin}${basePath}${accessToken}`
+  const text = `Hola ${nombre}, te paso tu enlace personal para confirmar tu disponibilidad y asistencia: ${url}`
+  return `https://wa.me/${phone}?text=${encodeURIComponent(text)}`
+}
+
 export function DisponibilidadView({
   asamblea,
   capitanes,
@@ -73,6 +88,8 @@ export function DisponibilidadView({
   hermanas: Hermana[]
 }) {
   const router = useRouter()
+  const origin =
+    typeof window === "undefined" ? "" : window.location.origin
   const [selected, setSelected] = React.useState<DisponibilidadSlot | "todos">(
     "todos",
   )
@@ -446,6 +463,13 @@ export function DisponibilidadView({
                             : a.congregacion
                         }
                         telefono={a.telefono}
+                        whatsappUrl={buildDisponibilidadShareUrl(
+                          origin,
+                          "/acomodador/",
+                          a.access_token,
+                          a.telefono,
+                          a.nombre,
+                        )}
                         confirmed={confirmed}
                         selfConfirmed={selfConfirmed}
                         onToggle={(v) =>
@@ -486,6 +510,13 @@ export function DisponibilidadView({
                             : h.congregacion
                         }
                         telefono={h.telefono}
+                        whatsappUrl={buildDisponibilidadShareUrl(
+                          origin,
+                          "/hermana-apoyo/",
+                          h.access_token,
+                          h.telefono,
+                          h.nombre,
+                        )}
                         confirmed={confirmed}
                         selfConfirmed={selfConfirmed}
                         onToggle={(v) =>
@@ -545,6 +576,7 @@ function PersonRow({
   title,
   subtitle,
   telefono,
+  whatsappUrl,
   confirmed,
   selfConfirmed,
   onToggle,
@@ -552,6 +584,7 @@ function PersonRow({
   title: string
   subtitle: string
   telefono: string
+  whatsappUrl?: string
   confirmed: boolean
   selfConfirmed?: boolean
   onToggle: (next: boolean) => void
@@ -585,6 +618,18 @@ function PersonRow({
             </span>
           )}
         </a>
+        {whatsappUrl && (
+          <a
+            href={whatsappUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Enviar enlace de disponibilidad por WhatsApp"
+            className="inline-flex size-8 shrink-0 items-center justify-center rounded-md border border-border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <MessageCircleIcon className="size-4" />
+          </a>
+        )}
         <Checkbox
           checked={confirmed}
           onCheckedChange={(v) => setPending(Boolean(v))}

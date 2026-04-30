@@ -51,14 +51,14 @@ export default async function DisponibilidadPage() {
     supabase
       .from("acomodadores")
       .select(
-        "id, nombre, apellido, congregacion, telefono, capitan_id, disponibilidad, asistencia_confirmada, asistencia_self_confirmada",
+        "id, nombre, apellido, congregacion, telefono, capitan_id, access_token, disponibilidad, asistencia_confirmada, asistencia_self_confirmada",
       )
       .eq("asamblea_id", asamblea.id)
       .order("nombre", { ascending: true }),
     supabase
       .from("hermanas_apoyo")
       .select(
-        "id, nombre, apellido, congregacion, telefono, capitan_id, disponibilidad, asistencia_confirmada, asistencia_self_confirmada",
+        "id, nombre, apellido, congregacion, telefono, capitan_id, access_token, disponibilidad, asistencia_confirmada, asistencia_self_confirmada",
       )
       .eq("asamblea_id", asamblea.id)
       .order("nombre", { ascending: true }),
