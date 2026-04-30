@@ -36,7 +36,11 @@ export default async function DisponibilidadPage() {
     )
   }
 
-  const [{ data: capitanes }, { data: acomodadores }] = await Promise.all([
+  const [
+    { data: capitanes },
+    { data: acomodadores },
+    { data: hermanas },
+  ] = await Promise.all([
     supabase
       .from("capitanes")
       .select(
@@ -51,6 +55,13 @@ export default async function DisponibilidadPage() {
       )
       .eq("asamblea_id", asamblea.id)
       .order("nombre", { ascending: true }),
+    supabase
+      .from("hermanas_apoyo")
+      .select(
+        "id, nombre, apellido, congregacion, telefono, capitan_id, disponibilidad, asistencia_confirmada, asistencia_self_confirmada",
+      )
+      .eq("asamblea_id", asamblea.id)
+      .order("nombre", { ascending: true }),
   ])
 
   return (
@@ -60,6 +71,7 @@ export default async function DisponibilidadPage() {
         asamblea={asamblea}
         capitanes={capitanes ?? []}
         acomodadores={acomodadores ?? []}
+        hermanas={hermanas ?? []}
       />
     </>
   )

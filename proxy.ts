@@ -2,10 +2,17 @@ import { createServerClient } from "@supabase/ssr"
 import { NextResponse, type NextRequest } from "next/server"
 
 const PUBLIC_ROUTES = new Set(["/", "/login", "/register"])
-const PUBLIC_PREFIXES = ["/registro/", "/restablecer/", "/acomodador/"]
+const PUBLIC_PREFIXES = [
+  "/registro/",
+  "/restablecer/",
+  "/acomodador/",
+  "/hermana-apoyo/",
+]
 const AUTH_ROUTES = new Set(["/login", "/register"])
 const ACOMODADOR_PREFIX = "/acomodador/"
+const HERMANA_APOYO_PREFIX = "/hermana-apoyo/"
 const DEVICE_COOKIE = "acomodador_device_key"
+const HERMANA_DEVICE_COOKIE = "hermana_apoyo_device_key"
 const CAPITAN_ALLOWED_PREFIXES = [
   "/acomodadores",
   "/capitanes",
@@ -61,6 +68,21 @@ export async function proxy(request: NextRequest) {
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
       path: ACOMODADOR_PREFIX,
+      maxAge: 60 * 60 * 24 * 365 * 10,
+    })
+  }
+
+  if (
+    path.startsWith(HERMANA_APOYO_PREFIX) &&
+    !request.cookies.has(HERMANA_DEVICE_COOKIE)
+  ) {
+    const deviceKey = randomHex(32)
+    request.cookies.set(HERMANA_DEVICE_COOKIE, deviceKey)
+    response.cookies.set(HERMANA_DEVICE_COOKIE, deviceKey, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: HERMANA_APOYO_PREFIX,
       maxAge: 60 * 60 * 24 * 365 * 10,
     })
   }

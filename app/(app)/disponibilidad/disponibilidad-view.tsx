@@ -47,6 +47,8 @@ type Acomodador = {
   asistencia_self_confirmada: string[]
 }
 
+type Hermana = Acomodador
+
 const ALL_SLOTS: { slot: DisponibilidadSlot; dia: string; sesion: string }[] =
   DISPONIBILIDAD_DIAS.flatMap((d) =>
     DISPONIBILIDAD_SESIONES.map((s) => ({
@@ -56,31 +58,35 @@ const ALL_SLOTS: { slot: DisponibilidadSlot; dia: string; sesion: string }[] =
     })),
   )
 
+type Filtro = "todos" | "capitanes" | "acomodadores" | "hermanas"
+type Tipo = "capitan" | "acomodador" | "hermana"
+
 export function DisponibilidadView({
   asamblea,
   capitanes,
   acomodadores,
+  hermanas,
 }: {
   asamblea: Asamblea
   capitanes: Capitan[]
   acomodadores: Acomodador[]
+  hermanas: Hermana[]
 }) {
   const router = useRouter()
   const [selected, setSelected] = React.useState<DisponibilidadSlot | "todos">(
     "todos",
   )
-  const [filtro, setFiltro] = React.useState<"todos" | "capitanes" | "acomodadores">(
-    "todos",
-  )
-  const showCapitanes = filtro !== "acomodadores"
-  const showAcomodadores = filtro !== "capitanes"
+  const [filtro, setFiltro] = React.useState<Filtro>("todos")
+  const showCapitanes = filtro === "todos" || filtro === "capitanes"
+  const showAcomodadores = filtro === "todos" || filtro === "acomodadores"
+  const showHermanas = filtro === "todos" || filtro === "hermanas"
   // Optimistic overrides keyed by `${tipo}:${id}:${slot}` -> boolean
   const [overrides, setOverrides] = React.useState<Record<string, boolean>>(
     {},
   )
 
   function isConfirmed(
-    tipo: "capitan" | "acomodador",
+    tipo: Tipo,
     id: string,
     slot: DisponibilidadSlot,
     persisted: string[],
@@ -91,7 +97,7 @@ export function DisponibilidadView({
   }
 
   async function handleToggle(
-    tipo: "capitan" | "acomodador",
+    tipo: Tipo,
     id: string,
     slot: DisponibilidadSlot,
     next: boolean,
@@ -121,17 +127,21 @@ export function DisponibilidadView({
     for (const { slot } of ALL_SLOTS) {
       const c =
         capitanes.filter((x) => x.disponibilidad.includes(slot)).length +
-        acomodadores.filter((x) => x.disponibilidad.includes(slot)).length
+        acomodadores.filter((x) => x.disponibilidad.includes(slot)).length +
+        hermanas.filter((x) => x.disponibilidad.includes(slot)).length
       map[slot] = c
     }
     return map
-  }, [capitanes, acomodadores])
+  }, [capitanes, acomodadores, hermanas])
 
   const selectedCapitanes = capitanes.filter((c) =>
     selected === "todos" ? true : c.disponibilidad.includes(selected),
   )
   const selectedAcomodadores = acomodadores.filter((a) =>
     selected === "todos" ? true : a.disponibilidad.includes(selected),
+  )
+  const selectedHermanas = hermanas.filter((h) =>
+    selected === "todos" ? true : h.disponibilidad.includes(selected),
   )
 
   const capitanById = React.useMemo(() => {
@@ -141,9 +151,12 @@ export function DisponibilidadView({
   }, [capitanes])
 
   const selectedLabel = ALL_SLOTS.find((s) => s.slot === selected)
-  const totalSelected = selectedCapitanes.length + selectedAcomodadores.length
+  const totalSelected =
+    selectedCapitanes.length +
+    selectedAcomodadores.length +
+    selectedHermanas.length
 
-  const totalAll = capitanes.length + acomodadores.length
+  const totalAll = capitanes.length + acomodadores.length + hermanas.length
 
   return (
     <div className="flex flex-1 flex-col gap-4 p-3 sm:p-4">
@@ -266,12 +279,13 @@ export function DisponibilidadView({
             </p>
           </div>
 
-          <div className="mt-4 inline-flex rounded-full border bg-background p-0.5 text-xs">
+          <div className="mt-4 inline-flex flex-wrap rounded-full border bg-background p-0.5 text-xs">
             {(
               [
                 { key: "todos", label: "Todos" },
                 { key: "capitanes", label: "Capitanes" },
                 { key: "acomodadores", label: "Acomodadores" },
+                { key: "hermanas", label: "Hermanas" },
               ] as const
             ).map((f) => (
               <button
@@ -335,6 +349,34 @@ export function DisponibilidadView({
                         telefono={a.telefono}
                         disponibilidad={a.disponibilidad}
                         confirmadas={a.asistencia_confirmada}
+                      />
+                    )
+                  })}
+                </Group>
+              )}
+
+              {showHermanas && (
+                <Group
+                  title="Hermanas de Apoyo"
+                  empty="Ninguna hermana registrada."
+                  count={hermanas.length}
+                >
+                  {hermanas.map((h) => {
+                    const capitan = h.capitan_id
+                      ? capitanById.get(h.capitan_id)
+                      : null
+                    return (
+                      <MatrixRow
+                        key={h.id}
+                        title={`${h.nombre} ${h.apellido}`}
+                        subtitle={
+                          capitan
+                            ? `${h.congregacion} · ${capitan.nombre} ${capitan.apellido}`
+                            : h.congregacion
+                        }
+                        telefono={h.telefono}
+                        disponibilidad={h.disponibilidad}
+                        confirmadas={h.asistencia_confirmada}
                       />
                     )
                   })}
@@ -408,6 +450,46 @@ export function DisponibilidadView({
                         selfConfirmed={selfConfirmed}
                         onToggle={(v) =>
                           handleToggle("acomodador", a.id, selected, v)
+                        }
+                      />
+                    )
+                  })}
+                </Group>
+              )}
+
+              {showHermanas && (
+                <Group
+                  title="Hermanas de Apoyo"
+                  empty="Ninguna hermana disponible."
+                  count={selectedHermanas.length}
+                  rightLabel="Confirmación de asistencia"
+                >
+                  {selectedHermanas.map((h) => {
+                    const capitan = h.capitan_id
+                      ? capitanById.get(h.capitan_id)
+                      : null
+                    const confirmed = isConfirmed(
+                      "hermana",
+                      h.id,
+                      selected,
+                      h.asistencia_confirmada,
+                    )
+                    const selfConfirmed =
+                      h.asistencia_self_confirmada.includes(selected)
+                    return (
+                      <PersonRow
+                        key={h.id}
+                        title={`${h.nombre} ${h.apellido}`}
+                        subtitle={
+                          capitan
+                            ? `${h.congregacion} · ${capitan.nombre} ${capitan.apellido}`
+                            : h.congregacion
+                        }
+                        telefono={h.telefono}
+                        confirmed={confirmed}
+                        selfConfirmed={selfConfirmed}
+                        onToggle={(v) =>
+                          handleToggle("hermana", h.id, selected, v)
                         }
                       />
                     )

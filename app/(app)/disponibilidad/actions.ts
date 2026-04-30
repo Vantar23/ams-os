@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache"
 import { createClient } from "@/lib/supabase/server"
 
 export async function toggleAsistencia(input: {
-  tipo: "capitan" | "acomodador"
+  tipo: "capitan" | "acomodador" | "hermana"
   id: string
   slot: string
   confirmar: boolean
@@ -16,7 +16,12 @@ export async function toggleAsistencia(input: {
   } = await supabase.auth.getUser()
   if (!user) return { error: "No autenticado" }
 
-  const table = input.tipo === "capitan" ? "capitanes" : "acomodadores"
+  const table =
+    input.tipo === "capitan"
+      ? "capitanes"
+      : input.tipo === "hermana"
+        ? "hermanas_apoyo"
+        : "acomodadores"
 
   const { data: row, error: fetchError } = await supabase
     .from(table)

@@ -162,7 +162,8 @@ export function CapitanesClient({
       </div>
 
       {/* Desktop table */}
-      <div className="hidden overflow-x-auto rounded-xl border lg:block">
+      <div className="hidden md:block">
+        <div className="overflow-x-auto rounded-xl border">
         <Table>
           <TableHeader>
             <TableRow>
@@ -195,18 +196,18 @@ export function CapitanesClient({
             )}
           </TableBody>
         </Table>
+        </div>
       </div>
 
       {/* Mobile cards target */}
-      <div
-        ref={setMobileCardsContainer}
-        className="grid gap-2 lg:hidden"
-      >
-        {capitanes.length === 0 && (
-          <div className="rounded-xl border p-6 text-center text-sm text-muted-foreground">
-            Sin capitanes. Agrega el primero para comenzar.
-          </div>
-        )}
+      <div className="md:hidden">
+        <div ref={setMobileCardsContainer} className="grid gap-2">
+          {capitanes.length === 0 && (
+            <div className="rounded-xl border p-6 text-center text-sm text-muted-foreground">
+              Sin capitanes. Agrega el primero para comenzar.
+            </div>
+          )}
+        </div>
       </div>
 
       <CapitanFormDialog

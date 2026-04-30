@@ -63,11 +63,11 @@ import {
 } from "@/components/ui/table"
 
 import {
-  actualizarAcomodador,
-  agregarAcomodadorManual,
-  crearEnlaceRegistro,
-  eliminarAcomodador,
-  regenerarAcceso,
+  actualizarHermana,
+  agregarHermanaManual,
+  crearEnlaceRegistroHermana,
+  eliminarHermana,
+  regenerarAccesoHermana,
 } from "./actions"
 
 type Asamblea = {
@@ -77,7 +77,7 @@ type Asamblea = {
   titulo: string
 }
 
-type Acomodador = {
+type HermanaApoyo = {
   id: string
   nombre: string
   apellido: string
@@ -100,14 +100,14 @@ type CapitanOption = {
 
 const SIN_CAPITAN_VALUE = "__none__"
 
-export function AcomodadoresClient({
+export function HermanasApoyoClient({
   asamblea,
-  acomodadores,
+  hermanas,
   capitanes,
   currentCapitanId,
 }: {
   asamblea: Asamblea
-  acomodadores: Acomodador[]
+  hermanas: HermanaApoyo[]
   capitanes: CapitanOption[]
   currentCapitanId: string | null
 }) {
@@ -122,7 +122,7 @@ export function AcomodadoresClient({
 
   const origin = typeof window === "undefined" ? "" : window.location.origin
   const inviteUrl = enlaceToken
-    ? `${origin}/registro/acomodadores/${enlaceToken}`
+    ? `${origin}/registro/hermanas-de-apoyo/${enlaceToken}`
     : ""
 
   function openShare() {
@@ -134,7 +134,7 @@ export function AcomodadoresClient({
   async function generarEnlace() {
     setShareError(null)
     setCreatingEnlace(true)
-    const { token, error } = await crearEnlaceRegistro(asamblea.id)
+    const { token, error } = await crearEnlaceRegistroHermana(asamblea.id)
     setCreatingEnlace(false)
     if (error) {
       setShareError(error)
@@ -147,11 +147,11 @@ export function AcomodadoresClient({
     <div className="flex flex-1 flex-col gap-4 p-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-lg font-semibold">Acomodadores</h2>
+          <h2 className="text-lg font-semibold">Hermanas de Apoyo</h2>
           <p className="text-sm text-muted-foreground">
-            {acomodadores.length} hermano
-            {acomodadores.length === 1 ? "" : "s"} registrado
-            {acomodadores.length === 1 ? "" : "s"} ·{" "}
+            {hermanas.length} hermana
+            {hermanas.length === 1 ? "" : "s"} registrada
+            {hermanas.length === 1 ? "" : "s"} ·{" "}
             <span className="text-foreground/70">
               Asamblea N° {asamblea.numero} — {asamblea.edicion}
             </span>
@@ -193,21 +193,21 @@ export function AcomodadoresClient({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {acomodadores.length === 0 ? (
+            {hermanas.length === 0 ? (
               <TableRow>
                 <TableCell
                   colSpan={6}
                   className="h-24 text-center text-muted-foreground"
                 >
-                  Aún no se ha registrado ningún acomodador. Comparte el enlace
+                  Aún no se ha registrado ninguna hermana. Comparte el enlace
                   para empezar.
                 </TableCell>
               </TableRow>
             ) : (
-              acomodadores.map((a) => (
-                <AcomodadorRow
+              hermanas.map((a) => (
+                <HermanaRow
                   key={a.id}
-                  acomodador={a}
+                  hermana={a}
                   asambleaId={asamblea.id}
                   capitanes={capitanes}
                   mobileCardsContainer={mobileCardsContainer}
@@ -222,9 +222,9 @@ export function AcomodadoresClient({
       {/* Mobile cards target — actual cards portaled in from each row */}
       <div className="md:hidden">
         <div ref={setMobileCardsContainer} className="grid gap-2">
-          {acomodadores.length === 0 && (
+          {hermanas.length === 0 && (
             <div className="rounded-xl border p-6 text-center text-sm text-muted-foreground">
-              Aún no se ha registrado ningún acomodador. Comparte el enlace
+              Aún no se ha registrado ninguna hermana. Comparte el enlace
               para empezar.
             </div>
           )}
@@ -293,7 +293,7 @@ function ManualAddDialog({
   const [datos, setDatos] = React.useState<DraftDatos | null>(null)
 
   const origin = typeof window === "undefined" ? "" : window.location.origin
-  const accessUrl = createdToken ? `${origin}/acomodador/${createdToken}` : ""
+  const accessUrl = createdToken ? `${origin}/hermana-apoyo/${createdToken}` : ""
 
   React.useEffect(() => {
     if (!open) {
@@ -329,7 +329,7 @@ function ManualAddDialog({
     if (!datos) return
     setSubmitting(true)
     setError(null)
-    const { accessToken, error: err } = await agregarAcomodadorManual(
+    const { accessToken, error: err } = await agregarHermanaManual(
       asambleaId,
       {
         ...datos,
@@ -365,7 +365,7 @@ function ManualAddDialog({
           <>
             <DialogHeader>
               <DialogTitle>
-                Agregar acomodador
+                Agregar hermana
                 <span className="ml-2 text-xs font-normal uppercase tracking-[0.15em] text-muted-foreground">
                   Paso {step === "disponibilidad" ? "2" : "1"} de 2
                 </span>
@@ -373,7 +373,7 @@ function ManualAddDialog({
               <DialogDescription>
                 {step === "disponibilidad"
                   ? "Marca las sesiones en las que puede servir."
-                  : "Llena los datos del hermano. Al guardar te damos su enlace personal para que se lo compartas."}
+                  : "Llena los datos de la hermana. Al guardar te damos su enlace personal para que se lo compartas."}
               </DialogDescription>
             </DialogHeader>
 
@@ -467,7 +467,7 @@ function ManualAddDialog({
                     disabled={submitting}
                     className="w-full sm:w-auto"
                   >
-                    {submitting ? "Guardando…" : "Guardar acomodador"}
+                    {submitting ? "Guardando…" : "Guardar hermana"}
                   </Button>
                 </DialogFooter>
               </form>
@@ -476,7 +476,7 @@ function ManualAddDialog({
         ) : (
           <>
             <DialogHeader>
-              <DialogTitle>Acomodador creado</DialogTitle>
+              <DialogTitle>Hermana de apoyo creada</DialogTitle>
               <DialogDescription>
                 Comparte este enlace personal por WhatsApp. Solo funcionará en
                 el primer dispositivo donde se abra.
@@ -582,21 +582,21 @@ function Field({
 function EditDialog({
   open,
   onOpenChange,
-  acomodador,
+  hermana,
   capitanes,
   onSaved,
 }: {
   open: boolean
   onOpenChange: (v: boolean) => void
-  acomodador: Acomodador
+  hermana: HermanaApoyo
   capitanes: CapitanOption[]
   onSaved: () => void
 }) {
   const [submitting, setSubmitting] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
-  const initialCapitanId = acomodador.capitan_id ?? SIN_CAPITAN_VALUE
+  const initialCapitanId = hermana.capitan_id ?? SIN_CAPITAN_VALUE
   const initialDisponibilidad =
-    (acomodador.disponibilidad ?? []) as DisponibilidadSlot[]
+    (hermana.disponibilidad ?? []) as DisponibilidadSlot[]
   const [capitanId, setCapitanId] = React.useState<string>(initialCapitanId)
   const [disponibilidad, setDisponibilidad] = React.useState<
     DisponibilidadSlot[]
@@ -625,7 +625,7 @@ function EditDialog({
     }
     setSubmitting(true)
     setError(null)
-    const { error: err } = await actualizarAcomodador(acomodador.id, values)
+    const { error: err } = await actualizarHermana(hermana.id, values)
     setSubmitting(false)
     if (err) {
       setError(err)
@@ -639,26 +639,26 @@ function EditDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Editar acomodador</DialogTitle>
+          <DialogTitle>Editar hermana</DialogTitle>
           <DialogDescription>
-            Actualiza los datos del hermano. Su enlace de acceso no cambia.
+            Actualiza los datos de la hermana. Su enlace de acceso no cambia.
           </DialogDescription>
         </DialogHeader>
-        <form key={acomodador.id} onSubmit={onSubmit} className="grid gap-4">
+        <form key={hermana.id} onSubmit={onSubmit} className="grid gap-4">
           <div className="grid gap-3 sm:grid-cols-2">
             <Field
               name="nombre"
               label="Nombre"
               placeholder="Juan"
               required
-              defaultValue={acomodador.nombre}
+              defaultValue={hermana.nombre}
             />
             <Field
               name="apellido"
               label="Apellido"
               placeholder="Pérez"
               required
-              defaultValue={acomodador.apellido}
+              defaultValue={hermana.apellido}
             />
           </div>
           <Field
@@ -666,7 +666,7 @@ function EditDialog({
             label="Congregación"
             placeholder="Centro"
             required
-            defaultValue={acomodador.congregacion}
+            defaultValue={hermana.congregacion}
           />
           <Field
             name="telefono"
@@ -676,13 +676,13 @@ function EditDialog({
             noSpaces
             placeholder="5512345678"
             required
-            defaultValue={acomodador.telefono}
+            defaultValue={hermana.telefono}
           />
           <Field
             name="notas"
             label="Notas"
             placeholder="Disponibilidad, restricciones, etc."
-            defaultValue={acomodador.notas ?? ""}
+            defaultValue={hermana.notas ?? ""}
           />
           <CapitanSelector
             capitanes={capitanes}
@@ -784,7 +784,7 @@ function ShareDialog({
         <DialogHeader>
           <DialogTitle>Compartir enlace de registro</DialogTitle>
           <DialogDescription>
-            Envíalo a los hermanos. Al abrirlo desde su teléfono llenan sus
+            Envíalo a los hermanas. Al abrirlo desde su teléfono llenan sus
             datos y aparecen aquí. El enlace es válido por 3 días.
           </DialogDescription>
         </DialogHeader>
@@ -857,24 +857,24 @@ function ShareDialog({
   )
 }
 
-function AcomodadorRow({
-  acomodador,
+function HermanaRow({
+  hermana,
   asambleaId,
   capitanes,
   mobileCardsContainer,
 }: {
-  acomodador: Acomodador
+  hermana: HermanaApoyo
   asambleaId: string
   capitanes: CapitanOption[]
   mobileCardsContainer: HTMLElement | null
 }) {
-  const capitan = acomodador.capitan_id
-    ? capitanes.find((c) => c.id === acomodador.capitan_id)
+  const capitan = hermana.capitan_id
+    ? capitanes.find((c) => c.id === hermana.capitan_id)
     : null
   const router = useRouter()
   const [regenerating, setRegenerating] = React.useState(false)
   const [accessToken, setAccessToken] = React.useState<string>(
-    acomodador.access_token,
+    hermana.access_token,
   )
   const [accessOpen, setAccessOpen] = React.useState(false)
   const [editOpen, setEditOpen] = React.useState(false)
@@ -884,9 +884,9 @@ function AcomodadorRow({
 
   async function handleRegenerar() {
     setRegenerating(true)
-    const { token, error } = await regenerarAcceso(
+    const { token, error } = await regenerarAccesoHermana(
       asambleaId,
-      acomodador.telefono,
+      hermana.telefono,
     )
     setRegenerating(false)
     if (error) {
@@ -900,7 +900,7 @@ function AcomodadorRow({
   async function handleEliminar() {
     setDeleting(true)
     setDeleteError(null)
-    const { error } = await eliminarAcomodador(acomodador.id)
+    const { error } = await eliminarHermana(hermana.id)
     setDeleting(false)
     if (error) {
       setDeleteError(error)
@@ -932,17 +932,17 @@ function AcomodadorRow({
         <ContextMenuTrigger asChild>
           <TableRow>
             <TableCell className="font-medium">
-              {acomodador.nombre} {acomodador.apellido}
+              {hermana.nombre} {hermana.apellido}
             </TableCell>
-            <TableCell>{acomodador.congregacion}</TableCell>
+            <TableCell>{hermana.congregacion}</TableCell>
             <TableCell>
               <a
-                href={`https://wa.me/${acomodador.telefono.replace(/\D/g, "")}`}
+                href={`https://wa.me/${hermana.telefono.replace(/\D/g, "")}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="hover:underline"
               >
-                {acomodador.telefono}
+                {hermana.telefono}
               </a>
             </TableCell>
             <TableCell className="text-muted-foreground">
@@ -958,7 +958,7 @@ function AcomodadorRow({
               )}
             </TableCell>
             <TableCell className="text-muted-foreground">
-              {acomodador.device_bound_at ? "Activo" : "Sin abrir"}
+              {hermana.device_bound_at ? "Activo" : "Sin abrir"}
             </TableCell>
             <TableCell>
               <Button
@@ -984,21 +984,21 @@ function AcomodadorRow({
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <h3 className="truncate text-base font-medium">
-                      {acomodador.nombre} {acomodador.apellido}
+                      {hermana.nombre} {hermana.apellido}
                     </h3>
                     <p className="text-sm text-muted-foreground">
-                      {acomodador.congregacion}
+                      {hermana.congregacion}
                     </p>
                   </div>
                   <span
                     className={cn(
                       "shrink-0 rounded-full border px-2 py-0.5 text-[11px]",
-                      acomodador.device_bound_at
+                      hermana.device_bound_at
                         ? "border-primary/40 text-primary"
                         : "border-border text-muted-foreground",
                     )}
                   >
-                    {acomodador.device_bound_at ? "Activo" : "Sin abrir"}
+                    {hermana.device_bound_at ? "Activo" : "Sin abrir"}
                   </span>
                 </div>
                 <dl className="mt-3 grid gap-2 text-sm">
@@ -1006,12 +1006,12 @@ function AcomodadorRow({
                     <dt className="text-muted-foreground">Teléfono</dt>
                     <dd>
                       <a
-                        href={`https://wa.me/${acomodador.telefono.replace(/\D/g, "")}`}
+                        href={`https://wa.me/${hermana.telefono.replace(/\D/g, "")}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="hover:underline"
                       >
-                        {acomodador.telefono}
+                        {hermana.telefono}
                       </a>
                     </dd>
                   </div>
@@ -1051,7 +1051,7 @@ function AcomodadorRow({
       <AccessDialog
         open={accessOpen}
         onOpenChange={setAccessOpen}
-        acomodador={acomodador}
+        hermana={hermana}
         accessToken={accessToken}
         regenerating={regenerating}
         onRegenerar={handleRegenerar}
@@ -1060,7 +1060,7 @@ function AcomodadorRow({
       <EditDialog
         open={editOpen}
         onOpenChange={setEditOpen}
-        acomodador={acomodador}
+        hermana={hermana}
         capitanes={capitanes}
         onSaved={() => router.refresh()}
       />
@@ -1069,7 +1069,7 @@ function AcomodadorRow({
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              ¿Eliminar a {acomodador.nombre} {acomodador.apellido}?
+              ¿Eliminar a {hermana.nombre} {hermana.apellido}?
             </AlertDialogTitle>
             <AlertDialogDescription>
               Se borrará el registro y su enlace de acceso dejará de funcionar.
@@ -1100,20 +1100,20 @@ function AcomodadorRow({
 function AccessDialog({
   open,
   onOpenChange,
-  acomodador,
+  hermana,
   accessToken,
   regenerating,
   onRegenerar,
 }: {
   open: boolean
   onOpenChange: (v: boolean) => void
-  acomodador: Acomodador
+  hermana: HermanaApoyo
   accessToken: string
   regenerating: boolean
   onRegenerar: () => void
 }) {
   const origin = typeof window === "undefined" ? "" : window.location.origin
-  const url = `${origin}/acomodador/${accessToken}`
+  const url = `${origin}/hermana-apoyo/${accessToken}`
   const [copied, setCopied] = React.useState(false)
 
   async function copy() {
@@ -1131,7 +1131,7 @@ function AccessDialog({
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>
-            Acceso de {acomodador.nombre} {acomodador.apellido}
+            Acceso de {hermana.nombre} {hermana.apellido}
           </DialogTitle>
           <DialogDescription>
             Enlace personal. Funciona solo en el primer dispositivo donde se
@@ -1163,8 +1163,8 @@ function AccessDialog({
           <Button asChild className="w-full">
             <a
               href={whatsappShareUrl(
-                acomodador.telefono,
-                acomodador.nombre,
+                hermana.telefono,
+                hermana.nombre,
                 url,
               )}
               target="_blank"
@@ -1175,7 +1175,7 @@ function AccessDialog({
             </a>
           </Button>
           <p className="text-xs text-muted-foreground">
-            {acomodador.device_bound_at
+            {hermana.device_bound_at
               ? "Ya abierto en un dispositivo."
               : "Aún no se ha abierto en ningún dispositivo."}
           </p>
@@ -1207,6 +1207,6 @@ function AccessDialog({
 
 function whatsappShareUrl(telefono: string, nombre: string, url: string): string {
   const phone = telefono.replace(/\D/g, "")
-  const text = `Hola ${nombre}, estás invitado a servir como acomodador en la asamblea. Este es tu enlace personal de registro y acceso a la plataforma. Funciona solo en el primer dispositivo donde lo abras: ${url}`
+  const text = `Hola ${nombre}, estás invitada a servir como hermana de apoyo en la asamblea. Este es tu enlace personal de registro y acceso a la plataforma. Funciona solo en el primer dispositivo donde lo abras: ${url}`
   return `https://wa.me/${phone}?text=${encodeURIComponent(text)}`
 }
