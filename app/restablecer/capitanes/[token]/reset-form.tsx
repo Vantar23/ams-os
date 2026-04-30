@@ -2,11 +2,13 @@
 
 import * as React from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { CheckIcon } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { createClient } from "@/lib/supabase/client"
 
 import { completarRegistroCapitan, restablecerCapitanPassword } from "./actions"
 
@@ -25,6 +27,8 @@ export function ResetForm({
   token: string
   info: Info
 }) {
+  const router = useRouter()
+  const supabase = React.useMemo(() => createClient(), [])
   const [submitting, setSubmitting] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
   const [done, setDone] = React.useState(false)
@@ -70,6 +74,24 @@ export function ResetForm({
           return
         }
       }
+
+      // Auto sign-in with the same credentials so they don't have to log in.
+      const { data: resolved } = await supabase.rpc("lookup_login_email", {
+        p_identifier: identificador,
+      })
+      const email = resolved as string | null
+      if (email) {
+        const { error: signInErr } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        })
+        if (!signInErr) {
+          router.replace("/capitanes")
+          router.refresh()
+          return
+        }
+      }
+      // Fallback: muestra el éxito y deja que entre por /login manualmente
       setDone(true)
     } catch (e) {
       setError(
