@@ -11,6 +11,21 @@ export async function completarRegistroCapitan(input: {
   identificador: string
   password: string
 }): Promise<{ ok: boolean; error: string | null }> {
+  try {
+    return await runCompletarRegistroCapitan(input)
+  } catch (e) {
+    console.error("completarRegistroCapitan failed", e)
+    const message =
+      e instanceof Error ? e.message : "Error desconocido al activar la cuenta."
+    return { ok: false, error: message }
+  }
+}
+
+async function runCompletarRegistroCapitan(input: {
+  token: string
+  identificador: string
+  password: string
+}): Promise<{ ok: boolean; error: string | null }> {
   const identificador = input.identificador.trim()
   if (!identificador) {
     return { ok: false, error: "Ingresa tu correo o teléfono." }
@@ -115,6 +130,23 @@ export async function completarRegistroCapitan(input: {
 }
 
 export async function restablecerCapitanPassword(input: {
+  token: string
+  identificador: string
+  nuevaPassword: string
+}): Promise<{ ok: boolean; error: string | null }> {
+  try {
+    return await runRestablecerCapitanPassword(input)
+  } catch (e) {
+    console.error("restablecerCapitanPassword failed", e)
+    const message =
+      e instanceof Error
+        ? e.message
+        : "Error desconocido al restablecer contraseña."
+    return { ok: false, error: message }
+  }
+}
+
+async function runRestablecerCapitanPassword(input: {
   token: string
   identificador: string
   nuevaPassword: string
