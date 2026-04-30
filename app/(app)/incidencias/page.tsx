@@ -422,7 +422,7 @@ function ReportWizard({
                 onChange={(e) => setDescripcion(e.target.value)}
                 rows={3}
                 placeholder="Detalles relevantes para el capitán de área."
-                className="w-full min-w-0 resize-y rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground transition-colors outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40"
+                className="w-full min-w-0 resize-y rounded-md border border-input bg-background px-3 py-2 text-base text-foreground transition-colors outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40 md:text-sm"
               />
               <p className="text-xs text-muted-foreground">
                 Ambos campos son opcionales.
