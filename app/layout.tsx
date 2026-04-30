@@ -15,9 +15,9 @@ const lora = Lora({
 });
 
 export const metadata: Metadata = {
-  title: "AR26ACMS — Acomodadores para Asambleas Regionales",
+  title: "AMS-OS — Gestión de asambleas",
   description:
-    "Sistema de organización del departamento de acomodadores durante las asambleas regionales.",
+    "Sistema operativo para coordinar departamentos, áreas y personal durante asambleas.",
   robots: { index: false, follow: false },
 };
 

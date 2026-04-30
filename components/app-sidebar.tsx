@@ -80,7 +80,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 <UsersRoundIcon className="size-4" />
               </div>
               <div className="flex flex-col gap-0.5 leading-none">
-                <span className="font-medium">Acomodadores</span>
+                <span className="font-medium">AMS-OS</span>
                 <span className="text-xs text-muted-foreground">
                   Gestión de asambleas
                 </span>

@@ -80,9 +80,9 @@ function defaultSesion(): Sesion {
 }
 
 export default function AsistenciaPage() {
-  const [areas] = useLocalStorage<Area[]>("ar26.areas", [])
+  const [areas] = useLocalStorage<Area[]>("ams-os.areas", [])
   const [conteos, setConteos] = useLocalStorage<Conteo[]>(
-    "ar26.asistencia",
+    "ams-os.asistencia",
     [],
   )
 

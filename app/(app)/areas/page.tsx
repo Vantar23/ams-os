@@ -47,7 +47,7 @@ const areaSchema = z.object({
 type Area = z.infer<typeof areaSchema> & { id: string }
 
 export default function AreasPage() {
-  const [areas, setAreas] = useLocalStorage<Area[]>("ar26.areas", [])
+  const [areas, setAreas] = useLocalStorage<Area[]>("ams-os.areas", [])
   const [open, setOpen] = React.useState(false)
 
   const form = useForm<z.infer<typeof areaSchema>>({
