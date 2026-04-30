@@ -32,12 +32,18 @@ export default function HomePage() {
               Sistema de organización del personal voluntario que sirve como
               acomodadores y capitanes durante las asambleas regionales.
             </p>
-            <div className="mt-8 flex flex-col gap-3 sm:mt-10 sm:flex-row">
+            <div className="mt-8 flex flex-col gap-3 sm:mt-10 sm:flex-row sm:items-center">
               <Link
-                href="/resumen"
+                href="/register"
                 className="inline-flex w-full items-center justify-center gap-2 whitespace-nowrap rounded-md font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-accent shadow-sm h-12 px-6 text-base sm:w-auto"
               >
-                Acceso administrativo
+                Registrar asamblea
+              </Link>
+              <Link
+                href="/login"
+                className="inline-flex w-full items-center justify-center gap-2 whitespace-nowrap rounded-md font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background hover:text-foreground h-12 px-6 text-base text-muted-foreground sm:w-auto"
+              >
+                Iniciar sesión
               </Link>
             </div>
             <div className="mt-8 border-t border-border pt-5 sm:mt-10 sm:pt-6">

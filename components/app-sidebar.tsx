@@ -2,13 +2,14 @@
 
 import * as React from "react"
 import Link from "next/link"
-import { usePathname } from "next/navigation"
-import { UsersRoundIcon } from "lucide-react"
+import { usePathname, useRouter } from "next/navigation"
+import { LogOutIcon, UsersRoundIcon } from "lucide-react"
 
 import { SearchForm } from "@/components/search-form"
 import {
   Sidebar,
   SidebarContent,
+  SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
@@ -18,6 +19,7 @@ import {
   SidebarMenuItem,
   SidebarRail,
 } from "@/components/ui/sidebar"
+import { createClient } from "@/lib/supabase/client"
 
 const data = {
   navMain: [
@@ -69,6 +71,16 @@ const data = {
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const pathname = usePathname()
+  const router = useRouter()
+  const [signingOut, setSigningOut] = React.useState(false)
+
+  async function handleSignOut() {
+    setSigningOut(true)
+    const supabase = createClient()
+    await supabase.auth.signOut()
+    router.replace("/login")
+    router.refresh()
+  }
 
   return (
     <Sidebar {...props}>
@@ -111,6 +123,19 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           </SidebarGroup>
         ))}
       </SidebarContent>
+      <SidebarFooter>
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              onClick={handleSignOut}
+              disabled={signingOut}
+            >
+              <LogOutIcon />
+              <span>{signingOut ? "Cerrando sesión…" : "Cerrar sesión"}</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarFooter>
       <SidebarRail />
     </Sidebar>
   )

@@ -4,52 +4,16 @@ import * as React from "react"
 import { CheckIcon } from "lucide-react"
 
 import { PageHeader } from "@/components/page-header"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-
-const ESTADOS = [
-  "En preparación",
-  "Confirmada",
-  "En curso",
-  "Finalizada",
-] as const
-type Estado = (typeof ESTADOS)[number]
-
-type AjustesState = {
-  edicion: string
-  titulo: string
-  fechas: string
-  sede: string
-  estado: Estado
-  diasCount: string
-  diasLabel: string
-  sesionesCount: string
-  sesionesLabel: string
-}
-
-const INITIAL: AjustesState = {
-  edicion: "Asamblea Regional 2026",
-  titulo: "Manténganse alerta",
-  fechas: "2 al 4 de octubre, 2026",
-  sede: "Centro de Convenciones — Ciudad de México",
-  estado: "En preparación",
-  diasCount: "3",
-  diasLabel: "Vie · Sáb · Dom",
-  sesionesCount: "6",
-  sesionesLabel: "Mañana y tarde",
-}
+  AsambleaFormFields,
+  INITIAL_ASAMBLEA,
+  type AsambleaFormValues,
+} from "@/components/asamblea-form-fields"
+import { Button } from "@/components/ui/button"
 
 export default function AjustesPage() {
-  const [values, setValues] = React.useState<AjustesState>(INITIAL)
-  const [saved, setSaved] = React.useState<AjustesState>(INITIAL)
+  const [values, setValues] = React.useState<AsambleaFormValues>(INITIAL_ASAMBLEA)
+  const [saved, setSaved] = React.useState<AsambleaFormValues>(INITIAL_ASAMBLEA)
   const [showSaved, setShowSaved] = React.useState(false)
 
   const dirty = React.useMemo(
@@ -57,7 +21,7 @@ export default function AjustesPage() {
     [values, saved]
   )
 
-  function update<K extends keyof AjustesState>(k: K, v: AjustesState[K]) {
+  function update<K extends keyof AsambleaFormValues>(k: K, v: AsambleaFormValues[K]) {
     setValues((s) => ({ ...s, [k]: v }))
     setShowSaved(false)
   }
@@ -89,126 +53,10 @@ export default function AjustesPage() {
           </p>
         </header>
 
-        <form onSubmit={onSubmit} className="mt-10 space-y-10">
-          <section>
-            <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
-              Identidad
-            </p>
-            <h2 className="mt-2 font-serif text-xl">
-              Cómo se llama la asamblea
-            </h2>
-            <div className="mt-5 space-y-4">
-              <Field label="Edición" id="edicion">
-                <Input
-                  id="edicion"
-                  value={values.edicion}
-                  onChange={(e) => update("edicion", e.target.value)}
-                />
-              </Field>
-              <Field
-                label="Tema"
-                id="titulo"
-                hint='Lema de la asamblea, ej. "Manténganse alerta".'
-              >
-                <Input
-                  id="titulo"
-                  value={values.titulo}
-                  onChange={(e) => update("titulo", e.target.value)}
-                />
-              </Field>
-            </div>
-          </section>
+        <form onSubmit={onSubmit} className="mt-10">
+          <AsambleaFormFields values={values} onChange={update} />
 
-          <section className="border-t border-border pt-10">
-            <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
-              Logística
-            </p>
-            <h2 className="mt-2 font-serif text-xl">Cuándo y dónde</h2>
-            <div className="mt-5 space-y-4">
-              <Field label="Fechas" id="fechas">
-                <Input
-                  id="fechas"
-                  value={values.fechas}
-                  onChange={(e) => update("fechas", e.target.value)}
-                />
-              </Field>
-              <Field label="Sede" id="sede">
-                <Input
-                  id="sede"
-                  value={values.sede}
-                  onChange={(e) => update("sede", e.target.value)}
-                />
-              </Field>
-              <Field label="Estado" id="estado">
-                <Select
-                  value={values.estado}
-                  onValueChange={(v) => update("estado", v as Estado)}
-                >
-                  <SelectTrigger id="estado">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {ESTADOS.map((e) => (
-                      <SelectItem key={e} value={e}>
-                        {e}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </Field>
-            </div>
-          </section>
-
-          <section className="border-t border-border pt-10">
-            <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
-              Estructura
-            </p>
-            <h2 className="mt-2 font-serif text-xl">Días y sesiones</h2>
-            <div className="mt-5 space-y-4">
-              <div className="grid gap-3 sm:grid-cols-[120px_1fr]">
-                <Field label="Días" id="diasCount">
-                  <Input
-                    id="diasCount"
-                    type="number"
-                    min={1}
-                    inputMode="numeric"
-                    value={values.diasCount}
-                    onChange={(e) => update("diasCount", e.target.value)}
-                  />
-                </Field>
-                <Field label="Detalle de días" id="diasLabel">
-                  <Input
-                    id="diasLabel"
-                    value={values.diasLabel}
-                    onChange={(e) => update("diasLabel", e.target.value)}
-                  />
-                </Field>
-              </div>
-              <div className="grid gap-3 sm:grid-cols-[120px_1fr]">
-                <Field label="Sesiones" id="sesionesCount">
-                  <Input
-                    id="sesionesCount"
-                    type="number"
-                    min={1}
-                    inputMode="numeric"
-                    value={values.sesionesCount}
-                    onChange={(e) => update("sesionesCount", e.target.value)}
-                  />
-                </Field>
-                <Field label="Detalle de sesiones" id="sesionesLabel">
-                  <Input
-                    id="sesionesLabel"
-                    value={values.sesionesLabel}
-                    onChange={(e) =>
-                      update("sesionesLabel", e.target.value)
-                    }
-                  />
-                </Field>
-              </div>
-            </div>
-          </section>
-
-          <div className="flex flex-col-reverse items-stretch gap-3 border-t border-border pt-6 sm:flex-row sm:items-center sm:justify-between">
+          <div className="mt-10 flex flex-col-reverse items-stretch gap-3 border-t border-border pt-6 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-xs uppercase tracking-[0.15em] text-muted-foreground">
               {showSaved ? (
                 <span className="inline-flex items-center gap-1.5 text-foreground">
@@ -237,30 +85,5 @@ export default function AjustesPage() {
         </form>
       </div>
     </>
-  )
-}
-
-function Field({
-  label,
-  id,
-  hint,
-  children,
-}: {
-  label: string
-  id: string
-  hint?: string
-  children: React.ReactNode
-}) {
-  return (
-    <div className="grid gap-1.5">
-      <Label
-        htmlFor={id}
-        className="text-xs uppercase tracking-[0.15em] text-muted-foreground"
-      >
-        {label}
-      </Label>
-      {children}
-      {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
-    </div>
   )
 }
