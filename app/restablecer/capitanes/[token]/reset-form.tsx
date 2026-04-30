@@ -34,51 +34,49 @@ export function ResetForm({
     const fd = new FormData(e.currentTarget)
     const password = String(fd.get("nuevaPassword") ?? "")
     const confirm = String(fd.get("confirm") ?? "")
+    const identificador = String(fd.get("identificador") ?? "").trim()
 
     if (password !== confirm) {
       setError("Las contraseñas no coinciden.")
+      return
+    }
+    if (!identificador) {
+      setError("Ingresa tu correo o teléfono.")
       return
     }
 
     setSubmitting(true)
     setError(null)
 
-    if (info.tiene_cuenta) {
-      const identificador = String(fd.get("identificador") ?? "").trim()
-      if (!identificador) {
-        setError("Ingresa tu correo o teléfono.")
-        setSubmitting(false)
-        return
-      }
-      const { ok, error: err } = await restablecerCapitanPassword({
-        token,
-        identificador,
-        nuevaPassword: password,
-      })
-      setSubmitting(false)
-      if (!ok) {
-        setError(err)
-        return
-      }
-      setDone(true)
-    } else {
-      const identificador = String(fd.get("identificador") ?? "").trim()
-      if (!identificador) {
-        setError("Ingresa tu correo o teléfono.")
-        setSubmitting(false)
-        return
-      }
-      const { ok, error: err } = await completarRegistroCapitan({
-        token,
-        identificador,
-        password,
-      })
-      setSubmitting(false)
-      if (!ok) {
-        setError(err)
-        return
+    try {
+      if (info.tiene_cuenta) {
+        const { ok, error: err } = await restablecerCapitanPassword({
+          token,
+          identificador,
+          nuevaPassword: password,
+        })
+        if (!ok) {
+          setError(err)
+          return
+        }
+      } else {
+        const { ok, error: err } = await completarRegistroCapitan({
+          token,
+          identificador,
+          password,
+        })
+        if (!ok) {
+          setError(err)
+          return
+        }
       }
       setDone(true)
+    } catch (e) {
+      setError(
+        e instanceof Error ? e.message : "Algo salió mal, vuelve a intentar.",
+      )
+    } finally {
+      setSubmitting(false)
     }
   }
 
