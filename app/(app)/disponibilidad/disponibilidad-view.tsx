@@ -69,7 +69,8 @@ function buildDisponibilidadShareUrl(
   accessToken: string,
   telefono: string,
   nombre: string,
-): string {
+): string | undefined {
+  if (!origin) return undefined
   const phone = telefono.replace(/\D/g, "")
   const url = `${origin}${basePath}${accessToken}`
   const text = `Hola ${nombre}, te paso tu enlace personal para confirmar tu disponibilidad y asistencia: ${url}`
@@ -88,8 +89,10 @@ export function DisponibilidadView({
   hermanas: Hermana[]
 }) {
   const router = useRouter()
-  const origin =
-    typeof window === "undefined" ? "" : window.location.origin
+  const [origin, setOrigin] = React.useState("")
+  React.useEffect(() => {
+    setOrigin(window.location.origin)
+  }, [])
   const [selected, setSelected] = React.useState<DisponibilidadSlot | "todos">(
     "todos",
   )
