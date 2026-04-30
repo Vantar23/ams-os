@@ -1,17 +1,18 @@
 "use client"
 
 import * as React from "react"
-import { CheckIcon } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import type { DisponibilidadSlot } from "@/lib/disponibilidad"
 
-import { confirmAsistencia } from "./actions"
+import { lookupPersonal } from "./actions"
+
+type Tipo = "acomodador" | "hermana"
 
 type Stored = {
-  tipo: "acomodador" | "hermana"
+  tipo: Tipo
   id: string
   asambleaId: string
   nombre: string
@@ -22,7 +23,7 @@ type Status =
   | { kind: "loading" }
   | { kind: "form" }
   | { kind: "submitting" }
-  | { kind: "done"; nombre: string; apellido: string }
+  | { kind: "redirecting" }
   | { kind: "error"; message: string }
 
 const STORAGE_KEY = "ams-os.personal"
@@ -55,6 +56,21 @@ function writeStored(value: Stored) {
   }
 }
 
+function clearStored() {
+  if (typeof window === "undefined") return
+  try {
+    window.localStorage.removeItem(STORAGE_KEY)
+  } catch {
+    /* ignored */
+  }
+}
+
+function pathFor(tipo: Tipo, accessToken: string, slot: DisponibilidadSlot) {
+  const base =
+    tipo === "acomodador" ? "/acomodador/" : "/hermana-apoyo/"
+  return `${base}${accessToken}?slot=${encodeURIComponent(slot)}`
+}
+
 export function AsistenciaGeneral({
   asambleaId,
   slot,
@@ -78,15 +94,15 @@ export function AsistenciaGeneral({
     }
     let cancelled = false
     setStatus({ kind: "submitting" })
-    confirmAsistencia({
+    lookupPersonal({
       asambleaId,
-      slot,
       tipo: stored.tipo,
       id: stored.id,
     }).then((res) => {
       if (cancelled) return
       if (!res.ok || !res.result) {
-        // Si el id guardado ya no es válido, cae al form.
+        // El registro guardado ya no existe — pedir teléfono.
+        clearStored()
         setStatus({ kind: "form" })
         return
       }
@@ -97,11 +113,8 @@ export function AsistenciaGeneral({
         nombre: res.result.nombre,
         apellido: res.result.apellido,
       })
-      setStatus({
-        kind: "done",
-        nombre: res.result.nombre,
-        apellido: res.result.apellido,
-      })
+      setStatus({ kind: "redirecting" })
+      window.location.href = pathFor(res.result.tipo, res.result.accessToken, slot)
     })
     return () => {
       cancelled = true
@@ -117,11 +130,11 @@ export function AsistenciaGeneral({
       return
     }
     setStatus({ kind: "submitting" })
-    const res = await confirmAsistencia({ asambleaId, slot, telefono })
+    const res = await lookupPersonal({ asambleaId, telefono })
     if (!res.ok || !res.result) {
       setStatus({
         kind: "error",
-        message: res.error ?? "No pudimos confirmar tu asistencia.",
+        message: res.error ?? "No pudimos identificarte.",
       })
       return
     }
@@ -132,39 +145,22 @@ export function AsistenciaGeneral({
       nombre: res.result.nombre,
       apellido: res.result.apellido,
     })
-    setStatus({
-      kind: "done",
-      nombre: res.result.nombre,
-      apellido: res.result.apellido,
-    })
+    setStatus({ kind: "redirecting" })
+    window.location.href = pathFor(res.result.tipo, res.result.accessToken, slot)
   }
 
-  if (status.kind === "loading" || status.kind === "submitting") {
+  if (
+    status.kind === "loading" ||
+    status.kind === "submitting" ||
+    status.kind === "redirecting"
+  ) {
     return (
       <main className="flex min-h-svh items-center justify-center px-5 py-12">
-        <p className="text-sm text-muted-foreground">Confirmando…</p>
-      </main>
-    )
-  }
-
-  if (status.kind === "done") {
-    return (
-      <main className="flex min-h-svh items-center justify-center px-5 py-12">
-        <div className="w-full max-w-md text-center">
-          <div className="mx-auto inline-flex size-12 items-center justify-center rounded-full bg-primary text-primary-foreground">
-            <CheckIcon className="size-6" />
-          </div>
-          <p className="mt-6 text-[11px] uppercase tracking-[0.2em] text-muted-foreground sm:text-xs sm:tracking-[0.25em]">
-            {asambleaLabel}
-          </p>
-          <h1 className="mt-3 font-serif text-[1.75rem] leading-tight text-foreground sm:text-3xl">
-            ¡Gracias, {status.nombre}!
-          </h1>
-          <p className="mt-4 text-sm text-muted-foreground">
-            Confirmamos tu asistencia para el <strong>{dia}</strong> en la{" "}
-            <strong>{sesion.toLowerCase()}</strong>.
-          </p>
-        </div>
+        <p className="text-sm text-muted-foreground">
+          {status.kind === "redirecting"
+            ? "Abriendo tu acceso…"
+            : "Identificando…"}
+        </p>
       </main>
     )
   }
@@ -177,10 +173,11 @@ export function AsistenciaGeneral({
           {asambleaLabel}
         </p>
         <h1 className="mt-3 font-serif text-[2rem] leading-[1.1] text-foreground sm:text-4xl sm:leading-tight">
-          Confirmar asistencia
+          Iniciar sesión
         </h1>
         <p className="mt-4 text-[15px] text-muted-foreground sm:text-base">
-          {dia} · {sesion}. Confirma tu teléfono para registrarte como presente.
+          {dia} · {sesion}. Confirma tu teléfono para entrar a tu acceso
+          personal y registrar tu asistencia.
         </p>
 
         <form onSubmit={onSubmit} className="mt-8 grid gap-4">
@@ -209,7 +206,7 @@ export function AsistenciaGeneral({
           )}
 
           <Button type="submit" size="lg" className="mt-2 w-full">
-            Confirmar asistencia
+            Continuar
           </Button>
         </form>
       </div>

@@ -4,21 +4,25 @@ import { createClient } from "@/lib/supabase/server"
 
 type Tipo = "acomodador" | "hermana"
 
-export async function confirmAsistencia(input: {
+export async function lookupPersonal(input: {
   asambleaId: string
-  slot: string
   tipo?: Tipo
   id?: string
   telefono?: string
 }): Promise<{
   ok: boolean
   error: string | null
-  result: { tipo: Tipo; id: string; nombre: string; apellido: string } | null
+  result: {
+    tipo: Tipo
+    id: string
+    accessToken: string
+    nombre: string
+    apellido: string
+  } | null
 }> {
   const supabase = await createClient()
-  const { data, error } = await supabase.rpc("asistencia_general_confirm", {
+  const { data, error } = await supabase.rpc("asistencia_general_lookup", {
     p_asamblea_id: input.asambleaId,
-    p_slot: input.slot,
     p_tipo: input.tipo ?? null,
     p_id: input.id ?? null,
     p_telefono: input.telefono ?? null,
@@ -28,8 +32,6 @@ export async function confirmAsistencia(input: {
     let message = error.message
     if (message.includes("not_found")) {
       message = "No encontramos a nadie con ese teléfono en esta asamblea."
-    } else if (message.includes("invalid_slot")) {
-      message = "Sesión inválida."
     } else if (message.includes("invalid_telefono")) {
       message = "Teléfono inválido."
     } else if (message.includes("missing_identification")) {
@@ -39,7 +41,13 @@ export async function confirmAsistencia(input: {
   }
 
   const row = (data ?? [])[0] as
-    | { out_tipo: Tipo; out_id: string; out_nombre: string; out_apellido: string }
+    | {
+        out_tipo: Tipo
+        out_id: string
+        out_access_token: string
+        out_nombre: string
+        out_apellido: string
+      }
     | undefined
   if (!row) return { ok: false, error: "No encontrado.", result: null }
 
@@ -49,6 +57,7 @@ export async function confirmAsistencia(input: {
     result: {
       tipo: row.out_tipo,
       id: row.out_id,
+      accessToken: row.out_access_token,
       nombre: row.out_nombre,
       apellido: row.out_apellido,
     },
