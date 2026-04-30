@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { useRouter } from "next/navigation"
-import { MessageCircleIcon } from "lucide-react"
+import { CheckIcon, CopyIcon, MessageCircleIcon } from "lucide-react"
 
 import {
   AlertDialog,
@@ -316,29 +316,36 @@ export function DisponibilidadView({
             </p>
           </div>
 
-          <div className="mt-4 inline-flex flex-wrap rounded-full border bg-background p-0.5 text-xs">
-            {(
-              [
-                { key: "todos", label: "Todos" },
-                { key: "capitanes", label: "Capitanes" },
-                { key: "acomodadores", label: "Acomodadores" },
-                { key: "hermanas", label: "Hermanas" },
-              ] as const
-            ).map((f) => (
-              <button
-                key={f.key}
-                type="button"
-                onClick={() => setFiltro(f.key)}
-                className={cn(
-                  "rounded-full px-3 py-1 transition-colors",
-                  filtro === f.key
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:text-foreground",
-                )}
-              >
-                {f.label}
-              </button>
-            ))}
+          <div className="mt-4 flex flex-wrap items-center gap-2">
+            <div className="inline-flex flex-wrap rounded-full border bg-background p-0.5 text-xs">
+              {(
+                [
+                  { key: "todos", label: "Todos" },
+                  { key: "capitanes", label: "Capitanes" },
+                  { key: "acomodadores", label: "Acomodadores" },
+                  { key: "hermanas", label: "Hermanas" },
+                ] as const
+              ).map((f) => (
+                <button
+                  key={f.key}
+                  type="button"
+                  onClick={() => setFiltro(f.key)}
+                  className={cn(
+                    "rounded-full px-3 py-1 transition-colors",
+                    filtro === f.key
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
+            {selected !== "todos" && origin && (
+              <CopyAsistenciaLinkButton
+                url={`${origin}/asistencia/${asamblea.id}/${selected}`}
+              />
+            )}
           </div>
 
           {selected === "todos" ? (
@@ -552,6 +559,34 @@ export function DisponibilidadView({
         </section>
       </div>
     </div>
+  )
+}
+
+function CopyAsistenciaLinkButton({ url }: { url: string }) {
+  const [copied, setCopied] = React.useState(false)
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(url)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      /* ignored */
+    }
+  }
+  return (
+    <button
+      type="button"
+      onClick={copy}
+      className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background px-3 py-1 text-xs text-foreground/80 transition-colors hover:bg-muted"
+      title={url}
+    >
+      {copied ? (
+        <CheckIcon className="size-3.5" />
+      ) : (
+        <CopyIcon className="size-3.5" />
+      )}
+      {copied ? "Copiado" : "Copiar enlace de asistencia"}
+    </button>
   )
 }
 

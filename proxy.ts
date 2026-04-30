@@ -7,6 +7,7 @@ const PUBLIC_PREFIXES = [
   "/restablecer/",
   "/acomodador/",
   "/hermana-apoyo/",
+  "/asistencia/",
 ]
 const AUTH_ROUTES = new Set(["/login", "/register"])
 const ACOMODADOR_PREFIX = "/acomodador/"

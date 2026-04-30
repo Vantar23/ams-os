@@ -4,6 +4,7 @@ import { AlertTriangleIcon, CheckCircle2Icon } from "lucide-react"
 
 import { createClient } from "@/lib/supabase/server"
 import type { DisponibilidadSlot } from "@/lib/disponibilidad"
+import { RememberPersonal } from "@/components/remember-personal"
 
 import { AsistenciaSection } from "./asistencia-section"
 import { ClaimView } from "./claim-view"
@@ -92,6 +93,13 @@ function AcomodadorView({
 }) {
   return (
     <main className="mx-auto w-full max-w-2xl px-5 py-10 sm:py-14">
+      <RememberPersonal
+        tipo="acomodador"
+        id={acomodador.id}
+        asambleaId={acomodador.asamblea_id}
+        nombre={acomodador.nombre}
+        apellido={acomodador.apellido}
+      />
       <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground sm:text-xs sm:tracking-[0.25em]">
         Asamblea N° {acomodador.asamblea_numero} —{" "}
         {acomodador.asamblea_edicion}
