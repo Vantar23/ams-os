@@ -17,6 +17,7 @@ import {
 
 import { DisponibilidadSelector } from "@/components/disponibilidad-selector"
 import type { DisponibilidadSlot } from "@/lib/disponibilidad"
+import { useMediaQuery } from "@/lib/use-media-query"
 import { cn } from "@/lib/utils"
 
 import {
@@ -119,6 +120,7 @@ export function HermanasApoyoClient({
   const [manualOpen, setManualOpen] = React.useState(false)
   const [mobileCardsContainer, setMobileCardsContainer] =
     React.useState<HTMLDivElement | null>(null)
+  const isDesktop = useMediaQuery("(min-width: 768px)")
 
   const origin = typeof window === "undefined" ? "" : window.location.origin
   const inviteUrl = enlaceToken
@@ -179,7 +181,7 @@ export function HermanasApoyoClient({
       </div>
 
       {/* Desktop table (hidden in mobile) */}
-      <div className="show-on-desktop">
+      <div style={{ display: isDesktop ? "block" : "none" }}>
         <div className="overflow-x-auto rounded-xl border">
         <Table>
           <TableHeader>
@@ -220,7 +222,7 @@ export function HermanasApoyoClient({
       </div>
 
       {/* Mobile cards target — actual cards portaled in from each row */}
-      <div className="show-on-mobile">
+      <div style={{ display: isDesktop ? "none" : "block" }}>
         <div ref={setMobileCardsContainer} className="grid gap-2">
           {hermanas.length === 0 && (
             <div className="rounded-xl border p-6 text-center text-sm text-muted-foreground">

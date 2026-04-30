@@ -90,8 +90,14 @@ export function DisponibilidadView({
 }) {
   const router = useRouter()
   const [origin, setOrigin] = React.useState("")
+  const [isDesktopSm, setIsDesktopSm] = React.useState(false)
   React.useEffect(() => {
     setOrigin(window.location.origin)
+    const mq = window.matchMedia("(min-width: 640px)")
+    const update = () => setIsDesktopSm(mq.matches)
+    update()
+    mq.addEventListener("change", update)
+    return () => mq.removeEventListener("change", update)
   }, [])
   const [selected, setSelected] = React.useState<DisponibilidadSlot | "todos">(
     "todos",
@@ -188,28 +194,38 @@ export function DisponibilidadView({
       </div>
 
       {/* Mobile slot picker — horizontal scrolling chips */}
-      <nav className="show-on-mobile-sm -mx-3">
-        <div className="flex gap-2 overflow-x-auto px-3 pb-1">
-          <SlotChip
-            label="Todos"
-            count={totalAll}
-            active={selected === "todos"}
-            onClick={() => setSelected("todos")}
-          />
-          {ALL_SLOTS.map(({ slot, dia, sesion }) => (
+      {!isDesktopSm && (
+        <nav className="-mx-3">
+          <div className="flex gap-2 overflow-x-auto px-3 pb-1">
             <SlotChip
-              key={slot}
-              label={`${dia.slice(0, 3)} · ${sesion}`}
-              count={counts[slot]}
-              active={selected === slot}
-              onClick={() => setSelected(slot)}
+              label="Todos"
+              count={totalAll}
+              active={selected === "todos"}
+              onClick={() => setSelected("todos")}
             />
-          ))}
-        </div>
-      </nav>
+            {ALL_SLOTS.map(({ slot, dia, sesion }) => (
+              <SlotChip
+                key={slot}
+                label={`${dia.slice(0, 3)} · ${sesion}`}
+                count={counts[slot]}
+                active={selected === slot}
+                onClick={() => setSelected(slot)}
+              />
+            ))}
+          </div>
+        </nav>
+      )}
 
-      <div className="disponibilidad-grid">
-        <aside className="show-on-desktop-sm rounded-xl border bg-surface">
+      <div
+        className="grid flex-1 gap-4"
+        style={{
+          gridTemplateColumns: isDesktopSm
+            ? "minmax(180px, 280px) minmax(0, 1fr)"
+            : "1fr",
+        }}
+      >
+        {isDesktopSm && (
+        <aside className="rounded-xl border bg-surface">
           <div className="border-b p-2">
             <button
               type="button"
@@ -277,6 +293,7 @@ export function DisponibilidadView({
             </div>
           ))}
         </aside>
+        )}
 
         <section className="rounded-xl border bg-surface p-4 sm:p-5">
           <div className="flex flex-wrap items-baseline justify-between gap-3">

@@ -16,6 +16,7 @@ import {
 
 import { DisponibilidadSelector } from "@/components/disponibilidad-selector"
 import type { DisponibilidadSlot } from "@/lib/disponibilidad"
+import { useMediaQuery } from "@/lib/use-media-query"
 
 import {
   AlertDialog,
@@ -103,6 +104,7 @@ export function CapitanesClient({
   const [shareError, setShareError] = React.useState<string | null>(null)
   const [mobileCardsContainer, setMobileCardsContainer] =
     React.useState<HTMLDivElement | null>(null)
+  const isDesktop = useMediaQuery("(min-width: 768px)")
 
   const origin = typeof window === "undefined" ? "" : window.location.origin
   const inviteUrl = enlaceToken
@@ -162,7 +164,7 @@ export function CapitanesClient({
       </div>
 
       {/* Desktop table */}
-      <div className="show-on-desktop">
+      <div style={{ display: isDesktop ? "block" : "none" }}>
         <div className="overflow-x-auto rounded-xl border">
         <Table>
           <TableHeader>
@@ -200,7 +202,7 @@ export function CapitanesClient({
       </div>
 
       {/* Mobile cards target */}
-      <div className="show-on-mobile">
+      <div style={{ display: isDesktop ? "none" : "block" }}>
         <div ref={setMobileCardsContainer} className="grid gap-2">
           {capitanes.length === 0 && (
             <div className="rounded-xl border p-6 text-center text-sm text-muted-foreground">
