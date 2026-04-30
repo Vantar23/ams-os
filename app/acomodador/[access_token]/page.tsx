@@ -4,6 +4,8 @@ import { AlertTriangleIcon, CheckCircle2Icon } from "lucide-react"
 
 import { createClient } from "@/lib/supabase/server"
 
+import { ClaimView } from "./claim-view"
+
 const DEVICE_COOKIE = "acomodador_device_key"
 
 type Acomodador = {
@@ -19,6 +21,7 @@ type Acomodador = {
   asamblea_titulo: string
   asamblea_fechas: string
   asamblea_sede: string
+  is_unbound: boolean
 }
 
 export default async function Page({
@@ -54,6 +57,20 @@ export default async function Page({
   const acomodador = (data ?? [])[0] as Acomodador | undefined
   if (!acomodador) {
     return <BlockedView reason="invalid" />
+  }
+
+  if (acomodador.is_unbound) {
+    return (
+      <ClaimView
+        accessToken={access_token}
+        nombre={acomodador.nombre}
+        asamblea={{
+          numero: acomodador.asamblea_numero,
+          edicion: acomodador.asamblea_edicion,
+          titulo: acomodador.asamblea_titulo,
+        }}
+      />
+    )
   }
 
   return <AcomodadorView acomodador={acomodador} />
