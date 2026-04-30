@@ -20,6 +20,7 @@ type Capitan = {
   nombre: string
   apellido: string
   area: string
+  telefono: string
   disponibilidad: string[]
   asistencia_confirmada: string[]
 }
@@ -29,9 +30,11 @@ type Acomodador = {
   nombre: string
   apellido: string
   congregacion: string
+  telefono: string
   capitan_id: string | null
   disponibilidad: string[]
   asistencia_confirmada: string[]
+  asistencia_self_confirmada: string[]
 }
 
 const ALL_SLOTS: { slot: DisponibilidadSlot; dia: string; sesion: string }[] =
@@ -279,12 +282,7 @@ export function DisponibilidadView({
 
           {selected === "todos" ? (
             <div
-              className={cn(
-                "mt-6 grid gap-6",
-                showCapitanes && showAcomodadores
-                  ? "grid-cols-1 sm:grid-cols-2"
-                  : "grid-cols-1",
-              )}
+              className="mt-6 grid grid-cols-1 gap-6"
             >
               {showCapitanes && (
                 <Group
@@ -292,12 +290,12 @@ export function DisponibilidadView({
                   empty="Ningún capitán registrado."
                   count={capitanes.length}
                 >
-                  {capitanes.map((c, i) => (
+                  {capitanes.map((c) => (
                     <MatrixRow
                       key={c.id}
-                      n={i + 1}
                       title={`${c.nombre} ${c.apellido}`}
                       subtitle={c.area}
+                      telefono={c.telefono}
                       disponibilidad={c.disponibilidad}
                       confirmadas={c.asistencia_confirmada}
                     />
@@ -311,20 +309,20 @@ export function DisponibilidadView({
                   empty="Ningún acomodador registrado."
                   count={acomodadores.length}
                 >
-                  {acomodadores.map((a, i) => {
+                  {acomodadores.map((a) => {
                     const capitan = a.capitan_id
                       ? capitanById.get(a.capitan_id)
                       : null
                     return (
                       <MatrixRow
                         key={a.id}
-                        n={i + 1}
                         title={`${a.nombre} ${a.apellido}`}
                         subtitle={
                           capitan
                             ? `${a.congregacion} · ${capitan.nombre} ${capitan.apellido}`
                             : a.congregacion
                         }
+                        telefono={a.telefono}
                         disponibilidad={a.disponibilidad}
                         confirmadas={a.asistencia_confirmada}
                       />
@@ -335,20 +333,16 @@ export function DisponibilidadView({
             </div>
           ) : (
             <div
-              className={cn(
-                "mt-6 grid gap-6",
-                showCapitanes && showAcomodadores
-                  ? "grid-cols-1 sm:grid-cols-2"
-                  : "grid-cols-1",
-              )}
+              className="mt-6 grid grid-cols-1 gap-6"
             >
               {showCapitanes && (
                 <Group
                   title="Capitanes"
                   empty="Ningún capitán disponible."
                   count={selectedCapitanes.length}
+                  rightLabel="Confirmación de asistencia"
                 >
-                  {selectedCapitanes.map((c, i) => {
+                  {selectedCapitanes.map((c) => {
                     const confirmed = isConfirmed(
                       "capitan",
                       c.id,
@@ -358,9 +352,9 @@ export function DisponibilidadView({
                     return (
                       <PersonRow
                         key={c.id}
-                        n={i + 1}
                         title={`${c.nombre} ${c.apellido}`}
                         subtitle={c.area}
+                        telefono={c.telefono}
                         confirmed={confirmed}
                         onToggle={(v) =>
                           handleToggle("capitan", c.id, selected, v)
@@ -376,8 +370,9 @@ export function DisponibilidadView({
                   title="Acomodadores"
                   empty="Ningún acomodador disponible."
                   count={selectedAcomodadores.length}
+                  rightLabel="Confirmación de asistencia"
                 >
-                  {selectedAcomodadores.map((a, i) => {
+                  {selectedAcomodadores.map((a) => {
                     const capitan = a.capitan_id
                       ? capitanById.get(a.capitan_id)
                       : null
@@ -387,17 +382,20 @@ export function DisponibilidadView({
                       selected,
                       a.asistencia_confirmada,
                     )
+                    const selfConfirmed =
+                      a.asistencia_self_confirmada.includes(selected)
                     return (
                       <PersonRow
                         key={a.id}
-                        n={i + 1}
                         title={`${a.nombre} ${a.apellido}`}
                         subtitle={
                           capitan
                             ? `${a.congregacion} · ${capitan.nombre} ${capitan.apellido}`
                             : a.congregacion
                         }
+                        telefono={a.telefono}
                         confirmed={confirmed}
+                        selfConfirmed={selfConfirmed}
                         onToggle={(v) =>
                           handleToggle("acomodador", a.id, selected, v)
                         }
@@ -452,67 +450,66 @@ function SlotChip({
 }
 
 function PersonRow({
-  n,
   title,
   subtitle,
+  telefono,
   confirmed,
+  selfConfirmed,
   onToggle,
 }: {
-  n: number
   title: string
   subtitle: string
+  telefono: string
   confirmed: boolean
+  selfConfirmed?: boolean
   onToggle: (next: boolean) => void
 }) {
-  function handleRowKey(e: React.KeyboardEvent<HTMLLIElement>) {
-    if (e.key === " " || e.key === "Enter") {
-      e.preventDefault()
-      onToggle(!confirmed)
-    }
-  }
   return (
     <li
-      role="button"
-      tabIndex={0}
-      aria-pressed={confirmed}
-      onClick={() => onToggle(!confirmed)}
-      onKeyDown={handleRowKey}
       className={cn(
-        "flex cursor-pointer items-center gap-3 rounded-md px-2 py-2 transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        "flex items-center gap-3 rounded-md px-2 py-2 transition-colors",
         confirmed && "bg-primary/5",
       )}
     >
-      <span className="w-6 shrink-0 text-right text-xs tabular-nums text-muted-foreground">
-        {n}.
-      </span>
-      <Checkbox
-        checked={confirmed}
-        onCheckedChange={(v) => onToggle(Boolean(v))}
-        onClick={(e) => e.stopPropagation()}
-        aria-label="Asistencia confirmada"
-      />
-      <span className="flex min-w-0 flex-1 flex-col">
+      <a
+        href={`tel:${telefono.replace(/\D/g, "")}`}
+        className="flex min-w-0 flex-1 flex-col rounded-md hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
         <span className="truncate text-sm font-medium text-foreground">
           {title}
         </span>
         <span className="truncate text-xs text-muted-foreground">
           {subtitle}
         </span>
-      </span>
+        <span className="truncate text-xs text-muted-foreground">
+          {telefono}
+        </span>
+        {selfConfirmed && (
+          <span className="mt-1 inline-flex w-fit items-center rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 text-[10px] uppercase tracking-[0.1em] text-primary">
+            Confirmado por el acomodador
+          </span>
+        )}
+      </a>
+      <Checkbox
+        checked={confirmed}
+        onCheckedChange={(v) => onToggle(Boolean(v))}
+        aria-label="Confirmación de asistencia"
+        className="ml-auto"
+      />
     </li>
   )
 }
 
 function MatrixRow({
-  n,
   title,
   subtitle,
+  telefono,
   disponibilidad,
   confirmadas,
 }: {
-  n: number
   title: string
   subtitle: string
+  telefono: string
   disponibilidad: string[]
   confirmadas: string[]
 }) {
@@ -527,9 +524,6 @@ function MatrixRow({
   const visible = slots.filter((s) => s.available)
   return (
     <li className="flex items-start gap-3 py-2">
-      <span className="mt-0.5 w-6 shrink-0 text-right text-xs tabular-nums text-muted-foreground">
-        {n}.
-      </span>
       <div className="flex min-w-0 flex-1 flex-col gap-1.5">
         <div className="flex flex-col">
           <span className="truncate text-sm font-medium text-foreground">
@@ -538,6 +532,12 @@ function MatrixRow({
           <span className="truncate text-xs text-muted-foreground">
             {subtitle}
           </span>
+          <a
+            href={`tel:${telefono.replace(/\D/g, "")}`}
+            className="truncate text-xs text-muted-foreground hover:text-foreground hover:underline"
+          >
+            {telefono}
+          </a>
         </div>
         {visible.length === 0 ? (
           <span className="text-xs text-muted-foreground">
@@ -569,20 +569,29 @@ function Group({
   title,
   count,
   empty,
+  rightLabel,
   children,
 }: {
   title: string
   count: number
   empty: string
+  rightLabel?: string
   children: React.ReactNode
 }) {
   return (
     <div>
-      <div className="flex items-center justify-between border-b pb-2">
-        <h4 className="text-xs font-medium uppercase tracking-[0.15em] text-muted-foreground">
-          {title}
+      <div className="flex items-center justify-between gap-2 border-b pb-2">
+        <h4 className="flex items-baseline gap-2 text-xs font-medium uppercase tracking-[0.15em] text-muted-foreground">
+          <span>{title}</span>
+          <span className="text-[11px] text-muted-foreground/70">
+            ({count})
+          </span>
         </h4>
-        <span className="text-xs text-muted-foreground">{count}</span>
+        {rightLabel && (
+          <span className="shrink-0 text-[10px] uppercase tracking-[0.15em] text-muted-foreground">
+            {rightLabel}
+          </span>
+        )}
       </div>
       {count === 0 ? (
         <p className="py-4 text-sm text-muted-foreground">{empty}</p>

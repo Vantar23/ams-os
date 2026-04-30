@@ -3,7 +3,9 @@ import { cookies } from "next/headers"
 import { AlertTriangleIcon, CheckCircle2Icon } from "lucide-react"
 
 import { createClient } from "@/lib/supabase/server"
+import type { DisponibilidadSlot } from "@/lib/disponibilidad"
 
+import { AsistenciaSection } from "./asistencia-section"
 import { ClaimView } from "./claim-view"
 
 const DEVICE_COOKIE = "acomodador_device_key"
@@ -22,6 +24,9 @@ type Acomodador = {
   asamblea_fechas: string
   asamblea_sede: string
   is_unbound: boolean
+  disponibilidad: string[]
+  asistencia_self_confirmada: string[]
+  asistencia_confirmada: string[]
 }
 
 export default async function Page({
@@ -73,10 +78,18 @@ export default async function Page({
     )
   }
 
-  return <AcomodadorView acomodador={acomodador} />
+  return (
+    <AcomodadorView acomodador={acomodador} accessToken={access_token} />
+  )
 }
 
-function AcomodadorView({ acomodador }: { acomodador: Acomodador }) {
+function AcomodadorView({
+  acomodador,
+  accessToken,
+}: {
+  acomodador: Acomodador
+  accessToken: string
+}) {
   return (
     <main className="mx-auto w-full max-w-2xl px-5 py-10 sm:py-14">
       <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground sm:text-xs sm:tracking-[0.25em]">
@@ -96,6 +109,23 @@ function AcomodadorView({ acomodador }: { acomodador: Acomodador }) {
         <Field label="Fechas" value={acomodador.asamblea_fechas} />
         <Field label="Sede" value={acomodador.asamblea_sede} />
         <Field label="Congregación" value={acomodador.congregacion} />
+      </section>
+
+      <section className="mt-10 border-t border-border pt-8">
+        <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+          Confirmación de asistencia
+        </p>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Marca las sesiones a las que vas a asistir. Tu capitán las verá
+          confirmadas.
+        </p>
+        <AsistenciaSection
+          accessToken={accessToken}
+          disponibilidad={acomodador.disponibilidad as DisponibilidadSlot[]}
+          selfConfirmadas={
+            acomodador.asistencia_self_confirmada as DisponibilidadSlot[]
+          }
+        />
       </section>
 
       <section className="mt-10 border-t border-border pt-8">

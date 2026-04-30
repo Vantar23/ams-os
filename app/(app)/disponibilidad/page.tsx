@@ -40,14 +40,14 @@ export default async function DisponibilidadPage() {
     supabase
       .from("capitanes")
       .select(
-        "id, nombre, apellido, area, disponibilidad, asistencia_confirmada",
+        "id, nombre, apellido, area, telefono, disponibilidad, asistencia_confirmada",
       )
       .eq("asamblea_id", asamblea.id)
       .order("nombre", { ascending: true }),
     supabase
       .from("acomodadores")
       .select(
-        "id, nombre, apellido, congregacion, capitan_id, disponibilidad, asistencia_confirmada",
+        "id, nombre, apellido, congregacion, telefono, capitan_id, disponibilidad, asistencia_confirmada, asistencia_self_confirmada",
       )
       .eq("asamblea_id", asamblea.id)
       .order("nombre", { ascending: true }),
