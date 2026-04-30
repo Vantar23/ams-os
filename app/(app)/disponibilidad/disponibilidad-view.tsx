@@ -168,7 +168,7 @@ export function DisponibilidadView({
       </div>
 
       {/* Mobile slot picker — horizontal scrolling chips */}
-      <nav className="-mx-3 sm:hidden">
+      <nav className="show-on-mobile-sm -mx-3">
         <div className="flex gap-2 overflow-x-auto px-3 pb-1">
           <SlotChip
             label="Todos"
@@ -188,8 +188,8 @@ export function DisponibilidadView({
         </div>
       </nav>
 
-      <div className="grid flex-1 gap-4 sm:grid-cols-[minmax(180px,280px)_minmax(0,1fr)]">
-        <aside className="hidden rounded-xl border bg-surface sm:block">
+      <div className="disponibilidad-grid">
+        <aside className="show-on-desktop-sm rounded-xl border bg-surface">
           <div className="border-b p-2">
             <button
               type="button"

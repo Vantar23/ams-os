@@ -80,7 +80,7 @@
   }
 }
 
-/* Responsive table/cards switch — independent of Tailwind variant ordering. */
+/* Responsive switches — independent of Tailwind variant ordering. */
 .show-on-desktop {
   display: none;
 }
@@ -93,5 +93,34 @@
   }
   .show-on-mobile {
     display: none;
+  }
+}
+
+/* Smaller breakpoint pair (sm = 640px) for layouts that switch earlier. */
+.show-on-desktop-sm {
+  display: none;
+}
+.show-on-mobile-sm {
+  display: block;
+}
+@media (min-width: 640px) {
+  .show-on-desktop-sm {
+    display: block;
+  }
+  .show-on-mobile-sm {
+    display: none;
+  }
+}
+
+/* Disponibilidad master/detail grid: stacks on mobile, side-by-side at sm+. */
+.disponibilidad-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+  flex: 1 1 0%;
+}
+@media (min-width: 640px) {
+  .disponibilidad-grid {
+    grid-template-columns: minmax(180px, 280px) minmax(0, 1fr);
   }
 }
