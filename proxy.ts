@@ -2,10 +2,17 @@ import { createServerClient } from "@supabase/ssr"
 import { NextResponse, type NextRequest } from "next/server"
 
 const PUBLIC_ROUTES = new Set(["/", "/login", "/register"])
-const PUBLIC_PREFIXES = ["/registro/", "/acomodador/"]
+const PUBLIC_PREFIXES = ["/registro/", "/restablecer/", "/acomodador/"]
 const AUTH_ROUTES = new Set(["/login", "/register"])
 const ACOMODADOR_PREFIX = "/acomodador/"
 const DEVICE_COOKIE = "acomodador_device_key"
+const CAPITAN_ALLOWED_PREFIXES = [
+  "/acomodadores",
+  "/capitanes",
+  "/hermanas-de-apoyo",
+  "/disponibilidad",
+]
+const CAPITAN_LANDING = "/acomodadores"
 
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request })
@@ -74,7 +81,42 @@ export async function proxy(request: NextRequest) {
     return redirectPreservingCookies(url, response)
   }
 
+  // Capitán users are confined to the Personal section.
+  if (user && !isPublic && !path.startsWith(ACOMODADOR_PREFIX)) {
+    const role = await getCurrentRole(supabase, user.id)
+    if (role === "capitan") {
+      const allowed = CAPITAN_ALLOWED_PREFIXES.some(
+        (p) => path === p || path.startsWith(p + "/"),
+      )
+      if (!allowed) {
+        const url = request.nextUrl.clone()
+        url.pathname = CAPITAN_LANDING
+        return redirectPreservingCookies(url, response)
+      }
+    }
+  }
+
   return response
+}
+
+async function getCurrentRole(
+  supabase: ReturnType<typeof createServerClient>,
+  userId: string,
+): Promise<"owner" | "capitan" | null> {
+  const { data: asambleas } = await supabase
+    .from("asambleas")
+    .select("id")
+    .order("created_at", { ascending: false })
+    .limit(1)
+  const asambleaId = asambleas?.[0]?.id as string | undefined
+  if (!asambleaId) return null
+  const { data: miembro } = await supabase
+    .from("asamblea_miembros")
+    .select("role")
+    .eq("asamblea_id", asambleaId)
+    .eq("user_id", userId)
+    .maybeSingle()
+  return (miembro?.role as "owner" | "capitan" | undefined) ?? null
 }
 
 function redirectPreservingCookies(url: URL, source: NextResponse) {

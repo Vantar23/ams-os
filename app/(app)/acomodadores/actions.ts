@@ -7,6 +7,22 @@ import { createClient } from "@/lib/supabase/server"
 
 const ENLACE_REGISTRO_TTL_MS = 3 * 24 * 60 * 60 * 1000 // 3 días
 
+type SupabaseServer = Awaited<ReturnType<typeof createClient>>
+
+async function lookupCapitanIdForUser(
+  supabase: SupabaseServer,
+  asambleaId: string,
+  userId: string,
+): Promise<string | null> {
+  const { data } = await supabase
+    .from("capitanes")
+    .select("id")
+    .eq("asamblea_id", asambleaId)
+    .eq("user_id", userId)
+    .maybeSingle()
+  return data?.id ?? null
+}
+
 export async function crearEnlaceRegistro(
   asambleaId: string,
 ): Promise<{ token: string | null; error: string | null }> {
@@ -18,12 +34,15 @@ export async function crearEnlaceRegistro(
 
   const token = randomBytes(32).toString("hex")
   const expiresAt = new Date(Date.now() + ENLACE_REGISTRO_TTL_MS).toISOString()
+  const capitanId = await lookupCapitanIdForUser(supabase, asambleaId, user.id)
 
   const { error } = await supabase.from("enlaces_registro").insert({
     token,
     asamblea_id: asambleaId,
     created_by: user.id,
     expires_at: expiresAt,
+    target_role: "acomodador",
+    capitan_id: capitanId,
   })
 
   if (error) return { token: null, error: error.message }
@@ -45,6 +64,66 @@ export async function regenerarAcceso(
   return { token: data as string, error: null }
 }
 
+export async function actualizarAcomodador(
+  acomodadorId: string,
+  values: {
+    nombre: string
+    apellido: string
+    congregacion: string
+    telefono: string
+    notas: string
+    capitanId: string | null
+    disponibilidad: string[]
+  },
+): Promise<{ error: string | null }> {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { error: "No autenticado" }
+
+  const { error } = await supabase
+    .from("acomodadores")
+    .update({
+      nombre: values.nombre,
+      apellido: values.apellido,
+      congregacion: values.congregacion,
+      telefono: values.telefono,
+      notas: values.notas || null,
+      capitan_id: values.capitanId,
+      disponibilidad: values.disponibilidad,
+    })
+    .eq("id", acomodadorId)
+
+  if (error) {
+    if (error.code === "23505") {
+      return { error: "Este teléfono ya está registrado en esta asamblea." }
+    }
+    return { error: error.message }
+  }
+  revalidatePath("/acomodadores")
+  return { error: null }
+}
+
+export async function eliminarAcomodador(
+  acomodadorId: string,
+): Promise<{ error: string | null }> {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { error: "No autenticado" }
+
+  const { error } = await supabase
+    .from("acomodadores")
+    .delete()
+    .eq("id", acomodadorId)
+
+  if (error) return { error: error.message }
+  revalidatePath("/acomodadores")
+  return { error: null }
+}
+
 export async function agregarAcomodadorManual(
   asambleaId: string,
   values: {
@@ -53,6 +132,8 @@ export async function agregarAcomodadorManual(
     congregacion: string
     telefono: string
     notas: string
+    capitanId: string | null
+    disponibilidad: string[]
   },
 ): Promise<{ accessToken: string | null; error: string | null }> {
   const supabase = await createClient()
@@ -72,6 +153,8 @@ export async function agregarAcomodadorManual(
     notas: values.notas || null,
     invited_by: user.id,
     access_token: accessToken,
+    capitan_id: values.capitanId,
+    disponibilidad: values.disponibilidad,
   })
 
   if (error) {

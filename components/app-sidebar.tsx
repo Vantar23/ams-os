@@ -35,8 +35,9 @@ const data = {
     {
       title: "Personal",
       items: [
-        { title: "Acomodadores", url: "/acomodadores" },
         { title: "Capitanes", url: "/capitanes" },
+        { title: "Acomodadores", url: "/acomodadores" },
+        { title: "Hermanas de Apoyo", url: "/hermanas-de-apoyo" },
         { title: "Disponibilidad", url: "/disponibilidad" },
       ],
     },
@@ -69,10 +70,19 @@ const data = {
   ],
 }
 
-export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+type Role = "owner" | "capitan" | null | undefined
+
+export function AppSidebar({
+  role = "owner",
+  ...props
+}: React.ComponentProps<typeof Sidebar> & { role?: Role }) {
   const pathname = usePathname()
   const router = useRouter()
   const [signingOut, setSigningOut] = React.useState(false)
+  const groups =
+    role === "capitan"
+      ? data.navMain.filter((g) => g.title === "Personal")
+      : data.navMain
 
   async function handleSignOut() {
     setSigningOut(true)
@@ -103,7 +113,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         <SearchForm />
       </SidebarHeader>
       <SidebarContent>
-        {data.navMain.map((group) => (
+        {groups.map((group) => (
           <SidebarGroup key={group.title}>
             <SidebarGroupLabel>{group.title}</SidebarGroupLabel>
             <SidebarGroupContent>

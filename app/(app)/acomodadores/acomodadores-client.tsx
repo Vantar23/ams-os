@@ -1,17 +1,41 @@
 "use client"
 
 import * as React from "react"
+import { createPortal } from "react-dom"
 import { useRouter } from "next/navigation"
 import {
+  ArrowLeftIcon,
   CheckIcon,
   CopyIcon,
   LinkIcon,
   MessageCircleIcon,
+  PencilIcon,
   PlusIcon,
   RefreshCwIcon,
+  Trash2Icon,
 } from "lucide-react"
 
+import { DisponibilidadSelector } from "@/components/disponibilidad-selector"
+import type { DisponibilidadSlot } from "@/lib/disponibilidad"
+import { cn } from "@/lib/utils"
+
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu"
 import {
   Dialog,
   DialogContent,
@@ -23,6 +47,13 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import {
   Table,
   TableBody,
   TableCell,
@@ -32,8 +63,10 @@ import {
 } from "@/components/ui/table"
 
 import {
+  actualizarAcomodador,
   agregarAcomodadorManual,
   crearEnlaceRegistro,
+  eliminarAcomodador,
   regenerarAcceso,
 } from "./actions"
 
@@ -54,14 +87,29 @@ type Acomodador = {
   access_token: string
   device_bound_at: string | null
   created_at: string
+  capitan_id: string | null
+  disponibilidad: string[]
 }
+
+type CapitanOption = {
+  id: string
+  nombre: string
+  apellido: string
+  area: string
+}
+
+const SIN_CAPITAN_VALUE = "__none__"
 
 export function AcomodadoresClient({
   asamblea,
   acomodadores,
+  capitanes,
+  currentCapitanId,
 }: {
   asamblea: Asamblea
   acomodadores: Acomodador[]
+  capitanes: CapitanOption[]
+  currentCapitanId: string | null
 }) {
   const router = useRouter()
   const [shareOpen, setShareOpen] = React.useState(false)
@@ -69,6 +117,8 @@ export function AcomodadoresClient({
   const [creatingEnlace, setCreatingEnlace] = React.useState(false)
   const [shareError, setShareError] = React.useState<string | null>(null)
   const [manualOpen, setManualOpen] = React.useState(false)
+  const [mobileCardsContainer, setMobileCardsContainer] =
+    React.useState<HTMLDivElement | null>(null)
 
   const origin = typeof window === "undefined" ? "" : window.location.origin
   const inviteUrl = enlaceToken
@@ -111,26 +161,32 @@ export function AcomodadoresClient({
           <Button
             type="button"
             variant="outline"
+            onClick={openShare}
+            className="w-full sm:w-auto"
+          >
+            <LinkIcon />
+            Compartir enlace de registro
+          </Button>
+          <Button
+            type="button"
             onClick={() => setManualOpen(true)}
             className="w-full sm:w-auto"
           >
             <PlusIcon />
             Agregar manualmente
           </Button>
-          <Button type="button" onClick={openShare} className="w-full sm:w-auto">
-            <LinkIcon />
-            Compartir enlace de registro
-          </Button>
         </div>
       </div>
 
-      <div className="overflow-x-auto rounded-xl border">
+      {/* Desktop table (hidden in mobile) */}
+      <div className="hidden overflow-x-auto rounded-xl border md:block">
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead>Nombre</TableHead>
               <TableHead>Congregación</TableHead>
               <TableHead>Teléfono</TableHead>
+              <TableHead>Capitán</TableHead>
               <TableHead>Acceso</TableHead>
               <TableHead className="w-[1%]"></TableHead>
             </TableRow>
@@ -139,7 +195,7 @@ export function AcomodadoresClient({
             {acomodadores.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={5}
+                  colSpan={6}
                   className="h-24 text-center text-muted-foreground"
                 >
                   Aún no se ha registrado ningún acomodador. Comparte el enlace
@@ -152,11 +208,26 @@ export function AcomodadoresClient({
                   key={a.id}
                   acomodador={a}
                   asambleaId={asamblea.id}
+                  capitanes={capitanes}
+                  mobileCardsContainer={mobileCardsContainer}
                 />
               ))
             )}
           </TableBody>
         </Table>
+      </div>
+
+      {/* Mobile cards target — actual cards portaled in from each row */}
+      <div
+        ref={setMobileCardsContainer}
+        className="grid gap-2 md:hidden"
+      >
+        {acomodadores.length === 0 && (
+          <div className="rounded-xl border p-6 text-center text-sm text-muted-foreground">
+            Aún no se ha registrado ningún acomodador. Comparte el enlace para
+            empezar.
+          </div>
+        )}
       </div>
 
       <ShareDialog
@@ -173,6 +244,8 @@ export function AcomodadoresClient({
         open={manualOpen}
         onOpenChange={setManualOpen}
         asambleaId={asamblea.id}
+        capitanes={capitanes}
+        defaultCapitanId={currentCapitanId}
         onCreated={() => router.refresh()}
       />
     </div>
@@ -183,13 +256,26 @@ function ManualAddDialog({
   open,
   onOpenChange,
   asambleaId,
+  capitanes,
+  defaultCapitanId,
   onCreated,
 }: {
   open: boolean
   onOpenChange: (v: boolean) => void
   asambleaId: string
+  capitanes: CapitanOption[]
+  defaultCapitanId: string | null
   onCreated: () => void
 }) {
+  type DraftDatos = {
+    nombre: string
+    apellido: string
+    congregacion: string
+    telefono: string
+    notas: string
+  }
+
+  const [step, setStep] = React.useState<"datos" | "disponibilidad">("datos")
   const [submitting, setSubmitting] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
   const [createdToken, setCreatedToken] = React.useState<string | null>(null)
@@ -198,42 +284,66 @@ function ManualAddDialog({
     telefono: string
   } | null>(null)
   const [copied, setCopied] = React.useState(false)
+  const initialCapitanId = defaultCapitanId ?? SIN_CAPITAN_VALUE
+  const [capitanId, setCapitanId] = React.useState<string>(initialCapitanId)
+  const [disponibilidad, setDisponibilidad] = React.useState<
+    DisponibilidadSlot[]
+  >([])
+  const [datos, setDatos] = React.useState<DraftDatos | null>(null)
 
   const origin = typeof window === "undefined" ? "" : window.location.origin
   const accessUrl = createdToken ? `${origin}/acomodador/${createdToken}` : ""
 
   React.useEffect(() => {
     if (!open) {
+      setStep("datos")
       setError(null)
       setCreatedToken(null)
       setCreatedInfo(null)
       setCopied(false)
+      setCapitanId(initialCapitanId)
+      setDisponibilidad([])
+      setDatos(null)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
 
-  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+  function onDatosSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     const fd = new FormData(e.currentTarget)
-    const values = {
+    const values: DraftDatos = {
       nombre: String(fd.get("nombre") ?? "").trim(),
       apellido: String(fd.get("apellido") ?? "").trim(),
       congregacion: String(fd.get("congregacion") ?? "").trim(),
       telefono: String(fd.get("telefono") ?? "").trim(),
       notas: String(fd.get("notas") ?? "").trim(),
     }
+    setDatos(values)
+    setError(null)
+    setStep("disponibilidad")
+  }
+
+  async function onDisponibilidadSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    if (!datos) return
     setSubmitting(true)
     setError(null)
     const { accessToken, error: err } = await agregarAcomodadorManual(
       asambleaId,
-      values,
+      {
+        ...datos,
+        capitanId: capitanId === SIN_CAPITAN_VALUE ? null : capitanId,
+        disponibilidad,
+      },
     )
     setSubmitting(false)
     if (err) {
       setError(err)
+      setStep("datos")
       return
     }
     setCreatedToken(accessToken)
-    setCreatedInfo({ nombre: values.nombre, telefono: values.telefono })
+    setCreatedInfo({ nombre: datos.nombre, telefono: datos.telefono })
     onCreated()
   }
 
@@ -253,49 +363,114 @@ function ManualAddDialog({
         {!createdToken ? (
           <>
             <DialogHeader>
-              <DialogTitle>Agregar acomodador</DialogTitle>
+              <DialogTitle>
+                Agregar acomodador
+                <span className="ml-2 text-xs font-normal uppercase tracking-[0.15em] text-muted-foreground">
+                  Paso {step === "disponibilidad" ? "2" : "1"} de 2
+                </span>
+              </DialogTitle>
               <DialogDescription>
-                Llena los datos del hermano. Al guardar te damos su enlace
-                personal para que se lo compartas.
+                {step === "disponibilidad"
+                  ? "Marca las sesiones en las que puede servir."
+                  : "Llena los datos del hermano. Al guardar te damos su enlace personal para que se lo compartas."}
               </DialogDescription>
             </DialogHeader>
-            <form onSubmit={onSubmit} className="grid gap-4">
-              <div className="grid gap-3 sm:grid-cols-2">
-                <Field name="nombre" label="Nombre" placeholder="Juan" required />
+
+            {step === "datos" ? (
+              <form
+                key="datos"
+                onSubmit={onDatosSubmit}
+                className="grid gap-4"
+              >
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Field
+                    name="nombre"
+                    label="Nombre"
+                    placeholder="Juan"
+                    required
+                    defaultValue={datos?.nombre}
+                  />
+                  <Field
+                    name="apellido"
+                    label="Apellido"
+                    placeholder="Pérez"
+                    required
+                    defaultValue={datos?.apellido}
+                  />
+                </div>
                 <Field
-                  name="apellido"
-                  label="Apellido"
-                  placeholder="Pérez"
+                  name="congregacion"
+                  label="Congregación"
+                  placeholder="Centro"
                   required
+                  defaultValue={datos?.congregacion}
                 />
-              </div>
-              <Field
-                name="congregacion"
-                label="Congregación"
-                placeholder="Centro"
-                required
-              />
-              <Field
-                name="telefono"
-                label="Teléfono"
-                type="tel"
-                placeholder="+52 55 1234 5678"
-                required
-              />
-              <Field
-                name="notas"
-                label="Notas"
-                placeholder="Disponibilidad, restricciones, etc."
-              />
+                <Field
+                  name="telefono"
+                  label="Teléfono"
+                  type="tel"
+                  inputMode="tel"
+                  noSpaces
+                  placeholder="5512345678"
+                  required
+                  defaultValue={datos?.telefono}
+                />
+                <Field
+                  name="notas"
+                  label="Notas"
+                  placeholder="Disponibilidad, restricciones, etc."
+                  defaultValue={datos?.notas}
+                />
+                <CapitanSelector
+                  capitanes={capitanes}
+                  value={capitanId}
+                  onChange={setCapitanId}
+                />
 
-              {error && <p className="text-sm text-destructive">{error}</p>}
+                {error && <p className="text-sm text-destructive">{error}</p>}
 
-              <DialogFooter>
-                <Button type="submit" disabled={submitting} className="w-full sm:w-auto">
-                  {submitting ? "Guardando…" : "Guardar"}
-                </Button>
-              </DialogFooter>
-            </form>
+                <DialogFooter>
+                  <Button type="submit" className="w-full sm:w-auto">
+                    Continuar
+                  </Button>
+                </DialogFooter>
+              </form>
+            ) : (
+              <form
+                key="disponibilidad"
+                onSubmit={onDisponibilidadSubmit}
+                className="grid gap-4"
+              >
+                <DisponibilidadSelector
+                  value={disponibilidad}
+                  onChange={setDisponibilidad}
+                />
+
+                {error && <p className="text-sm text-destructive">{error}</p>}
+
+                <DialogFooter className="sm:justify-between">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={() => {
+                      setError(null)
+                      setStep("datos")
+                    }}
+                    disabled={submitting}
+                  >
+                    <ArrowLeftIcon />
+                    Atrás
+                  </Button>
+                  <Button
+                    type="submit"
+                    disabled={submitting}
+                    className="w-full sm:w-auto"
+                  >
+                    {submitting ? "Guardando…" : "Guardar acomodador"}
+                  </Button>
+                </DialogFooter>
+              </form>
+            )}
           </>
         ) : (
           <>
@@ -367,12 +542,18 @@ function Field({
   type,
   placeholder,
   required,
+  defaultValue,
+  inputMode,
+  noSpaces,
 }: {
   name: string
   label: string
   type?: string
   placeholder?: string
   required?: boolean
+  defaultValue?: string
+  inputMode?: React.InputHTMLAttributes<HTMLInputElement>["inputMode"]
+  noSpaces?: boolean
 }) {
   return (
     <div className="grid gap-1.5">
@@ -383,7 +564,185 @@ function Field({
         type={type}
         placeholder={placeholder}
         required={required}
+        defaultValue={defaultValue}
+        inputMode={inputMode}
+        onKeyDown={
+          noSpaces
+            ? (e) => {
+                if (e.key === " ") e.preventDefault()
+              }
+            : undefined
+        }
       />
+    </div>
+  )
+}
+
+function EditDialog({
+  open,
+  onOpenChange,
+  acomodador,
+  capitanes,
+  onSaved,
+}: {
+  open: boolean
+  onOpenChange: (v: boolean) => void
+  acomodador: Acomodador
+  capitanes: CapitanOption[]
+  onSaved: () => void
+}) {
+  const [submitting, setSubmitting] = React.useState(false)
+  const [error, setError] = React.useState<string | null>(null)
+  const initialCapitanId = acomodador.capitan_id ?? SIN_CAPITAN_VALUE
+  const initialDisponibilidad =
+    (acomodador.disponibilidad ?? []) as DisponibilidadSlot[]
+  const [capitanId, setCapitanId] = React.useState<string>(initialCapitanId)
+  const [disponibilidad, setDisponibilidad] = React.useState<
+    DisponibilidadSlot[]
+  >(initialDisponibilidad)
+
+  React.useEffect(() => {
+    if (!open) {
+      setError(null)
+      setCapitanId(initialCapitanId)
+      setDisponibilidad(initialDisponibilidad)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open])
+
+  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    const fd = new FormData(e.currentTarget)
+    const values = {
+      nombre: String(fd.get("nombre") ?? "").trim(),
+      apellido: String(fd.get("apellido") ?? "").trim(),
+      congregacion: String(fd.get("congregacion") ?? "").trim(),
+      telefono: String(fd.get("telefono") ?? "").trim(),
+      notas: String(fd.get("notas") ?? "").trim(),
+      capitanId: capitanId === SIN_CAPITAN_VALUE ? null : capitanId,
+      disponibilidad,
+    }
+    setSubmitting(true)
+    setError(null)
+    const { error: err } = await actualizarAcomodador(acomodador.id, values)
+    setSubmitting(false)
+    if (err) {
+      setError(err)
+      return
+    }
+    onSaved()
+    onOpenChange(false)
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Editar acomodador</DialogTitle>
+          <DialogDescription>
+            Actualiza los datos del hermano. Su enlace de acceso no cambia.
+          </DialogDescription>
+        </DialogHeader>
+        <form key={acomodador.id} onSubmit={onSubmit} className="grid gap-4">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field
+              name="nombre"
+              label="Nombre"
+              placeholder="Juan"
+              required
+              defaultValue={acomodador.nombre}
+            />
+            <Field
+              name="apellido"
+              label="Apellido"
+              placeholder="Pérez"
+              required
+              defaultValue={acomodador.apellido}
+            />
+          </div>
+          <Field
+            name="congregacion"
+            label="Congregación"
+            placeholder="Centro"
+            required
+            defaultValue={acomodador.congregacion}
+          />
+          <Field
+            name="telefono"
+            label="Teléfono"
+            type="tel"
+            inputMode="tel"
+            noSpaces
+            placeholder="5512345678"
+            required
+            defaultValue={acomodador.telefono}
+          />
+          <Field
+            name="notas"
+            label="Notas"
+            placeholder="Disponibilidad, restricciones, etc."
+            defaultValue={acomodador.notas ?? ""}
+          />
+          <CapitanSelector
+            capitanes={capitanes}
+            value={capitanId}
+            onChange={setCapitanId}
+          />
+          <div className="grid gap-2">
+            <Label>Disponibilidad</Label>
+            <DisponibilidadSelector
+              value={disponibilidad}
+              onChange={setDisponibilidad}
+            />
+          </div>
+
+          {error && <p className="text-sm text-destructive">{error}</p>}
+
+          <DialogFooter>
+            <Button
+              type="submit"
+              disabled={submitting}
+              className="w-full sm:w-auto"
+            >
+              {submitting ? "Guardando…" : "Guardar"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function CapitanSelector({
+  capitanes,
+  value,
+  onChange,
+}: {
+  capitanes: CapitanOption[]
+  value: string
+  onChange: (v: string) => void
+}) {
+  return (
+    <div className="grid gap-1.5">
+      <Label htmlFor="capitan_id">Capitán</Label>
+      <Select value={value} onValueChange={onChange}>
+        <SelectTrigger id="capitan_id">
+          <SelectValue placeholder="Sin capitán asignado" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value={SIN_CAPITAN_VALUE}>Sin capitán</SelectItem>
+          {capitanes.map((c) => (
+            <SelectItem key={c.id} value={c.id}>
+              {c.nombre} {c.apellido} · {c.area}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      {capitanes.length === 0 && (
+        <p className="text-xs text-muted-foreground">
+          Aún no hay capitanes registrados.
+        </p>
+      )}
     </div>
   )
 }
@@ -500,16 +859,27 @@ function ShareDialog({
 function AcomodadorRow({
   acomodador,
   asambleaId,
+  capitanes,
+  mobileCardsContainer,
 }: {
   acomodador: Acomodador
   asambleaId: string
+  capitanes: CapitanOption[]
+  mobileCardsContainer: HTMLElement | null
 }) {
+  const capitan = acomodador.capitan_id
+    ? capitanes.find((c) => c.id === acomodador.capitan_id)
+    : null
   const router = useRouter()
   const [regenerating, setRegenerating] = React.useState(false)
   const [accessToken, setAccessToken] = React.useState<string>(
     acomodador.access_token,
   )
   const [accessOpen, setAccessOpen] = React.useState(false)
+  const [editOpen, setEditOpen] = React.useState(false)
+  const [deleteOpen, setDeleteOpen] = React.useState(false)
+  const [deleting, setDeleting] = React.useState(false)
+  const [deleteError, setDeleteError] = React.useState<string | null>(null)
 
   async function handleRegenerar() {
     setRegenerating(true)
@@ -526,38 +896,156 @@ function AcomodadorRow({
     router.refresh()
   }
 
+  async function handleEliminar() {
+    setDeleting(true)
+    setDeleteError(null)
+    const { error } = await eliminarAcomodador(acomodador.id)
+    setDeleting(false)
+    if (error) {
+      setDeleteError(error)
+      return
+    }
+    setDeleteOpen(false)
+    router.refresh()
+  }
+
+  const contextItems = (
+    <ContextMenuContent>
+      <ContextMenuItem onSelect={() => setEditOpen(true)}>
+        <PencilIcon />
+        Editar
+      </ContextMenuItem>
+      <ContextMenuItem
+        variant="destructive"
+        onSelect={() => setDeleteOpen(true)}
+      >
+        <Trash2Icon />
+        Eliminar
+      </ContextMenuItem>
+    </ContextMenuContent>
+  )
+
   return (
     <>
-      <TableRow>
-        <TableCell className="font-medium">
-          {acomodador.nombre} {acomodador.apellido}
-        </TableCell>
-        <TableCell>{acomodador.congregacion}</TableCell>
-        <TableCell>
-          <a
-            href={`https://wa.me/${acomodador.telefono.replace(/\D/g, "")}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="hover:underline"
-          >
-            {acomodador.telefono}
-          </a>
-        </TableCell>
-        <TableCell className="text-muted-foreground">
-          {acomodador.device_bound_at ? "Activo" : "Sin abrir"}
-        </TableCell>
-        <TableCell>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => setAccessOpen(true)}
-          >
-            <LinkIcon />
-            Acceso
-          </Button>
-        </TableCell>
-      </TableRow>
+      <ContextMenu>
+        <ContextMenuTrigger asChild>
+          <TableRow>
+            <TableCell className="font-medium">
+              {acomodador.nombre} {acomodador.apellido}
+            </TableCell>
+            <TableCell>{acomodador.congregacion}</TableCell>
+            <TableCell>
+              <a
+                href={`https://wa.me/${acomodador.telefono.replace(/\D/g, "")}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:underline"
+              >
+                {acomodador.telefono}
+              </a>
+            </TableCell>
+            <TableCell className="text-muted-foreground">
+              {capitan ? (
+                <span>
+                  <span className="text-foreground">
+                    {capitan.nombre} {capitan.apellido}
+                  </span>{" "}
+                  · {capitan.area}
+                </span>
+              ) : (
+                "—"
+              )}
+            </TableCell>
+            <TableCell className="text-muted-foreground">
+              {acomodador.device_bound_at ? "Activo" : "Sin abrir"}
+            </TableCell>
+            <TableCell>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setAccessOpen(true)}
+              >
+                <LinkIcon />
+                Acceso
+              </Button>
+            </TableCell>
+          </TableRow>
+        </ContextMenuTrigger>
+        {contextItems}
+      </ContextMenu>
+
+      {mobileCardsContainer &&
+        createPortal(
+          <ContextMenu>
+            <ContextMenuTrigger asChild>
+              <article className="rounded-xl border bg-surface p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <h3 className="truncate text-base font-medium">
+                      {acomodador.nombre} {acomodador.apellido}
+                    </h3>
+                    <p className="text-sm text-muted-foreground">
+                      {acomodador.congregacion}
+                    </p>
+                  </div>
+                  <span
+                    className={cn(
+                      "shrink-0 rounded-full border px-2 py-0.5 text-[11px]",
+                      acomodador.device_bound_at
+                        ? "border-primary/40 text-primary"
+                        : "border-border text-muted-foreground",
+                    )}
+                  >
+                    {acomodador.device_bound_at ? "Activo" : "Sin abrir"}
+                  </span>
+                </div>
+                <dl className="mt-3 grid gap-2 text-sm">
+                  <div className="flex justify-between gap-3">
+                    <dt className="text-muted-foreground">Teléfono</dt>
+                    <dd>
+                      <a
+                        href={`https://wa.me/${acomodador.telefono.replace(/\D/g, "")}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="hover:underline"
+                      >
+                        {acomodador.telefono}
+                      </a>
+                    </dd>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <dt className="text-muted-foreground">Capitán</dt>
+                    <dd className="text-right">
+                      {capitan ? (
+                        <span>
+                          {capitan.nombre} {capitan.apellido}
+                          <span className="block text-xs text-muted-foreground">
+                            {capitan.area}
+                          </span>
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </dd>
+                  </div>
+                </dl>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="mt-4 w-full"
+                  onClick={() => setAccessOpen(true)}
+                >
+                  <LinkIcon />
+                  Acceso
+                </Button>
+              </article>
+            </ContextMenuTrigger>
+            {contextItems}
+          </ContextMenu>,
+          mobileCardsContainer,
+        )}
 
       <AccessDialog
         open={accessOpen}
@@ -567,6 +1055,43 @@ function AcomodadorRow({
         regenerating={regenerating}
         onRegenerar={handleRegenerar}
       />
+
+      <EditDialog
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        acomodador={acomodador}
+        capitanes={capitanes}
+        onSaved={() => router.refresh()}
+      />
+
+      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              ¿Eliminar a {acomodador.nombre} {acomodador.apellido}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Se borrará el registro y su enlace de acceso dejará de funcionar.
+              Esta acción no se puede deshacer.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          {deleteError && (
+            <p className="text-sm text-destructive">{deleteError}</p>
+          )}
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault()
+                handleEliminar()
+              }}
+              disabled={deleting}
+            >
+              {deleting ? "Eliminando…" : "Eliminar"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   )
 }

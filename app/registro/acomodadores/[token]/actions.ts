@@ -9,6 +9,7 @@ export async function submitRegistro(input: {
   congregacion: string
   telefono: string
   notas: string
+  disponibilidad?: string[]
 }): Promise<{ accessToken: string | null; error: string | null }> {
   const supabase = await createClient()
   const { data, error } = await supabase.rpc("registro_submit", {
@@ -18,6 +19,7 @@ export async function submitRegistro(input: {
     p_congregacion: input.congregacion,
     p_telefono: input.telefono,
     p_notas: input.notas,
+    p_disponibilidad: input.disponibilidad ?? [],
   })
 
   if (error) {

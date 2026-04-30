@@ -2,7 +2,7 @@ import Link from "next/link"
 
 import { createClient } from "@/lib/supabase/server"
 
-import { RegistroForm } from "./registro-form"
+import { ResetForm } from "./reset-form"
 
 export default async function Page({
   params,
@@ -11,18 +11,20 @@ export default async function Page({
 }) {
   const { token } = await params
   const supabase = await createClient()
-  const { data } = await supabase.rpc("registro_validate", { p_token: token })
-  const asamblea = (data ?? [])[0] as
+  const { data } = await supabase.rpc("reset_capitan_validate", {
+    p_token: token,
+  })
+  const info = (data ?? [])[0] as
     | {
-        asamblea_id: string
-        numero: string
-        edicion: string
-        titulo: string
-        target_role: "acomodador" | "capitan"
+        asamblea_numero: string
+        asamblea_edicion: string
+        capitan_nombre: string
+        capitan_apellido: string
+        tiene_cuenta: boolean
       }
     | undefined
 
-  if (!asamblea || asamblea.target_role !== "acomodador") {
+  if (!info) {
     return (
       <main className="flex min-h-svh items-center justify-center px-5 py-12">
         <div className="w-full max-w-md text-center">
@@ -33,7 +35,7 @@ export default async function Page({
             Este enlace expiró o no existe
           </h1>
           <p className="mt-4 text-sm text-muted-foreground">
-            Pídele al capitán o al organizador que te envíe uno nuevo.
+            Pídele al organizador que te envíe uno nuevo.
           </p>
           <Link
             href="/"
@@ -46,5 +48,5 @@ export default async function Page({
     )
   }
 
-  return <RegistroForm token={token} asamblea={asamblea} />
+  return <ResetForm token={token} info={info} />
 }

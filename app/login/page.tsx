@@ -21,7 +21,7 @@ import { Input } from "@/components/ui/input"
 import { createClient } from "@/lib/supabase/client"
 
 const schema = z.object({
-  email: z.email("Correo inválido"),
+  identificador: z.string().min(1, "Requerido"),
   password: z.string().min(1, "Requerido"),
 })
 
@@ -35,15 +35,34 @@ export default function LoginPage() {
   const [submitting, setSubmitting] = React.useState(false)
   const form = useForm<Values>({
     resolver: zodResolver(schema),
-    defaultValues: { email: "", password: "" },
+    defaultValues: { identificador: "", password: "" },
   })
 
   async function onSubmit(values: Values) {
     if (!captchaToken) return
     setSubmitError(null)
     setSubmitting(true)
+
+    const { data: resolved, error: lookupErr } = await supabase.rpc(
+      "lookup_login_email",
+      { p_identifier: values.identificador },
+    )
+    if (lookupErr) {
+      setSubmitting(false)
+      setSubmitError(lookupErr.message)
+      return
+    }
+    const email = resolved as string | null
+    if (!email) {
+      setSubmitting(false)
+      setSubmitError(
+        "No encontramos ninguna cuenta con ese correo o teléfono.",
+      )
+      return
+    }
+
     const { error } = await supabase.auth.signInWithPassword({
-      email: values.email,
+      email,
       password: values.password,
       options: { captchaToken },
     })
@@ -76,17 +95,21 @@ export default function LoginPage() {
           >
             <FormField
               control={form.control}
-              name="email"
+              name="identificador"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Correo</FormLabel>
+                  <FormLabel>Correo o teléfono</FormLabel>
                   <FormControl>
                     <Input
-                      type="email"
-                      inputMode="email"
-                      autoComplete="email"
-                      placeholder="juan@ejemplo.com"
+                      autoComplete="username"
+                      placeholder="juan@ejemplo.com o 5512345678"
+                      onKeyDown={(e) => {
+                        if (e.key === " ") e.preventDefault()
+                      }}
                       {...field}
+                      onChange={(e) =>
+                        field.onChange(e.target.value.replace(/\s+/g, ""))
+                      }
                     />
                   </FormControl>
                   <FormMessage />

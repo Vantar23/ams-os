@@ -7,6 +7,7 @@ import { useForm } from "react-hook-form"
 import { z } from "zod"
 import { CheckIcon, CopyIcon } from "lucide-react"
 
+import { DisponibilidadSelector } from "@/components/disponibilidad-selector"
 import { Button } from "@/components/ui/button"
 import {
   Form,
@@ -17,6 +18,7 @@ import {
   FormMessage,
 } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
+import type { DisponibilidadSlot } from "@/lib/disponibilidad"
 
 import { submitRegistro } from "./actions"
 
@@ -47,6 +49,9 @@ export function RegistroForm({
   const [accessToken, setAccessToken] = React.useState<string | null>(null)
   const [submitError, setSubmitError] = React.useState<string | null>(null)
   const [submitting, setSubmitting] = React.useState(false)
+  const [disponibilidad, setDisponibilidad] = React.useState<
+    DisponibilidadSlot[]
+  >([])
 
   const form = useForm<Values>({
     resolver: zodResolver(schema),
@@ -69,6 +74,7 @@ export function RegistroForm({
       congregacion: values.congregacion,
       telefono: values.telefono,
       notas: values.notas ?? "",
+      disponibilidad,
     })
     setSubmitting(false)
     if (error) {
@@ -151,8 +157,15 @@ export function RegistroForm({
                   <FormControl>
                     <Input
                       type="tel"
-                      placeholder="+52 55 1234 5678"
+                      inputMode="tel"
+                      placeholder="5512345678"
+                      onKeyDown={(e) => {
+                        if (e.key === " ") e.preventDefault()
+                      }}
                       {...field}
+                      onChange={(e) =>
+                        field.onChange(e.target.value.replace(/\s+/g, ""))
+                      }
                     />
                   </FormControl>
                   <FormMessage />
@@ -178,6 +191,16 @@ export function RegistroForm({
                 </FormItem>
               )}
             />
+
+            <div className="grid gap-3">
+              <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+                Disponibilidad
+              </p>
+              <DisponibilidadSelector
+                value={disponibilidad}
+                onChange={setDisponibilidad}
+              />
+            </div>
 
             {submitError && (
               <p className="text-sm text-destructive">{submitError}</p>

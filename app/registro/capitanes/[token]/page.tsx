@@ -2,7 +2,7 @@ import Link from "next/link"
 
 import { createClient } from "@/lib/supabase/server"
 
-import { RegistroForm } from "./registro-form"
+import { CapitanRegistroForm } from "./registro-form"
 
 export default async function Page({
   params,
@@ -22,7 +22,7 @@ export default async function Page({
       }
     | undefined
 
-  if (!asamblea || asamblea.target_role !== "acomodador") {
+  if (!asamblea || asamblea.target_role !== "capitan") {
     return (
       <main className="flex min-h-svh items-center justify-center px-5 py-12">
         <div className="w-full max-w-md text-center">
@@ -33,7 +33,7 @@ export default async function Page({
             Este enlace expiró o no existe
           </h1>
           <p className="mt-4 text-sm text-muted-foreground">
-            Pídele al capitán o al organizador que te envíe uno nuevo.
+            Pídele al organizador que te envíe uno nuevo.
           </p>
           <Link
             href="/"
@@ -46,5 +46,5 @@ export default async function Page({
     )
   }
 
-  return <RegistroForm token={token} asamblea={asamblea} />
+  return <CapitanRegistroForm token={token} asamblea={asamblea} />
 }
