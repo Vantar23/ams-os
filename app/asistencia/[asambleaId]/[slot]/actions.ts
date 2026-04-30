@@ -39,9 +39,18 @@ export async function confirmAsistencia(input: {
   }
 
   const row = (data ?? [])[0] as
-    | { tipo: Tipo; id: string; nombre: string; apellido: string }
+    | { out_tipo: Tipo; out_id: string; out_nombre: string; out_apellido: string }
     | undefined
   if (!row) return { ok: false, error: "No encontrado.", result: null }
 
-  return { ok: true, error: null, result: row }
+  return {
+    ok: true,
+    error: null,
+    result: {
+      tipo: row.out_tipo,
+      id: row.out_id,
+      nombre: row.out_nombre,
+      apellido: row.out_apellido,
+    },
+  }
 }
