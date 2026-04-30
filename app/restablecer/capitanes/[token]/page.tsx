@@ -11,9 +11,12 @@ export default async function Page({
 }) {
   const { token } = await params
   const supabase = await createClient()
-  const { data } = await supabase.rpc("reset_capitan_validate", {
+  const { data, error } = await supabase.rpc("reset_capitan_validate", {
     p_token: token,
   })
+  if (error) {
+    console.error("reset_capitan_validate error", { token, error })
+  }
   const info = (data ?? [])[0] as
     | {
         asamblea_numero: string
@@ -37,6 +40,13 @@ export default async function Page({
           <p className="mt-4 text-sm text-muted-foreground">
             Pídele al organizador que te envíe uno nuevo.
           </p>
+          {error && (
+            <pre className="mt-6 whitespace-pre-wrap rounded-md border bg-muted/50 p-3 text-left font-mono text-[10px] text-muted-foreground">
+              {error.message}
+              {error.details ? `\n${error.details}` : ""}
+              {error.hint ? `\n${error.hint}` : ""}
+            </pre>
+          )}
           <Link
             href="/"
             className="mt-8 inline-block text-sm text-foreground underline underline-offset-4"
