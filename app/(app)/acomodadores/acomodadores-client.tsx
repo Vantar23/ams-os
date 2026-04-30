@@ -179,7 +179,7 @@ export function AcomodadoresClient({
       </div>
 
       {/* Desktop table (hidden in mobile) */}
-      <div className="hidden md:block">
+      <div className="show-on-desktop">
         <div className="overflow-x-auto rounded-xl border">
         <Table>
           <TableHeader>
@@ -220,7 +220,7 @@ export function AcomodadoresClient({
       </div>
 
       {/* Mobile cards target — actual cards portaled in from each row */}
-      <div className="md:hidden">
+      <div className="show-on-mobile">
         <div ref={setMobileCardsContainer} className="grid gap-2">
           {acomodadores.length === 0 && (
             <div className="rounded-xl border p-6 text-center text-sm text-muted-foreground">

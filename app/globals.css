@@ -79,3 +79,19 @@
     outline-offset: 2px;
   }
 }
+
+/* Responsive table/cards switch — independent of Tailwind variant ordering. */
+.show-on-desktop {
+  display: none;
+}
+.show-on-mobile {
+  display: block;
+}
+@media (min-width: 768px) {
+  .show-on-desktop {
+    display: block;
+  }
+  .show-on-mobile {
+    display: none;
+  }
+}
