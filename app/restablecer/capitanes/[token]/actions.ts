@@ -1,7 +1,6 @@
 "use server"
 
 import { createAdminClient } from "@/lib/supabase/admin"
-import { createClient } from "@/lib/supabase/server"
 
 function normalizePhone(s: string): string {
   return s.replace(/\D/g, "")
@@ -20,8 +19,9 @@ export async function completarRegistroCapitan(input: {
     return { ok: false, error: "La contraseña debe tener mínimo 8 caracteres." }
   }
 
-  const supabase = await createClient()
-  const { data: enlace, error: enlaceErr } = await supabase
+  const admin = createAdminClient()
+
+  const { data: enlace, error: enlaceErr } = await admin
     .from("enlaces_registro")
     .select("token, capitan_id, target_role, expires_at, asamblea_id")
     .eq("token", input.token)
@@ -35,8 +35,6 @@ export async function completarRegistroCapitan(input: {
   if (new Date(enlace.expires_at as string).getTime() < Date.now()) {
     return { ok: false, error: "Este enlace ya no es válido o expiró." }
   }
-
-  const admin = createAdminClient()
 
   const { data: capitan, error: capErr } = await admin
     .from("capitanes")
@@ -125,9 +123,9 @@ export async function restablecerCapitanPassword(input: {
     return { ok: false, error: "La contraseña debe tener mínimo 8 caracteres." }
   }
 
-  const supabase = await createClient()
+  const admin = createAdminClient()
 
-  const { data: enlace, error: enlaceErr } = await supabase
+  const { data: enlace, error: enlaceErr } = await admin
     .from("enlaces_registro")
     .select("token, capitan_id, target_role, expires_at")
     .eq("token", input.token)
@@ -141,8 +139,6 @@ export async function restablecerCapitanPassword(input: {
   if (new Date(enlace.expires_at as string).getTime() < Date.now()) {
     return { ok: false, error: "Este enlace ya no es válido o expiró." }
   }
-
-  const admin = createAdminClient()
 
   const { data: capitan, error: capErr } = await admin
     .from("capitanes")
