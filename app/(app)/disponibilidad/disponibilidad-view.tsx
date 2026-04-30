@@ -3,6 +3,16 @@
 import * as React from "react"
 import { useRouter } from "next/navigation"
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { Checkbox } from "@/components/ui/checkbox"
 import {
   DISPONIBILIDAD_DIAS,
@@ -464,39 +474,76 @@ function PersonRow({
   selfConfirmed?: boolean
   onToggle: (next: boolean) => void
 }) {
+  const [pending, setPending] = React.useState<boolean | null>(null)
+  const willConfirm = pending === true
   return (
-    <li
-      className={cn(
-        "flex items-center gap-3 rounded-md px-2 py-2 transition-colors",
-        confirmed && "bg-primary/5",
-      )}
-    >
-      <a
-        href={`tel:${telefono.replace(/\D/g, "")}`}
-        className="flex min-w-0 flex-1 flex-col rounded-md hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-      >
-        <span className="truncate text-sm font-medium text-foreground">
-          {title}
-        </span>
-        <span className="truncate text-xs text-muted-foreground">
-          {subtitle}
-        </span>
-        <span className="truncate text-xs text-muted-foreground">
-          {telefono}
-        </span>
-        {selfConfirmed && (
-          <span className="mt-1 inline-flex w-fit items-center rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 text-[10px] uppercase tracking-[0.1em] text-primary">
-            Confirmado por el acomodador
-          </span>
+    <>
+      <li
+        className={cn(
+          "flex items-center gap-3 rounded-md px-2 py-2 transition-colors",
+          confirmed && "bg-primary/5",
         )}
-      </a>
-      <Checkbox
-        checked={confirmed}
-        onCheckedChange={(v) => onToggle(Boolean(v))}
-        aria-label="Confirmación de asistencia"
-        className="ml-auto"
-      />
-    </li>
+      >
+        <a
+          href={`tel:${telefono.replace(/\D/g, "")}`}
+          className="flex min-w-0 flex-1 flex-col rounded-md hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <span className="truncate text-sm font-medium text-foreground">
+            {title}
+          </span>
+          <span className="truncate text-xs text-muted-foreground">
+            {subtitle}
+          </span>
+          <span className="truncate text-xs text-muted-foreground">
+            {telefono}
+          </span>
+          {selfConfirmed && (
+            <span className="mt-1 inline-flex w-fit items-center rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 text-[10px] uppercase tracking-[0.1em] text-primary">
+              Confirmado por el acomodador
+            </span>
+          )}
+        </a>
+        <Checkbox
+          checked={confirmed}
+          onCheckedChange={(v) => setPending(Boolean(v))}
+          aria-label="Confirmación de asistencia"
+          className="ml-auto"
+        />
+      </li>
+
+      <AlertDialog
+        open={pending !== null}
+        onOpenChange={(open) => {
+          if (!open) setPending(null)
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {willConfirm
+                ? `¿Confirmar la asistencia de ${title}?`
+                : `¿Quitar la confirmación de ${title}?`}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {willConfirm
+                ? "Marcará al hermano como confirmado para esta sesión."
+                : "Se quitará la marca de confirmación, incluida la del propio acomodador si la había."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (pending !== null) onToggle(pending)
+                setPending(null)
+              }}
+            >
+              {willConfirm ? "Confirmar" : "Quitar"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   )
 }
 
