@@ -179,7 +179,7 @@ export function AcomodadoresClient({
       </div>
 
       {/* Desktop table (hidden in mobile) */}
-      <div className="hidden overflow-x-auto rounded-xl border md:block">
+      <div className="hidden overflow-x-auto rounded-xl border lg:block">
         <Table>
           <TableHeader>
             <TableRow>
@@ -220,7 +220,7 @@ export function AcomodadoresClient({
       {/* Mobile cards target — actual cards portaled in from each row */}
       <div
         ref={setMobileCardsContainer}
-        className="grid gap-2 md:hidden"
+        className="grid gap-2 lg:hidden"
       >
         {acomodadores.length === 0 && (
           <div className="rounded-xl border p-6 text-center text-sm text-muted-foreground">
@@ -1206,6 +1206,6 @@ function AccessDialog({
 
 function whatsappShareUrl(telefono: string, nombre: string, url: string): string {
   const phone = telefono.replace(/\D/g, "")
-  const text = `Hola ${nombre}, este es tu enlace personal de acceso para los acomodadores. Funciona solo en el primer dispositivo donde lo abras: ${url}`
+  const text = `Hola ${nombre}, estás invitado a servir como acomodador en la asamblea. Este es tu enlace personal de registro y acceso a la plataforma. Funciona solo en el primer dispositivo donde lo abras: ${url}`
   return `https://wa.me/${phone}?text=${encodeURIComponent(text)}`
 }

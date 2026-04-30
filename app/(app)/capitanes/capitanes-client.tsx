@@ -162,7 +162,7 @@ export function CapitanesClient({
       </div>
 
       {/* Desktop table */}
-      <div className="hidden overflow-x-auto rounded-xl border md:block">
+      <div className="hidden overflow-x-auto rounded-xl border lg:block">
         <Table>
           <TableHeader>
             <TableRow>
@@ -200,7 +200,7 @@ export function CapitanesClient({
       {/* Mobile cards target */}
       <div
         ref={setMobileCardsContainer}
-        className="grid gap-2 md:hidden"
+        className="grid gap-2 lg:hidden"
       >
         {capitanes.length === 0 && (
           <div className="rounded-xl border p-6 text-center text-sm text-muted-foreground">
