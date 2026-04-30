@@ -1,7 +1,15 @@
 "use client"
 
 import * as React from "react"
-import { CheckIcon, CopyIcon, LinkIcon, RefreshCwIcon } from "lucide-react"
+import { useRouter } from "next/navigation"
+import {
+  CheckIcon,
+  CopyIcon,
+  LinkIcon,
+  MessageCircleIcon,
+  PlusIcon,
+  RefreshCwIcon,
+} from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -13,6 +21,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import {
   Table,
   TableBody,
@@ -22,7 +31,11 @@ import {
   TableRow,
 } from "@/components/ui/table"
 
-import { crearEnlaceRegistro, regenerarAcceso } from "./actions"
+import {
+  agregarAcomodadorManual,
+  crearEnlaceRegistro,
+  regenerarAcceso,
+} from "./actions"
 
 type Asamblea = {
   id: string
@@ -50,10 +63,12 @@ export function AcomodadoresClient({
   asamblea: Asamblea
   acomodadores: Acomodador[]
 }) {
+  const router = useRouter()
   const [shareOpen, setShareOpen] = React.useState(false)
   const [enlaceToken, setEnlaceToken] = React.useState<string | null>(null)
   const [creatingEnlace, setCreatingEnlace] = React.useState(false)
   const [shareError, setShareError] = React.useState<string | null>(null)
+  const [manualOpen, setManualOpen] = React.useState(false)
 
   const origin = typeof window === "undefined" ? "" : window.location.origin
   const inviteUrl = enlaceToken
@@ -92,10 +107,21 @@ export function AcomodadoresClient({
             </span>
           </p>
         </div>
-        <Button type="button" onClick={openShare} className="w-full sm:w-auto">
-          <LinkIcon />
-          Compartir enlace de registro
-        </Button>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setManualOpen(true)}
+            className="w-full sm:w-auto"
+          >
+            <PlusIcon />
+            Agregar manualmente
+          </Button>
+          <Button type="button" onClick={openShare} className="w-full sm:w-auto">
+            <LinkIcon />
+            Compartir enlace de registro
+          </Button>
+        </div>
       </div>
 
       <div className="overflow-x-auto rounded-xl border">
@@ -141,6 +167,222 @@ export function AcomodadoresClient({
         creating={creatingEnlace}
         error={shareError}
         onGenerar={generarEnlace}
+      />
+
+      <ManualAddDialog
+        open={manualOpen}
+        onOpenChange={setManualOpen}
+        asambleaId={asamblea.id}
+        onCreated={() => router.refresh()}
+      />
+    </div>
+  )
+}
+
+function ManualAddDialog({
+  open,
+  onOpenChange,
+  asambleaId,
+  onCreated,
+}: {
+  open: boolean
+  onOpenChange: (v: boolean) => void
+  asambleaId: string
+  onCreated: () => void
+}) {
+  const [submitting, setSubmitting] = React.useState(false)
+  const [error, setError] = React.useState<string | null>(null)
+  const [createdToken, setCreatedToken] = React.useState<string | null>(null)
+  const [createdInfo, setCreatedInfo] = React.useState<{
+    nombre: string
+    telefono: string
+  } | null>(null)
+  const [copied, setCopied] = React.useState(false)
+
+  const origin = typeof window === "undefined" ? "" : window.location.origin
+  const accessUrl = createdToken ? `${origin}/acomodador/${createdToken}` : ""
+
+  React.useEffect(() => {
+    if (!open) {
+      setError(null)
+      setCreatedToken(null)
+      setCreatedInfo(null)
+      setCopied(false)
+    }
+  }, [open])
+
+  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    const fd = new FormData(e.currentTarget)
+    const values = {
+      nombre: String(fd.get("nombre") ?? "").trim(),
+      apellido: String(fd.get("apellido") ?? "").trim(),
+      congregacion: String(fd.get("congregacion") ?? "").trim(),
+      telefono: String(fd.get("telefono") ?? "").trim(),
+      notas: String(fd.get("notas") ?? "").trim(),
+    }
+    setSubmitting(true)
+    setError(null)
+    const { accessToken, error: err } = await agregarAcomodadorManual(
+      asambleaId,
+      values,
+    )
+    setSubmitting(false)
+    if (err) {
+      setError(err)
+      return
+    }
+    setCreatedToken(accessToken)
+    setCreatedInfo({ nombre: values.nombre, telefono: values.telefono })
+    onCreated()
+  }
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(accessUrl)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      /* ignored */
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        {!createdToken ? (
+          <>
+            <DialogHeader>
+              <DialogTitle>Agregar acomodador</DialogTitle>
+              <DialogDescription>
+                Llena los datos del hermano. Al guardar te damos su enlace
+                personal para que se lo compartas.
+              </DialogDescription>
+            </DialogHeader>
+            <form onSubmit={onSubmit} className="grid gap-4">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Field name="nombre" label="Nombre" placeholder="Juan" required />
+                <Field
+                  name="apellido"
+                  label="Apellido"
+                  placeholder="Pérez"
+                  required
+                />
+              </div>
+              <Field
+                name="congregacion"
+                label="Congregación"
+                placeholder="Centro"
+                required
+              />
+              <Field
+                name="telefono"
+                label="Teléfono"
+                type="tel"
+                placeholder="+52 55 1234 5678"
+                required
+              />
+              <Field
+                name="notas"
+                label="Notas"
+                placeholder="Disponibilidad, restricciones, etc."
+              />
+
+              {error && <p className="text-sm text-destructive">{error}</p>}
+
+              <DialogFooter>
+                <Button type="submit" disabled={submitting} className="w-full sm:w-auto">
+                  {submitting ? "Guardando…" : "Guardar"}
+                </Button>
+              </DialogFooter>
+            </form>
+          </>
+        ) : (
+          <>
+            <DialogHeader>
+              <DialogTitle>Acomodador creado</DialogTitle>
+              <DialogDescription>
+                Comparte este enlace personal por WhatsApp. Solo funcionará en
+                el primer dispositivo donde se abra.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-3">
+              <p className="text-xs uppercase tracking-[0.15em] text-muted-foreground">
+                Enlace de acceso
+              </p>
+              <div className="flex gap-2">
+                <Input
+                  readOnly
+                  value={accessUrl}
+                  className="font-mono text-xs"
+                  onFocus={(e) => e.currentTarget.select()}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={copy}
+                  aria-label={copied ? "Copiado" : "Copiar enlace"}
+                >
+                  {copied ? <CheckIcon /> : <CopyIcon />}
+                </Button>
+              </div>
+              {createdInfo && (
+                <Button asChild className="w-full">
+                  <a
+                    href={whatsappShareUrl(
+                      createdInfo.telefono,
+                      createdInfo.nombre,
+                      accessUrl,
+                    )}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <MessageCircleIcon />
+                    Enviar por WhatsApp
+                  </a>
+                </Button>
+              )}
+            </div>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => onOpenChange(false)}
+                className="w-full sm:w-auto"
+              >
+                Listo
+              </Button>
+            </DialogFooter>
+          </>
+        )}
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function Field({
+  name,
+  label,
+  type,
+  placeholder,
+  required,
+}: {
+  name: string
+  label: string
+  type?: string
+  placeholder?: string
+  required?: boolean
+}) {
+  return (
+    <div className="grid gap-1.5">
+      <Label htmlFor={name}>{label}</Label>
+      <Input
+        id={name}
+        name={name}
+        type={type}
+        placeholder={placeholder}
+        required={required}
       />
     </div>
   )
@@ -262,6 +504,7 @@ function AcomodadorRow({
   acomodador: Acomodador
   asambleaId: string
 }) {
+  const router = useRouter()
   const [regenerating, setRegenerating] = React.useState(false)
   const [accessToken, setAccessToken] = React.useState<string>(
     acomodador.access_token,
@@ -280,6 +523,7 @@ function AcomodadorRow({
       return
     }
     if (token) setAccessToken(token)
+    router.refresh()
   }
 
   return (
@@ -390,6 +634,20 @@ function AccessDialog({
               {copied ? <CheckIcon /> : <CopyIcon />}
             </Button>
           </div>
+          <Button asChild className="w-full">
+            <a
+              href={whatsappShareUrl(
+                acomodador.telefono,
+                acomodador.nombre,
+                url,
+              )}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <MessageCircleIcon />
+              Enviar por WhatsApp
+            </a>
+          </Button>
           <p className="text-xs text-muted-foreground">
             {acomodador.device_bound_at
               ? "Ya abierto en un dispositivo."
@@ -419,4 +677,10 @@ function AccessDialog({
       </DialogContent>
     </Dialog>
   )
+}
+
+function whatsappShareUrl(telefono: string, nombre: string, url: string): string {
+  const phone = telefono.replace(/\D/g, "")
+  const text = `Hola ${nombre}, este es tu enlace personal de acceso para los acomodadores. Funciona solo en el primer dispositivo donde lo abras: ${url}`
+  return `https://wa.me/${phone}?text=${encodeURIComponent(text)}`
 }

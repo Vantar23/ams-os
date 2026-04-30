@@ -44,3 +44,47 @@ export async function regenerarAcceso(
   revalidatePath("/acomodadores")
   return { token: data as string, error: null }
 }
+
+export async function agregarAcomodadorManual(
+  asambleaId: string,
+  values: {
+    nombre: string
+    apellido: string
+    congregacion: string
+    telefono: string
+    notas: string
+  },
+): Promise<{ accessToken: string | null; error: string | null }> {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { accessToken: null, error: "No autenticado" }
+
+  const accessToken = randomBytes(32).toString("hex")
+
+  const { error } = await supabase.from("acomodadores").insert({
+    asamblea_id: asambleaId,
+    nombre: values.nombre,
+    apellido: values.apellido,
+    congregacion: values.congregacion,
+    telefono: values.telefono,
+    notas: values.notas || null,
+    invited_by: user.id,
+    access_token: accessToken,
+  })
+
+  if (error) {
+    // 23505 = unique_violation
+    if (error.code === "23505") {
+      return {
+        accessToken: null,
+        error: "Este teléfono ya está registrado en esta asamblea.",
+      }
+    }
+    return { accessToken: null, error: error.message }
+  }
+
+  revalidatePath("/acomodadores")
+  return { accessToken, error: null }
+}
