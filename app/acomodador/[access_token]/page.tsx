@@ -1,32 +1,15 @@
 import Link from "next/link"
-import { cookies } from "next/headers"
-import { AlertTriangleIcon } from "lucide-react"
+import {
+  AlertOctagonIcon,
+  CalendarCheckIcon,
+  MapIcon,
+} from "lucide-react"
 
-import { createClient } from "@/lib/supabase/server"
 import { RememberPersonal } from "@/components/remember-personal"
 
+import { BlockedView } from "./blocked-view"
 import { ClaimView } from "./claim-view"
-
-const DEVICE_COOKIE = "acomodador_device_key"
-
-type Acomodador = {
-  id: string
-  asamblea_id: string
-  nombre: string
-  apellido: string
-  congregacion: string
-  telefono: string
-  notas: string | null
-  asamblea_numero: string
-  asamblea_edicion: string
-  asamblea_titulo: string
-  asamblea_fechas: string
-  asamblea_sede: string
-  is_unbound: boolean
-  disponibilidad: string[]
-  asistencia_self_confirmada: string[]
-  asistencia_confirmada: string[]
-}
+import { loadAcomodadorByToken } from "./load"
 
 export default async function Page({
   params,
@@ -34,53 +17,22 @@ export default async function Page({
   params: Promise<{ access_token: string }>
 }) {
   const { access_token } = await params
-  const cookieStore = await cookies()
-  const deviceKey = cookieStore.get(DEVICE_COOKIE)?.value
+  const result = await loadAcomodadorByToken(access_token)
 
-  if (!deviceKey) {
-    return <BlockedView reason="no_cookie" />
+  if (result.kind === "blocked") {
+    return <BlockedView reason={result.reason} message={result.message} />
   }
-
-  const deviceKeyHash = await sha256(deviceKey)
-  const supabase = await createClient()
-  const { data, error } = await supabase.rpc("acceso_open", {
-    p_access_token: access_token,
-    p_device_key_hash: deviceKeyHash,
-  })
-
-  if (error) {
-    if (error.message.includes("device_mismatch")) {
-      return <BlockedView reason="device_mismatch" />
-    }
-    if (error.message.includes("invalid_access_token")) {
-      return <BlockedView reason="invalid" />
-    }
-    return <BlockedView reason="error" message={error.message} />
-  }
-
-  const acomodador = (data ?? [])[0] as Acomodador | undefined
-  if (!acomodador) {
-    return <BlockedView reason="invalid" />
-  }
-
-  if (acomodador.is_unbound) {
+  if (result.kind === "claim") {
     return (
       <ClaimView
         accessToken={access_token}
-        nombre={acomodador.nombre}
-        asamblea={{
-          numero: acomodador.asamblea_numero,
-          edicion: acomodador.asamblea_edicion,
-          titulo: acomodador.asamblea_titulo,
-        }}
+        nombre={result.nombre}
+        asamblea={result.asamblea}
       />
     )
   }
 
-  return <AcomodadorView acomodador={acomodador} />
-}
-
-function AcomodadorView({ acomodador }: { acomodador: Acomodador }) {
+  const { acomodador } = result
   return (
     <main className="mx-auto w-full max-w-2xl px-5 py-10 sm:py-14">
       <RememberPersonal
@@ -101,6 +53,27 @@ function AcomodadorView({ acomodador }: { acomodador: Acomodador }) {
         Estás asignado como acomodador
       </p>
 
+      <nav className="mt-10 grid gap-3">
+        <NavCard
+          href={`/acomodador/${access_token}/asistencia`}
+          icon={<CalendarCheckIcon className="size-5" />}
+          title="Asistencia"
+          description="Confirma las sesiones a las que vas a asistir."
+        />
+        <NavCard
+          href={`/acomodador/${access_token}/incidencias`}
+          icon={<AlertOctagonIcon className="size-5" />}
+          title="Incidencias"
+          description="Reporta una incidencia durante la asamblea."
+        />
+        <NavCard
+          href={`/acomodador/${access_token}/mapa`}
+          icon={<MapIcon className="size-5" />}
+          title="Mapa"
+          description="Consulta las áreas del lugar."
+        />
+      </nav>
+
       <p className="mt-12 border-t border-border pt-6 text-center text-xs text-muted-foreground">
         Si pierdes este enlace, escríbele a tu capitán para que te genere uno
         nuevo.
@@ -109,58 +82,29 @@ function AcomodadorView({ acomodador }: { acomodador: Acomodador }) {
   )
 }
 
-function BlockedView({
-  reason,
-  message,
+function NavCard({
+  href,
+  icon,
+  title,
+  description,
 }: {
-  reason: "device_mismatch" | "invalid" | "no_cookie" | "error"
-  message?: string
+  href: string
+  icon: React.ReactNode
+  title: string
+  description: string
 }) {
-  const titles: Record<typeof reason, string> = {
-    device_mismatch: "Este enlace ya está activo en otro dispositivo",
-    invalid: "Enlace no válido",
-    no_cookie: "No pudimos identificar tu dispositivo",
-    error: "Algo salió mal",
-  }
-  const descriptions: Record<typeof reason, string> = {
-    device_mismatch:
-      "Tu enlace personal solo funciona en el primer dispositivo donde lo abriste. Pídele a tu capitán que te genere uno nuevo si necesitas pasarlo a este dispositivo.",
-    invalid:
-      "Este enlace no existe o fue invalidado. Pídele a tu capitán que te envíe uno nuevo.",
-    no_cookie:
-      "Tu navegador bloqueó el cookie que necesitamos para identificarte. Activa cookies para este sitio y vuelve a intentar.",
-    error: message ?? "Intenta de nuevo en un momento.",
-  }
-
   return (
-    <main className="flex min-h-svh items-center justify-center px-5 py-12">
-      <div className="w-full max-w-md text-center">
-        <div className="mx-auto inline-flex size-12 items-center justify-center rounded-full bg-muted text-muted-foreground">
-          <AlertTriangleIcon className="size-6" />
-        </div>
-        <h1 className="mt-6 font-serif text-[1.75rem] leading-tight text-foreground sm:text-3xl">
-          {titles[reason]}
-        </h1>
-        <p className="mt-4 text-sm text-muted-foreground">
-          {descriptions[reason]}
-        </p>
-        <Link
-          href="/"
-          className="mt-8 inline-block text-sm text-foreground underline underline-offset-4"
-        >
-          Volver al inicio
-        </Link>
-      </div>
-    </main>
+    <Link
+      href={href}
+      className="flex items-center gap-4 rounded-xl border bg-surface p-4 transition-colors hover:border-primary/50 hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    >
+      <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-border bg-background text-foreground">
+        {icon}
+      </span>
+      <span className="flex flex-col">
+        <span className="text-base font-medium text-foreground">{title}</span>
+        <span className="text-xs text-muted-foreground">{description}</span>
+      </span>
+    </Link>
   )
-}
-
-async function sha256(input: string): Promise<string> {
-  const buf = await crypto.subtle.digest(
-    "SHA-256",
-    new TextEncoder().encode(input),
-  )
-  return Array.from(new Uint8Array(buf))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("")
 }
