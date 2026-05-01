@@ -428,43 +428,64 @@ export function PuestosClient({
                 Todos los acomodadores ya tienen asignación para este turno.
               </p>
             ) : (
-              <ul className="divide-y">
-                {[...sinAsignar]
+              (() => {
+                const filtered = sinAsignar
                   .filter(matchesSearch)
-                  .sort((a, b) => {
-                    const aDisp = a.disponibilidad.includes(slot) ? 1 : 0
-                    const bDisp = b.disponibilidad.includes(slot) ? 1 : 0
-                    if (aDisp !== bDisp) return bDisp - aDisp
-                    return a.nombre.localeCompare(b.nombre)
-                  })
-                  .map((ac) => {
-                  const disponible = ac.disponibilidad.includes(slot)
-                  return (
-                    <li
-                      key={ac.id}
-                      className="flex items-center gap-3 py-2"
-                    >
-                      <span className="flex min-w-0 flex-1 flex-col">
-                        <span className="truncate text-sm font-medium text-foreground">
-                          {ac.nombre} {ac.apellido}
-                        </span>
-                        <span className="truncate text-xs text-muted-foreground">
-                          {ac.congregacion}
-                          {!disponible && " · sin disponibilidad"}
-                        </span>
+                  .sort((a, b) => a.nombre.localeCompare(b.nombre))
+                const disponibles = filtered.filter((ac) =>
+                  ac.disponibilidad.includes(slot),
+                )
+                const noDisponibles = filtered.filter(
+                  (ac) => !ac.disponibilidad.includes(slot),
+                )
+                const renderItem = (ac: Acomodador) => (
+                  <li
+                    key={ac.id}
+                    className="flex items-center gap-3 py-2"
+                  >
+                    <span className="flex min-w-0 flex-1 flex-col">
+                      <span className="truncate text-sm font-medium text-foreground">
+                        {ac.nombre} {ac.apellido}
                       </span>
-                      <Button
-                        type="button"
-                        size="sm"
-                        onClick={() => asignar(ac.id)}
-                      >
-                        <PlusIcon />
-                        Asignar
-                      </Button>
-                    </li>
-                  )
-                })}
-              </ul>
+                      <span className="truncate text-xs text-muted-foreground">
+                        {ac.congregacion}
+                      </span>
+                    </span>
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() => asignar(ac.id)}
+                    >
+                      <PlusIcon />
+                      Asignar
+                    </Button>
+                  </li>
+                )
+                return (
+                  <>
+                    {disponibles.length > 0 && (
+                      <>
+                        <h4 className="mt-3 text-[10px] font-medium uppercase tracking-[0.15em] text-muted-foreground">
+                          Disponibles ({disponibles.length})
+                        </h4>
+                        <ul className="divide-y">
+                          {disponibles.map(renderItem)}
+                        </ul>
+                      </>
+                    )}
+                    {noDisponibles.length > 0 && (
+                      <>
+                        <h4 className="mt-6 border-t pt-3 text-[10px] font-medium uppercase tracking-[0.15em] text-muted-foreground">
+                          Sin disponibilidad ({noDisponibles.length})
+                        </h4>
+                        <ul className="divide-y">
+                          {noDisponibles.map(renderItem)}
+                        </ul>
+                      </>
+                    )}
+                  </>
+                )
+              })()
             )}
 
             {enOtraArea.length > 0 && (
