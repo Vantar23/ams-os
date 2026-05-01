@@ -81,7 +81,17 @@ export function AppSidebar({
   const [signingOut, setSigningOut] = React.useState(false)
   const groups =
     role === "capitan"
-      ? data.navMain.filter((g) => g.title === "Personal")
+      ? data.navMain
+          .map((g) =>
+            g.title === "Asignaciones"
+              ? { ...g, items: g.items.filter((i) => i.title === "Puestos") }
+              : g,
+          )
+          .filter(
+            (g) =>
+              g.title === "Personal" ||
+              (g.title === "Asignaciones" && g.items.length > 0),
+          )
       : data.navMain
 
   async function handleSignOut() {

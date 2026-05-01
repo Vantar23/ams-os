@@ -19,6 +19,7 @@ const CAPITAN_ALLOWED_PREFIXES = [
   "/capitanes",
   "/hermanas-de-apoyo",
   "/disponibilidad",
+  "/puestos",
 ]
 const CAPITAN_LANDING = "/acomodadores"
 
