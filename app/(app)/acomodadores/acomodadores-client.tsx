@@ -160,6 +160,7 @@ export function AcomodadoresClient({
           </p>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row">
+          <CopyAccesoLinkButton asambleaId={asamblea.id} />
           <Button
             type="button"
             variant="outline"
@@ -1204,6 +1205,33 @@ function AccessDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  )
+}
+
+function CopyAccesoLinkButton({ asambleaId }: { asambleaId: string }) {
+  const [copied, setCopied] = React.useState(false)
+  async function copy() {
+    const origin =
+      typeof window === "undefined" ? "" : window.location.origin
+    const url = `${origin}/asistencia/${asambleaId}`
+    try {
+      await navigator.clipboard.writeText(url)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      /* ignored */
+    }
+  }
+  return (
+    <Button
+      type="button"
+      variant="outline"
+      onClick={copy}
+      className="w-full sm:w-auto"
+    >
+      {copied ? <CheckIcon /> : <CopyIcon />}
+      {copied ? "Copiado" : "Copiar enlace de acceso"}
+    </Button>
   )
 }
 
