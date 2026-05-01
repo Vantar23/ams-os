@@ -445,12 +445,15 @@ export function PuestosClient({
             )}
 
             {enOtraArea.length > 0 && (
-              <>
-                <div className="mt-6 border-b pb-2">
+              <details className="group mt-6">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-3 border-b pb-2">
                   <h4 className="text-xs font-medium uppercase tracking-[0.15em] text-muted-foreground">
                     En otra área ({enOtraArea.length})
                   </h4>
-                </div>
+                  <span className="text-xs text-muted-foreground transition-transform group-open:rotate-180">
+                    ▾
+                  </span>
+                </summary>
                 <ul className="divide-y">
                   {enOtraArea.map(({ acomodador: ac, areaId: aId }) => {
                     const otherArea = areaById.get(aId)
@@ -482,7 +485,7 @@ export function PuestosClient({
                     )
                   })}
                 </ul>
-              </>
+              </details>
             )}
           </section>
         </div>
