@@ -192,14 +192,13 @@ export function HermanasApoyoClient({
               <TableHead>Teléfono</TableHead>
               <TableHead>Capitán</TableHead>
               <TableHead>Acceso</TableHead>
-              <TableHead className="w-[1%]"></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {hermanas.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={6}
+                  colSpan={5}
                   className="h-24 text-center text-muted-foreground"
                 >
                   Aún no se ha registrado ninguna hermana. Comparte el enlace
@@ -963,17 +962,6 @@ function HermanaRow({
             <TableCell className="text-muted-foreground">
               {hermana.device_bound_at ? "Activo" : "Sin abrir"}
             </TableCell>
-            <TableCell>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setAccessOpen(true)}
-              >
-                <LinkIcon />
-                Acceso
-              </Button>
-            </TableCell>
           </TableRow>
         </ContextMenuTrigger>
         {contextItems}
@@ -1034,16 +1022,6 @@ function HermanaRow({
                     </dd>
                   </div>
                 </dl>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="mt-4 w-full"
-                  onClick={() => setAccessOpen(true)}
-                >
-                  <LinkIcon />
-                  Acceso
-                </Button>
               </article>
             </ContextMenuTrigger>
             {contextItems}
