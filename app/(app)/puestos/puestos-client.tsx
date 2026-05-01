@@ -83,6 +83,13 @@ export function PuestosClient({
   const [areaId, setAreaId] = React.useState<string>(areas[0]?.id ?? "")
   const [state, setState] = React.useState<LocalState>({ overrides: {} })
   const [quickAddOpen, setQuickAddOpen] = React.useState(false)
+  const [search, setSearch] = React.useState("")
+  const searchNorm = search.trim().toLowerCase()
+  function matchesSearch(ac: Acomodador): boolean {
+    if (!searchNorm) return true
+    const full = `${ac.nombre} ${ac.apellido} ${ac.congregacion}`.toLowerCase()
+    return full.includes(searchNorm)
+  }
 
   const slot = `${dia}-${sesion}` as DisponibilidadSlot
   const area = areas.find((a) => a.id === areaId) ?? null
@@ -349,6 +356,24 @@ export function PuestosClient({
       </section>
 
       {area && (
+        <div className="grid gap-1.5">
+          <Label
+            htmlFor="puestos-search"
+            className="text-xs uppercase tracking-[0.15em] text-muted-foreground"
+          >
+            Buscar
+          </Label>
+          <Input
+            id="puestos-search"
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Filtrar por nombre, apellido o congregación"
+          />
+        </div>
+      )}
+
+      {area && (
         <div className="grid gap-4 lg:grid-cols-2">
           {/* Asignados */}
           <section className="rounded-xl border bg-surface p-4">
@@ -364,7 +389,7 @@ export function PuestosClient({
               </p>
             ) : (
               <ul className="divide-y">
-                {asignadosAEsta.map((ac) => (
+                {asignadosAEsta.filter(matchesSearch).map((ac) => (
                   <li
                     key={ac.id}
                     className="flex items-center gap-3 py-2"
@@ -415,6 +440,7 @@ export function PuestosClient({
             ) : (
               <ul className="divide-y">
                 {[...sinAsignar]
+                  .filter(matchesSearch)
                   .sort((a, b) => {
                     const aDisp = a.disponibilidad.includes(slot) ? 1 : 0
                     const bDisp = b.disponibilidad.includes(slot) ? 1 : 0
@@ -462,7 +488,9 @@ export function PuestosClient({
                   </span>
                 </summary>
                 <ul className="divide-y">
-                  {enOtraArea.map(({ acomodador: ac, areaId: aId }) => {
+                  {enOtraArea
+                    .filter(({ acomodador }) => matchesSearch(acomodador))
+                    .map(({ acomodador: ac, areaId: aId }) => {
                     const otherArea = areaById.get(aId)
                     return (
                       <li
