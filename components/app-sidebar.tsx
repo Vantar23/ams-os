@@ -5,7 +5,6 @@ import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { LogOutIcon, UsersRoundIcon } from "lucide-react"
 
-import { SearchForm } from "@/components/search-form"
 import {
   Sidebar,
   SidebarContent,
@@ -79,9 +78,14 @@ export function AppSidebar({
   const pathname = usePathname()
   const router = useRouter()
   const [signingOut, setSigningOut] = React.useState(false)
+  // Hide placeholder items that don't have a route yet.
+  const visibleNav = data.navMain
+    .map((g) => ({ ...g, items: g.items.filter((i) => i.url !== "#") }))
+    .filter((g) => g.items.length > 0)
+
   const groups =
     role === "capitan"
-      ? data.navMain
+      ? visibleNav
           .map((g) =>
             g.title === "Asignaciones"
               ? { ...g, items: g.items.filter((i) => i.title === "Puestos") }
@@ -92,7 +96,7 @@ export function AppSidebar({
               g.title === "Personal" ||
               (g.title === "Asignaciones" && g.items.length > 0),
           )
-      : data.navMain
+      : visibleNav
 
   async function handleSignOut() {
     setSigningOut(true)
@@ -120,7 +124,6 @@ export function AppSidebar({
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
-        <SearchForm />
       </SidebarHeader>
       <SidebarContent>
         {groups.map((group) => (
