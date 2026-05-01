@@ -104,13 +104,14 @@ export function AreasClient({
                 <TableHead>Filas</TableHead>
                 <TableHead>Acomodadores necesarios</TableHead>
                 <TableHead>Capacidad</TableHead>
+                <TableHead className="w-[1%]"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {areas.length === 0 ? (
                 <TableRow>
                   <TableCell
-                    colSpan={5}
+                    colSpan={6}
                     className="h-24 text-center text-muted-foreground"
                   >
                     Sin áreas. Agrega la primera para comenzar.
@@ -203,6 +204,17 @@ function AreaRow({
             <TableCell>{area.filas}</TableCell>
             <TableCell>{area.acomodadores_necesarios}</TableCell>
             <TableCell>{area.capacidad}</TableCell>
+            <TableCell>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setEditOpen(true)}
+              >
+                <PencilIcon />
+                Editar
+              </Button>
+            </TableCell>
           </TableRow>
         </ContextMenuTrigger>
         {contextItems}
