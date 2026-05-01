@@ -1,6 +1,7 @@
 import Link from "next/link"
 import {
   AlertOctagonIcon,
+  BookOpenIcon,
   CalendarCheckIcon,
   MapIcon,
 } from "lucide-react"
@@ -71,6 +72,12 @@ export default async function Page({
           icon={<MapIcon className="size-5" />}
           title="Mapa"
           description="Consulta las áreas del lugar."
+        />
+        <NavCard
+          href={`/acomodador/${access_token}/instrucciones`}
+          icon={<BookOpenIcon className="size-5" />}
+          title="Instrucciones"
+          description="Repasa los procedimientos antes de servir."
         />
       </nav>
 
