@@ -3,10 +3,8 @@ import { cookies } from "next/headers"
 import { AlertTriangleIcon, CheckCircle2Icon } from "lucide-react"
 
 import { createClient } from "@/lib/supabase/server"
-import type { DisponibilidadSlot } from "@/lib/disponibilidad"
 import { RememberPersonal } from "@/components/remember-personal"
 
-import { AsistenciaSection } from "./asistencia-section"
 import { ClaimView } from "./claim-view"
 
 const DEVICE_COOKIE = "hermana_apoyo_device_key"
@@ -80,17 +78,11 @@ export default async function Page({
   }
 
   return (
-    <HermanaView hermana={hermana} accessToken={access_token} />
+    <HermanaView hermana={hermana} />
   )
 }
 
-function HermanaView({
-  hermana,
-  accessToken,
-}: {
-  hermana: Hermana
-  accessToken: string
-}) {
+function HermanaView({ hermana }: { hermana: Hermana }) {
   return (
     <main className="mx-auto w-full max-w-2xl px-5 py-10 sm:py-14">
       <RememberPersonal
@@ -105,71 +97,21 @@ function HermanaView({
         {hermana.asamblea_edicion}
       </p>
       <h1 className="mt-3 font-serif text-[2rem] leading-[1.1] text-foreground sm:text-4xl sm:leading-tight">
-        Hola, {hermana.nombre}
+        Hola, {hermana.nombre} {hermana.apellido}
       </h1>
       <p className="mt-3 inline-flex items-center gap-1.5 text-xs uppercase tracking-[0.15em] text-muted-foreground">
         <CheckCircle2Icon className="size-3.5 text-foreground" />
         Acceso activo en este dispositivo
       </p>
-
-      <section className="mt-10 grid gap-6 border-t border-border pt-8 sm:grid-cols-2">
-        <Field label="Tema" value={hermana.asamblea_titulo} />
-        <Field label="Fechas" value={hermana.asamblea_fechas} />
-        <Field label="Sede" value={hermana.asamblea_sede} />
-        <Field label="Congregación" value={hermana.congregacion} />
-      </section>
-
-      <section className="mt-10 border-t border-border pt-8">
-        <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
-          Confirmación de asistencia
-        </p>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Marca las sesiones a las que vas a asistir. Tu capitán las verá
-          confirmadas.
-        </p>
-        <AsistenciaSection
-          accessToken={accessToken}
-          disponibilidad={hermana.disponibilidad as DisponibilidadSlot[]}
-          selfConfirmadas={
-            hermana.asistencia_self_confirmada as DisponibilidadSlot[]
-          }
-        />
-      </section>
-
-      <section className="mt-10 border-t border-border pt-8">
-        <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
-          Tus datos
-        </p>
-        <div className="mt-4 grid gap-4 sm:grid-cols-2">
-          <Field
-            label="Nombre"
-            value={`${hermana.nombre} ${hermana.apellido}`}
-          />
-          <Field label="Teléfono" value={hermana.telefono} />
-          {hermana.notas && (
-            <div className="sm:col-span-2">
-              <Field label="Notas" value={hermana.notas} />
-            </div>
-          )}
-        </div>
-      </section>
+      <p className="mt-2 inline-flex w-fit items-center rounded-full border border-primary/40 bg-primary/10 px-3 py-1 text-xs text-primary">
+        Estás asignada como hermana de apoyo
+      </p>
 
       <p className="mt-12 border-t border-border pt-6 text-center text-xs text-muted-foreground">
         Si pierdes este enlace, escríbele a tu capitán para que te genere uno
         nuevo.
       </p>
     </main>
-  )
-}
-
-function Field({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <p className="text-xs uppercase tracking-[0.15em] text-muted-foreground">
-        {label}
-      </p>
-      <p className="mt-1.5 text-sm text-foreground">{value}</p>
-    </div>
   )
 }
 
