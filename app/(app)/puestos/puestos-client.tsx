@@ -153,6 +153,22 @@ export function PuestosClient({
 
   const areaById = new Map(areas.map((a) => [a.id, a]))
 
+  // Per-area headcount for current slot.
+  const headcountByArea = new Map<string, number>()
+  for (const ac of acomodadores) {
+    const target = currentAreaFor(ac.id)
+    if (!target) continue
+    headcountByArea.set(target, (headcountByArea.get(target) ?? 0) + 1)
+  }
+
+  const areaShortfalls = areas.map((a) => {
+    const asignados = headcountByArea.get(a.id) ?? 0
+    const faltan = Math.max(0, a.acomodadores_necesarios - asignados)
+    return { area: a, asignados, faltan }
+  })
+
+  const totalFaltantes = areaShortfalls.reduce((s, x) => s + x.faltan, 0)
+
   if (areas.length === 0) {
     return (
       <div className="flex flex-1 flex-col gap-4 p-4">
@@ -247,6 +263,65 @@ export function PuestosClient({
           </Select>
         </div>
       </div>
+
+      {/* Faltantes resumen */}
+      <section className="rounded-xl border bg-surface p-4">
+        <div className="flex items-baseline justify-between gap-3">
+          <h3 className="text-xs font-medium uppercase tracking-[0.15em] text-muted-foreground">
+            Faltantes en este turno
+          </h3>
+          <p
+            className={cn(
+              "text-sm",
+              totalFaltantes > 0
+                ? "text-destructive"
+                : "text-muted-foreground",
+            )}
+          >
+            {totalFaltantes === 0
+              ? "Todas las áreas cubiertas"
+              : `${totalFaltantes} acomodador${totalFaltantes === 1 ? "" : "es"} por asignar`}
+          </p>
+        </div>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {areaShortfalls.map(({ area: a, asignados, faltan }) => {
+            const active = a.id === areaId
+            const short = faltan > 0
+            return (
+              <button
+                key={a.id}
+                type="button"
+                onClick={() => setAreaId(a.id)}
+                className={cn(
+                  "flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs transition-colors",
+                  active
+                    ? "border-primary bg-primary/10 text-foreground"
+                    : "border-border bg-background hover:bg-muted",
+                  short &&
+                    !active &&
+                    "border-destructive/40 bg-destructive/5 text-destructive",
+                  short && active && "border-destructive",
+                )}
+              >
+                <span className="font-medium">{a.nombre}</span>
+                <span
+                  className={cn(
+                    "tabular-nums",
+                    short ? "text-destructive" : "text-muted-foreground",
+                  )}
+                >
+                  {asignados}/{a.acomodadores_necesarios}
+                </span>
+                {short && (
+                  <span className="rounded-full bg-destructive px-1.5 py-0.5 text-[10px] font-medium text-destructive-foreground">
+                    -{faltan}
+                  </span>
+                )}
+              </button>
+            )
+          })}
+        </div>
+      </section>
 
       {area && (
         <div className="grid gap-4 lg:grid-cols-2">
