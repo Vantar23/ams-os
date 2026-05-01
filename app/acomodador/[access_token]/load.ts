@@ -71,6 +71,34 @@ export async function loadAcomodadorByToken(
   return { kind: "ok", acomodador }
 }
 
+export type Asignacion = {
+  asignacion_id: string
+  slot: string
+  area_id: string
+  area_piso: string
+  area_nombre: string
+  area_filas: number
+  area_capacidad: number
+  lugares_vacios: number | null
+  reportado_at: string | null
+}
+
+export async function loadAsignaciones(
+  accessToken: string,
+): Promise<Asignacion[]> {
+  const cookieStore = await cookies()
+  const deviceKey = cookieStore.get(DEVICE_COOKIE)?.value
+  if (!deviceKey) return []
+  const deviceKeyHash = await sha256(deviceKey)
+  const supabase = await createClient()
+  const { data, error } = await supabase.rpc("acomodador_get_asignaciones", {
+    p_access_token: accessToken,
+    p_device_key_hash: deviceKeyHash,
+  })
+  if (error) return []
+  return (data ?? []) as Asignacion[]
+}
+
 async function sha256(input: string): Promise<string> {
   const buf = await crypto.subtle.digest(
     "SHA-256",

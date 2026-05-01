@@ -27,6 +27,31 @@ export async function claimAccess(
   return { ok: true, error: null }
 }
 
+export async function reportarLugaresVacios(input: {
+  accessToken: string
+  asignacionId: string
+  lugares: number
+}): Promise<{ ok: boolean; error: string | null }> {
+  if (!Number.isFinite(input.lugares) || input.lugares < 0) {
+    return { ok: false, error: "Cantidad inválida." }
+  }
+  const cookieStore = await cookies()
+  const deviceKey = cookieStore.get(DEVICE_COOKIE)?.value
+  if (!deviceKey) return { ok: false, error: "no_cookie" }
+
+  const deviceKeyHash = await sha256(deviceKey)
+  const supabase = await createClient()
+  const { error } = await supabase.rpc("acomodador_reportar_lugares", {
+    p_access_token: input.accessToken,
+    p_device_key_hash: deviceKeyHash,
+    p_asignacion_id: input.asignacionId,
+    p_lugares: input.lugares,
+  })
+  if (error) return { ok: false, error: error.message }
+  revalidatePath(`/acomodador/${input.accessToken}/asistencia`)
+  return { ok: true, error: null }
+}
+
 export async function toggleSelfAsistencia(input: {
   accessToken: string
   slot: string
