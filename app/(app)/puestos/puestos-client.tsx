@@ -356,24 +356,6 @@ export function PuestosClient({
       </section>
 
       {area && (
-        <div className="grid gap-1.5">
-          <Label
-            htmlFor="puestos-search"
-            className="text-xs uppercase tracking-[0.15em] text-muted-foreground"
-          >
-            Buscar
-          </Label>
-          <Input
-            id="puestos-search"
-            type="search"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Filtrar por nombre, apellido o congregación"
-          />
-        </div>
-      )}
-
-      {area && (
         <div className="grid gap-4 lg:grid-cols-2">
           {/* Asignados */}
           <section className="rounded-xl border bg-surface p-4">
@@ -433,6 +415,14 @@ export function PuestosClient({
                 Agregar acomodador
               </Button>
             </div>
+            <Input
+              type="search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Buscar por nombre, apellido o congregación"
+              className="mt-3"
+              aria-label="Buscar acomodador"
+            />
             {sinAsignar.length === 0 ? (
               <p className="py-4 text-sm text-muted-foreground">
                 Todos los acomodadores ya tienen asignación para este turno.
