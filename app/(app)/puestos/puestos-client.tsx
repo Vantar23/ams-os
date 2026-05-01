@@ -30,6 +30,7 @@ import {
   type DisponibilidadSesion,
   type DisponibilidadSlot,
 } from "@/lib/disponibilidad"
+import { useMediaQuery } from "@/lib/use-media-query"
 import { cn } from "@/lib/utils"
 
 import { asignarPuesto, quitarPuesto } from "./actions"
@@ -88,6 +89,7 @@ export function PuestosClient({
   const [state, setState] = React.useState<LocalState>({ overrides: {} })
   const [quickAddOpen, setQuickAddOpen] = React.useState(false)
   const [search, setSearch] = React.useState("")
+  const isDesktop = useMediaQuery("(min-width: 768px)")
   const searchNorm = stripAccents(search.trim().toLowerCase())
   function matchesSearch(ac: Acomodador): boolean {
     if (!searchNorm) return true
@@ -362,7 +364,12 @@ export function PuestosClient({
       </section>
 
       {area && (
-        <div className="grid items-start gap-4 md:grid-cols-2">
+        <div
+          className="grid items-start gap-4"
+          style={{
+            gridTemplateColumns: isDesktop ? "1fr 1fr" : "1fr",
+          }}
+        >
           {/* Asignados */}
           <section className="rounded-xl border bg-surface p-4">
             <div className="mb-3 flex items-baseline justify-between gap-3 border-b pb-2">
