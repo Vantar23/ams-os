@@ -1,6 +1,6 @@
 import Link from "next/link"
 import { cookies } from "next/headers"
-import { AlertTriangleIcon, CheckCircle2Icon } from "lucide-react"
+import { AlertTriangleIcon } from "lucide-react"
 
 import { createClient } from "@/lib/supabase/server"
 import { RememberPersonal } from "@/components/remember-personal"
@@ -97,11 +97,7 @@ function AcomodadorView({ acomodador }: { acomodador: Acomodador }) {
       <h1 className="mt-3 font-serif text-[2rem] leading-[1.1] text-foreground sm:text-4xl sm:leading-tight">
         Hola, {acomodador.nombre} {acomodador.apellido}
       </h1>
-      <p className="mt-3 inline-flex items-center gap-1.5 text-xs uppercase tracking-[0.15em] text-muted-foreground">
-        <CheckCircle2Icon className="size-3.5 text-foreground" />
-        Acceso activo en este dispositivo
-      </p>
-      <p className="mt-2 inline-flex w-fit items-center rounded-full border border-primary/40 bg-primary/10 px-3 py-1 text-xs text-primary">
+      <p className="mt-3 inline-flex w-fit items-center rounded-full border border-primary/40 bg-primary/10 px-3 py-1 text-xs text-primary">
         Estás asignado como acomodador
       </p>
 
