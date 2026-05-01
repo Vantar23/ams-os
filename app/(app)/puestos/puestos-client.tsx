@@ -219,7 +219,7 @@ export function PuestosClient({
       </div>
 
       {/* Filters: día, turno, área */}
-      <div className="grid gap-3 rounded-xl border bg-surface p-4 sm:grid-cols-[auto_auto_1fr] sm:items-end">
+      <div className="flex flex-wrap items-end gap-4 rounded-xl border bg-surface p-4">
         <div className="grid gap-1.5">
           <Label className="text-xs uppercase tracking-[0.15em] text-muted-foreground">
             Día
@@ -266,7 +266,7 @@ export function PuestosClient({
           </div>
         </div>
 
-        <div className="grid gap-1.5">
+        <div className="grid min-w-[200px] flex-1 gap-1.5">
           <Label
             htmlFor="area"
             className="text-xs uppercase tracking-[0.15em] text-muted-foreground"
@@ -274,7 +274,7 @@ export function PuestosClient({
             Área
           </Label>
           <Select value={areaId} onValueChange={setAreaId}>
-            <SelectTrigger id="area">
+            <SelectTrigger id="area" className="w-full">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -290,7 +290,7 @@ export function PuestosClient({
 
       {/* Faltantes resumen */}
       <section className="rounded-xl border bg-surface p-4">
-        <div className="flex items-baseline justify-between gap-3">
+        <div className="flex flex-wrap items-baseline justify-between gap-3">
           <h3 className="text-xs font-medium uppercase tracking-[0.15em] text-muted-foreground">
             Faltantes en este turno
           </h3>
@@ -362,7 +362,7 @@ export function PuestosClient({
       </section>
 
       {area && (
-        <div className="grid gap-4 lg:grid-cols-2">
+        <div className="grid items-start gap-4 md:grid-cols-2">
           {/* Asignados */}
           <section className="rounded-xl border bg-surface p-4">
             <div className="mb-3 flex items-baseline justify-between gap-3 border-b pb-2">
