@@ -2,9 +2,19 @@
 
 import * as React from "react"
 import { useRouter } from "next/navigation"
-import { MinusIcon, PlusIcon } from "lucide-react"
+import { MinusIcon, PlusIcon, UserPlusIcon } from "lucide-react"
 
+import { agregarAcomodadorManual } from "@/app/(app)/acomodadores/actions"
 import { Button } from "@/components/ui/button"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import {
   Select,
@@ -72,6 +82,7 @@ export function PuestosClient({
   const [sesion, setSesion] = React.useState<DisponibilidadSesion>("manana")
   const [areaId, setAreaId] = React.useState<string>(areas[0]?.id ?? "")
   const [state, setState] = React.useState<LocalState>({ overrides: {} })
+  const [quickAddOpen, setQuickAddOpen] = React.useState(false)
 
   const slot = `${dia}-${sesion}` as DisponibilidadSlot
   const area = areas.find((a) => a.id === areaId) ?? null
@@ -387,6 +398,15 @@ export function PuestosClient({
               <h3 className="text-xs font-medium uppercase tracking-[0.15em] text-muted-foreground">
                 Sin asignar ({sinAsignar.length})
               </h3>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setQuickAddOpen(true)}
+              >
+                <UserPlusIcon />
+                Agregar acomodador
+              </Button>
             </div>
             {sinAsignar.length === 0 ? (
               <p className="py-4 text-sm text-muted-foreground">
@@ -467,6 +487,149 @@ export function PuestosClient({
           </section>
         </div>
       )}
+
+      <QuickAddAcomodadorDialog
+        open={quickAddOpen}
+        onOpenChange={setQuickAddOpen}
+        asambleaId={asamblea.id}
+        slot={slot}
+        onCreated={() => router.refresh()}
+      />
     </div>
+  )
+}
+
+function QuickAddAcomodadorDialog({
+  open,
+  onOpenChange,
+  asambleaId,
+  slot,
+  onCreated,
+}: {
+  open: boolean
+  onOpenChange: (v: boolean) => void
+  asambleaId: string
+  slot: DisponibilidadSlot
+  onCreated: () => void
+}) {
+  const [submitting, setSubmitting] = React.useState(false)
+  const [error, setError] = React.useState<string | null>(null)
+  const [includeCurrentSlot, setIncludeCurrentSlot] = React.useState(true)
+
+  React.useEffect(() => {
+    if (!open) {
+      setError(null)
+      setIncludeCurrentSlot(true)
+    }
+  }, [open])
+
+  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    const fd = new FormData(e.currentTarget)
+    const nombre = String(fd.get("nombre") ?? "").trim()
+    const apellido = String(fd.get("apellido") ?? "").trim()
+    const congregacion = String(fd.get("congregacion") ?? "").trim()
+    const telefono = String(fd.get("telefono") ?? "").trim()
+    if (!nombre || !apellido || !congregacion || !telefono) {
+      setError("Todos los campos son requeridos.")
+      return
+    }
+    setSubmitting(true)
+    setError(null)
+    const { error: err } = await agregarAcomodadorManual(asambleaId, {
+      nombre,
+      apellido,
+      congregacion,
+      telefono,
+      notas: "",
+      capitanId: null,
+      disponibilidad: includeCurrentSlot ? [slot] : [],
+    })
+    setSubmitting(false)
+    if (err) {
+      setError(err)
+      return
+    }
+    onCreated()
+    onOpenChange(false)
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Agregar acomodador</DialogTitle>
+          <DialogDescription>
+            Lo agregamos al pool de "Sin asignar". Puedes editar disponibilidad
+            o el capitán asignado más tarde desde Acomodadores.
+          </DialogDescription>
+        </DialogHeader>
+        <form onSubmit={onSubmit} className="grid gap-4">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid gap-1.5">
+              <Label htmlFor="qa-nombre">Nombre</Label>
+              <Input id="qa-nombre" name="nombre" placeholder="Juan" required />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="qa-apellido">Apellido</Label>
+              <Input
+                id="qa-apellido"
+                name="apellido"
+                placeholder="Pérez"
+                required
+              />
+            </div>
+          </div>
+          <div className="grid gap-1.5">
+            <Label htmlFor="qa-congregacion">Congregación</Label>
+            <Input
+              id="qa-congregacion"
+              name="congregacion"
+              placeholder="Centro"
+              required
+            />
+          </div>
+          <div className="grid gap-1.5">
+            <Label htmlFor="qa-telefono">Teléfono</Label>
+            <Input
+              id="qa-telefono"
+              name="telefono"
+              type="tel"
+              inputMode="tel"
+              placeholder="5512345678"
+              onKeyDown={(e) => {
+                if (e.key === " ") e.preventDefault()
+              }}
+              required
+            />
+          </div>
+          <label className="flex items-start gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={includeCurrentSlot}
+              onChange={(e) => setIncludeCurrentSlot(e.target.checked)}
+              className="mt-0.5"
+            />
+            <span className="text-muted-foreground">
+              Marcarlo como disponible para este turno (
+              <span className="text-foreground">{slot}</span>) para que aparezca
+              listo para asignar.
+            </span>
+          </label>
+
+          {error && <p className="text-sm text-destructive">{error}</p>}
+
+          <DialogFooter>
+            <Button
+              type="submit"
+              disabled={submitting}
+              className="w-full sm:w-auto"
+            >
+              {submitting ? "Guardando…" : "Guardar"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   )
 }
