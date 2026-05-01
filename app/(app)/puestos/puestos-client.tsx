@@ -287,6 +287,7 @@ export function PuestosClient({
           {areaShortfalls.map(({ area: a, asignados, faltan }) => {
             const active = a.id === areaId
             const short = faltan > 0
+            const complete = !short && a.acomodadores_necesarios > 0
             return (
               <button
                 key={a.id}
@@ -301,13 +302,21 @@ export function PuestosClient({
                     !active &&
                     "border-destructive/40 bg-destructive/5 text-destructive",
                   short && active && "border-destructive",
+                  complete &&
+                    !active &&
+                    "border-primary/50 bg-primary/10 text-primary",
+                  complete && active && "border-primary",
                 )}
               >
                 <span className="font-medium">{a.nombre}</span>
                 <span
                   className={cn(
                     "tabular-nums",
-                    short ? "text-destructive" : "text-muted-foreground",
+                    short
+                      ? "text-destructive"
+                      : complete
+                        ? "text-primary"
+                        : "text-muted-foreground",
                   )}
                 >
                   {asignados}/{a.acomodadores_necesarios}
@@ -315,6 +324,11 @@ export function PuestosClient({
                 {short && (
                   <span className="rounded-full bg-destructive px-1.5 py-0.5 text-[10px] font-medium text-destructive-foreground">
                     -{faltan}
+                  </span>
+                )}
+                {complete && (
+                  <span className="rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-medium text-primary-foreground">
+                    OK
                   </span>
                 )}
               </button>
