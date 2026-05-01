@@ -359,7 +359,7 @@ export function PuestosClient({
         <div className="grid gap-4 lg:grid-cols-2">
           {/* Asignados */}
           <section className="rounded-xl border bg-surface p-4">
-            <div className="flex items-baseline justify-between gap-3 border-b pb-2">
+            <div className="mb-3 flex items-baseline justify-between gap-3 border-b pb-2">
               <h3 className="text-xs font-medium uppercase tracking-[0.15em] text-muted-foreground">
                 Asignados a {area.nombre} ({asignadosAEsta.length} /{" "}
                 {area.acomodadores_necesarios})
@@ -401,7 +401,7 @@ export function PuestosClient({
 
           {/* Sin asignar (+ otra area) */}
           <section className="rounded-xl border bg-surface p-4">
-            <div className="flex items-baseline justify-between gap-3 border-b pb-2">
+            <div className="mb-3 flex items-baseline justify-between gap-3 border-b pb-2">
               <h3 className="text-xs font-medium uppercase tracking-[0.15em] text-muted-foreground">
                 Sin asignar ({sinAsignar.length})
               </h3>
