@@ -414,7 +414,14 @@ export function PuestosClient({
               </p>
             ) : (
               <ul className="divide-y">
-                {sinAsignar.map((ac) => {
+                {[...sinAsignar]
+                  .sort((a, b) => {
+                    const aDisp = a.disponibilidad.includes(slot) ? 1 : 0
+                    const bDisp = b.disponibilidad.includes(slot) ? 1 : 0
+                    if (aDisp !== bDisp) return bDisp - aDisp
+                    return a.nombre.localeCompare(b.nombre)
+                  })
+                  .map((ac) => {
                   const disponible = ac.disponibilidad.includes(slot)
                   return (
                     <li
