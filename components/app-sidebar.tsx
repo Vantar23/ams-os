@@ -44,7 +44,7 @@ const data = {
     {
       title: "Asignaciones",
       items: [
-        { title: "Puestos", url: "#" },
+        { title: "Puestos", url: "/puestos" },
         { title: "Turnos", url: "#" },
         { title: "Tablero", url: "#" },
       ],
