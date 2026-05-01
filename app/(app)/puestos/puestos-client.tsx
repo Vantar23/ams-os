@@ -34,6 +34,10 @@ import { cn } from "@/lib/utils"
 
 import { asignarPuesto, quitarPuesto } from "./actions"
 
+function stripAccents(s: string): string {
+  return s.normalize("NFD").replace(/\p{Diacritic}/gu, "")
+}
+
 type Asamblea = { id: string; numero: string; edicion: string }
 
 type Area = {
@@ -84,10 +88,12 @@ export function PuestosClient({
   const [state, setState] = React.useState<LocalState>({ overrides: {} })
   const [quickAddOpen, setQuickAddOpen] = React.useState(false)
   const [search, setSearch] = React.useState("")
-  const searchNorm = search.trim().toLowerCase()
+  const searchNorm = stripAccents(search.trim().toLowerCase())
   function matchesSearch(ac: Acomodador): boolean {
     if (!searchNorm) return true
-    const full = `${ac.nombre} ${ac.apellido} ${ac.congregacion}`.toLowerCase()
+    const full = stripAccents(
+      `${ac.nombre} ${ac.apellido} ${ac.congregacion}`.toLowerCase(),
+    )
     return full.includes(searchNorm)
   }
 
