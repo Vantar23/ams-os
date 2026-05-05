@@ -132,6 +132,12 @@ export function CapitanRegistroForm({
         setSubmitError(error.message)
         return
       }
+      if (data.user && (data.user.identities?.length ?? 0) === 0) {
+        setSubmitError(
+          "Ya existe una cuenta con este correo. Inicia sesión y pídele al organizador que te agregue como capitán desde el panel.",
+        )
+        return
+      }
       if (!data.session) {
         setSubmitError(
           "Tu cuenta se creó pero falta confirmar el correo. Pídele al organizador que apague 'Confirm email' o que te re-envíe el enlace.",
