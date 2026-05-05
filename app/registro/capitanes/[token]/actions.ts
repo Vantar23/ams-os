@@ -1,5 +1,6 @@
 "use server"
 
+import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
 
 export async function submitCapitanRegistro(input: {
@@ -42,5 +43,31 @@ export async function submitCapitanRegistro(input: {
     }
     return { ok: false, error: message }
   }
+
+  // Grant the captain access to the dashboard for this asamblea by adding a
+  // membership row. The RPC creates the capitanes row but doesn't manage
+  // asamblea_miembros, which is what the proxy/layout check.
+  const admin = createAdminClient()
+  const { data: capitan } = await admin
+    .from("capitanes")
+    .select("asamblea_id")
+    .eq("user_id", user.id)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (capitan?.asamblea_id) {
+    const { error: miembroErr } = await admin
+      .from("asamblea_miembros")
+      .insert({
+        asamblea_id: capitan.asamblea_id,
+        user_id: user.id,
+        role: "capitan",
+      })
+    if (miembroErr && miembroErr.code !== "23505") {
+      return { ok: false, error: miembroErr.message }
+    }
+  }
+
   return { ok: true, error: null }
 }
