@@ -31,6 +31,7 @@ export type AsambleaFormValues = {
   diasLabel: string
   sesionesCount: string
   sesionesLabel: string
+  whatsappGrupoUrl: string
 }
 
 export const INITIAL_ASAMBLEA: AsambleaFormValues = {
@@ -44,6 +45,7 @@ export const INITIAL_ASAMBLEA: AsambleaFormValues = {
   diasLabel: "Vie · Sáb · Dom",
   sesionesCount: "6",
   sesionesLabel: "Mañana y tarde",
+  whatsappGrupoUrl: "",
 }
 
 export const EMPTY_ASAMBLEA: AsambleaFormValues = {
@@ -57,6 +59,7 @@ export const EMPTY_ASAMBLEA: AsambleaFormValues = {
   diasLabel: "",
   sesionesCount: "",
   sesionesLabel: "",
+  whatsappGrupoUrl: "",
 }
 
 type Props = {
@@ -152,6 +155,20 @@ export function AsambleaFormFields({ values, onChange }: Props) {
                 ))}
               </SelectContent>
             </Select>
+          </Field>
+          <Field
+            label="Grupo de WhatsApp"
+            id="whatsappGrupoUrl"
+            hint="Enlace de invitación al grupo (chat.whatsapp.com/...)."
+          >
+            <Input
+              id="whatsappGrupoUrl"
+              type="url"
+              inputMode="url"
+              placeholder="https://chat.whatsapp.com/..."
+              value={values.whatsappGrupoUrl ?? ""}
+              onChange={(e) => onChange("whatsappGrupoUrl", e.target.value)}
+            />
           </Field>
         </div>
       </section>

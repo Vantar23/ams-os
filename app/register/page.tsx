@@ -109,6 +109,7 @@ export default function RegisterPage() {
       dias_label: asamblea.diasLabel,
       sesiones_count: Number(asamblea.sesionesCount),
       sesiones_label: asamblea.sesionesLabel,
+      whatsapp_grupo_url: asamblea.whatsappGrupoUrl.trim() || null,
     })
     setCreatingAsamblea(false)
     if (error) {
