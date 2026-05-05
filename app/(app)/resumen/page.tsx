@@ -2,85 +2,202 @@ import Link from "next/link"
 import { ArrowUpRightIcon } from "lucide-react"
 
 import { PageHeader } from "@/components/page-header"
+import { Button } from "@/components/ui/button"
+import { createClient } from "@/lib/supabase/server"
 
-const ASAMBLEA = {
-  edicion: "Asamblea Regional 2026",
-  titulo: "Manténganse alerta",
-  fechas: "2 al 4 de octubre, 2026",
-  sede: "Centro de Convenciones — Ciudad de México",
-  estado: "En preparación",
+type Asamblea = {
+  id: string
+  numero: number | string | null
+  edicion: string | null
+  titulo: string | null
+  fechas: string | null
+  sede: string | null
+  estado: string | null
+  dias_count: number | null
+  dias_label: string | null
+  sesiones_count: number | null
+  sesiones_label: string | null
 }
 
-const KPIS = [
-  { label: "Días", value: "3", hint: "Vie · Sáb · Dom" },
-  { label: "Sesiones", value: "6", hint: "Mañana y tarde" },
-  { label: "Personal", value: "30", hint: "24 acomodadores · 6 capitanes" },
-  { label: "Disponibilidad", value: "75%", hint: "18 de 24 confirmados" },
-] as const
+type Area = {
+  id: string
+  piso: string | null
+  nombre: string | null
+  acomodadores_necesarios: number | null
+  capacidad: number | null
+}
 
-const HITOS = [
-  {
-    fecha: "18 ago 2026",
-    titulo: "Cierre de captura de personal",
-    detalle: "Última fecha para registrar acomodadores y capitanes.",
-    estado: "Pendiente",
-  },
-  {
-    fecha: "5 sep 2026",
-    titulo: "Cierre de disponibilidad",
-    detalle:
-      "Cada hermano debe haber marcado las sesiones en las que puede servir.",
-    estado: "Pendiente",
-  },
-  {
-    fecha: "20 sep 2026",
-    titulo: "Distribución de turnos",
-    detalle: "Asignación final de puestos por sesión.",
-    estado: "Pendiente",
-  },
-  {
-    fecha: "1 oct 2026",
-    titulo: "Ensayo general",
-    detalle: "Reunión con capitanes y revisión de áreas.",
-    estado: "Pendiente",
-  },
-] as const
+type Persona = { id: string; disponibilidad: string[] | null }
 
-const DEPARTAMENTOS = [
-  { nombre: "Acomodadores", total: 24, completos: 18, href: "/acomodadores" },
-  { nombre: "Capitanes", total: 6, completos: 6, href: "/capitanes" },
-  { nombre: "Disponibilidad", total: 30, completos: 22, href: "/disponibilidad" },
-] as const
+export default async function ResumenPage() {
+  const supabase = await createClient()
 
-export default function ResumenPage() {
+  const { data: asambleas } = await supabase
+    .from("asambleas")
+    .select(
+      "id, numero, edicion, titulo, fechas, sede, estado, dias_count, dias_label, sesiones_count, sesiones_label",
+    )
+    .order("created_at", { ascending: false })
+    .limit(1)
+
+  const asamblea = asambleas?.[0] as Asamblea | undefined
+
+  if (!asamblea) {
+    return (
+      <>
+        <PageHeader parent="Asamblea" title="Resumen" />
+        <div className="flex flex-1 items-center justify-center p-10">
+          <div className="max-w-md text-center">
+            <h2 className="font-serif text-2xl">Aún no tienes una asamblea</h2>
+            <p className="mt-3 text-sm text-muted-foreground">
+              Crea tu primera asamblea para ver el resumen.
+            </p>
+            <Button asChild className="mt-6">
+              <Link href="/register">Crear asamblea</Link>
+            </Button>
+          </div>
+        </div>
+      </>
+    )
+  }
+
+  const [
+    { data: capitanes },
+    { data: acomodadores },
+    { data: hermanas },
+    { data: areas },
+    { count: asignacionesCount },
+  ] = await Promise.all([
+    supabase
+      .from("capitanes")
+      .select("id, disponibilidad")
+      .eq("asamblea_id", asamblea.id),
+    supabase
+      .from("acomodadores")
+      .select("id, disponibilidad")
+      .eq("asamblea_id", asamblea.id),
+    supabase
+      .from("hermanas_apoyo")
+      .select("id, disponibilidad")
+      .eq("asamblea_id", asamblea.id),
+    supabase
+      .from("areas")
+      .select("id, piso, nombre, acomodadores_necesarios, capacidad")
+      .eq("asamblea_id", asamblea.id)
+      .order("piso", { ascending: true })
+      .order("nombre", { ascending: true }),
+    supabase
+      .from("asignaciones")
+      .select("acomodador_id", { count: "exact", head: true })
+      .eq("asamblea_id", asamblea.id),
+  ])
+
+  const withSlots = (rows: Persona[] | null) =>
+    (rows ?? []).filter((r) => (r.disponibilidad?.length ?? 0) > 0).length
+
+  const capitanesList = (capitanes ?? []) as Persona[]
+  const acomodadoresList = (acomodadores ?? []) as Persona[]
+  const hermanasList = (hermanas ?? []) as Persona[]
+  const areasList = (areas ?? []) as Area[]
+
+  const totalPersonal =
+    capitanesList.length + acomodadoresList.length + hermanasList.length
+
+  const acomodadoresNecesarios = areasList.reduce(
+    (sum, a) => sum + (a.acomodadores_necesarios ?? 0),
+    0,
+  )
+  const capacidadTotal = areasList.reduce(
+    (sum, a) => sum + (a.capacidad ?? 0),
+    0,
+  )
+
+  const KPIS = [
+    {
+      label: "Días",
+      value: asamblea.dias_count != null ? String(asamblea.dias_count) : "—",
+      hint: asamblea.dias_label ?? "Sin detalle",
+    },
+    {
+      label: "Sesiones",
+      value:
+        asamblea.sesiones_count != null
+          ? String(asamblea.sesiones_count)
+          : "—",
+      hint: asamblea.sesiones_label ?? "Sin detalle",
+    },
+    {
+      label: "Personal",
+      value: String(totalPersonal),
+      hint: `${acomodadoresList.length} acomodadores · ${capitanesList.length} capitanes · ${hermanasList.length} hermanas`,
+    },
+    {
+      label: "Áreas",
+      value: String(areasList.length),
+      hint:
+        areasList.length === 0
+          ? "Sin áreas registradas"
+          : `${capacidadTotal} asientos · ${acomodadoresNecesarios} acomodadores necesarios`,
+    },
+  ] as const
+
+  const DEPARTAMENTOS = [
+    {
+      nombre: "Acomodadores",
+      total: acomodadoresList.length,
+      completos: withSlots(acomodadoresList),
+      href: "/acomodadores",
+    },
+    {
+      nombre: "Capitanes",
+      total: capitanesList.length,
+      completos: withSlots(capitanesList),
+      href: "/capitanes",
+    },
+    {
+      nombre: "Hermanas de apoyo",
+      total: hermanasList.length,
+      completos: withSlots(hermanasList),
+      href: "/hermanas-de-apoyo",
+    },
+  ] as const
+
   return (
     <>
       <PageHeader parent="Asamblea" title="Resumen" />
       <div className="mx-auto w-full max-w-5xl flex-1 px-4 py-10 lg:px-10">
         <header>
-          <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
-            {ASAMBLEA.edicion}
-          </p>
+          {asamblea.edicion && (
+            <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+              {asamblea.edicion}
+            </p>
+          )}
           <h1 className="mt-2 font-serif text-4xl text-foreground sm:text-5xl">
-            {ASAMBLEA.titulo}
+            {asamblea.titulo ?? "Asamblea"}
           </h1>
           <dl className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-muted-foreground">
-            <div className="flex items-baseline gap-2">
-              <dt className="text-xs uppercase tracking-[0.15em]">Fechas</dt>
-              <dd className="text-foreground">{ASAMBLEA.fechas}</dd>
-            </div>
-            <div className="flex items-baseline gap-2">
-              <dt className="text-xs uppercase tracking-[0.15em]">Sede</dt>
-              <dd className="text-foreground">{ASAMBLEA.sede}</dd>
-            </div>
-            <div className="flex items-baseline gap-2">
-              <dt className="text-xs uppercase tracking-[0.15em]">Estado</dt>
-              <dd>
-                <span className="rounded-full border border-border px-2 py-0.5 text-xs text-foreground">
-                  {ASAMBLEA.estado}
-                </span>
-              </dd>
-            </div>
+            {asamblea.fechas && (
+              <div className="flex items-baseline gap-2">
+                <dt className="text-xs uppercase tracking-[0.15em]">Fechas</dt>
+                <dd className="text-foreground">{asamblea.fechas}</dd>
+              </div>
+            )}
+            {asamblea.sede && (
+              <div className="flex items-baseline gap-2">
+                <dt className="text-xs uppercase tracking-[0.15em]">Sede</dt>
+                <dd className="text-foreground">{asamblea.sede}</dd>
+              </div>
+            )}
+            {asamblea.estado && (
+              <div className="flex items-baseline gap-2">
+                <dt className="text-xs uppercase tracking-[0.15em]">Estado</dt>
+                <dd>
+                  <span className="rounded-full border border-border px-2 py-0.5 text-xs text-foreground">
+                    {asamblea.estado}
+                  </span>
+                </dd>
+              </div>
+            )}
           </dl>
         </header>
 
@@ -101,29 +218,48 @@ export default function ResumenPage() {
         <div className="mt-12 grid gap-10 lg:grid-cols-[1.4fr_1fr]">
           <section>
             <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
-              Hitos
+              Lugar
             </p>
-            <h2 className="mt-2 font-serif text-2xl">Próximos pasos</h2>
-            <ol className="mt-4 divide-y divide-border rounded-md border border-border bg-surface">
-              {HITOS.map((h) => (
-                <li key={h.titulo} className="flex gap-4 px-5 py-4">
-                  <div className="w-28 shrink-0 text-xs uppercase tracking-[0.15em] text-muted-foreground">
-                    {h.fecha}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="font-medium text-foreground">{h.titulo}</p>
-                    <p className="mt-0.5 text-sm text-muted-foreground">
-                      {h.detalle}
-                    </p>
-                  </div>
-                  <div className="shrink-0">
-                    <span className="rounded-full border border-border px-2 py-0.5 text-xs text-muted-foreground">
-                      {h.estado}
-                    </span>
-                  </div>
-                </li>
-              ))}
-            </ol>
+            <h2 className="mt-2 font-serif text-2xl">Áreas y puestos</h2>
+            {areasList.length === 0 ? (
+              <div className="mt-4 rounded-md border border-dashed border-border bg-surface px-5 py-8 text-center">
+                <p className="text-sm text-muted-foreground">
+                  Aún no has registrado áreas.
+                </p>
+                <Button asChild variant="outline" size="sm" className="mt-4">
+                  <Link href="/areas">Registrar áreas</Link>
+                </Button>
+              </div>
+            ) : (
+              <>
+                <ol className="mt-4 divide-y divide-border rounded-md border border-border bg-surface">
+                  {areasList.map((a) => (
+                    <li key={a.id} className="flex gap-4 px-5 py-4">
+                      <div className="w-28 shrink-0 text-xs uppercase tracking-[0.15em] text-muted-foreground">
+                        {a.piso ?? "—"}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium text-foreground">
+                          {a.nombre ?? "Sin nombre"}
+                        </p>
+                        <p className="mt-0.5 text-sm text-muted-foreground">
+                          {a.acomodadores_necesarios ?? 0} acomodadores
+                          {a.capacidad != null
+                            ? ` · capacidad ${a.capacidad}`
+                            : ""}
+                        </p>
+                      </div>
+                    </li>
+                  ))}
+                </ol>
+                <p className="mt-3 text-xs text-muted-foreground">
+                  {areasList.length} áreas ·{" "}
+                  {acomodadoresNecesarios} acomodadores necesarios ·{" "}
+                  {capacidadTotal} asientos · {asignacionesCount ?? 0} puestos
+                  asignados
+                </p>
+              </>
+            )}
           </section>
 
           <section>
@@ -133,7 +269,8 @@ export default function ResumenPage() {
             <h2 className="mt-2 font-serif text-2xl">Estado del personal</h2>
             <ul className="mt-4 divide-y divide-border rounded-md border border-border bg-surface">
               {DEPARTAMENTOS.map((d) => {
-                const pct = Math.round((d.completos / d.total) * 100)
+                const pct =
+                  d.total === 0 ? 0 : Math.round((d.completos / d.total) * 100)
                 return (
                   <li key={d.nombre}>
                     <Link
@@ -145,7 +282,9 @@ export default function ResumenPage() {
                           {d.nombre}
                         </p>
                         <p className="mt-0.5 text-xs text-muted-foreground">
-                          {d.completos} de {d.total} · {pct}%
+                          {d.total === 0
+                            ? "Sin personal registrado"
+                            : `${d.completos} de ${d.total} con disponibilidad · ${pct}%`}
                         </p>
                       </div>
                       <ArrowUpRightIcon className="size-4 shrink-0 text-muted-foreground" />
