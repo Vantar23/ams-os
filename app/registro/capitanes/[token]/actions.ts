@@ -2,15 +2,13 @@
 
 import { createClient } from "@/lib/supabase/server"
 
-import type { AreaCapitan } from "@/app/(app)/capitanes/areas"
-
 export async function submitCapitanRegistro(input: {
   token: string
   nombre: string
   apellido: string
   congregacion: string
   telefono: string
-  area: AreaCapitan
+  area: string
   notas: string
   disponibilidad: string[]
 }): Promise<{ ok: boolean; error: string | null }> {

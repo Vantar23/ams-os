@@ -68,7 +68,6 @@ import {
   eliminarCapitan,
   generarAccesoCapitan,
 } from "./actions"
-import { AREAS_CAPITAN, type AreaCapitan } from "./areas"
 
 type Asamblea = {
   id: string
@@ -77,25 +76,37 @@ type Asamblea = {
   titulo: string
 }
 
+export type AreaOption = {
+  id: string
+  piso: string
+  nombre: string
+}
+
 export type Capitan = {
   id: string
   nombre: string
   apellido: string
   congregacion: string
   telefono: string
-  area: AreaCapitan
+  area: string
   notas: string | null
   disponibilidad: string[]
   user_id: string | null
   created_at: string
 }
 
+function areaLabel(area: { piso: string; nombre: string }): string {
+  return `${area.piso} — ${area.nombre}`
+}
+
 export function CapitanesClient({
   asamblea,
   capitanes,
+  areas,
 }: {
   asamblea: Asamblea
   capitanes: Capitan[]
+  areas: AreaOption[]
 }) {
   const [addOpen, setAddOpen] = React.useState(false)
   const [shareOpen, setShareOpen] = React.useState(false)
@@ -192,6 +203,7 @@ export function CapitanesClient({
                 <CapitanRow
                   key={c.id}
                   capitan={c}
+                  areas={areas}
                   mobileCardsContainer={mobileCardsContainer}
                 />
               ))
@@ -217,6 +229,7 @@ export function CapitanesClient({
         onOpenChange={setAddOpen}
         mode="add"
         asambleaId={asamblea.id}
+        areas={areas}
       />
 
       <ShareDialog
@@ -343,9 +356,11 @@ function ShareDialog({
 
 function CapitanRow({
   capitan,
+  areas,
   mobileCardsContainer,
 }: {
   capitan: Capitan
+  areas: AreaOption[]
   mobileCardsContainer: HTMLElement | null
 }) {
   const router = useRouter()
@@ -517,6 +532,7 @@ function CapitanRow({
         onOpenChange={setEditOpen}
         mode="edit"
         capitan={capitan}
+        areas={areas}
       />
 
       <AccesoDialog
@@ -680,12 +696,14 @@ type FormProps =
       onOpenChange: (v: boolean) => void
       mode: "add"
       asambleaId: string
+      areas: AreaOption[]
     }
   | {
       open: boolean
       onOpenChange: (v: boolean) => void
       mode: "edit"
       capitan: Capitan
+      areas: AreaOption[]
     }
 
 type DraftDatos = {
@@ -699,13 +717,15 @@ type DraftDatos = {
 function CapitanFormDialog(props: FormProps) {
   const router = useRouter()
   const cap = props.mode === "edit" ? props.capitan : null
-  const initialArea: AreaCapitan = cap?.area ?? "Entrada"
+  const areaOptions = props.areas.map((a) => ({ ...a, label: areaLabel(a) }))
+  const initialArea: string =
+    cap?.area ?? (areaOptions[0]?.label ?? "")
   const initialDisponibilidad = (cap?.disponibilidad ?? []) as DisponibilidadSlot[]
 
   const [step, setStep] = React.useState<"datos" | "disponibilidad">("datos")
   const [submitting, setSubmitting] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
-  const [area, setArea] = React.useState<AreaCapitan>(initialArea)
+  const [area, setArea] = React.useState<string>(initialArea)
   const [disponibilidad, setDisponibilidad] =
     React.useState<DisponibilidadSlot[]>(initialDisponibilidad)
   const [datos, setDatos] = React.useState<DraftDatos | null>(null)
@@ -733,6 +753,11 @@ function CapitanFormDialog(props: FormProps) {
   }
 
   async function persist(values: DraftDatos) {
+    if (!area) {
+      setError("Selecciona un área. Si no hay opciones, crea áreas primero.")
+      if (props.mode === "add") setStep("datos")
+      return
+    }
     setSubmitting(true)
     setError(null)
     const payload = { ...values, area, disponibilidad }
@@ -831,21 +856,29 @@ function CapitanFormDialog(props: FormProps) {
             />
             <div className="grid gap-1.5">
               <Label htmlFor="area">Área a cargo</Label>
-              <Select
-                value={area}
-                onValueChange={(v) => setArea(v as AreaCapitan)}
-              >
-                <SelectTrigger id="area">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {AREAS_CAPITAN.map((a) => (
-                    <SelectItem key={a} value={a}>
-                      {a}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {areaOptions.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  Aún no hay áreas registradas. Crea áreas en Lugar &gt; Áreas
+                  antes de asignar un capitán.
+                </p>
+              ) : (
+                <Select value={area} onValueChange={setArea}>
+                  <SelectTrigger id="area">
+                    <SelectValue placeholder="Selecciona un área" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {areaOptions.map((a) => (
+                      <SelectItem key={a.id} value={a.label}>
+                        {a.label}
+                      </SelectItem>
+                    ))}
+                    {area &&
+                      !areaOptions.some((a) => a.label === area) && (
+                        <SelectItem value={area}>{area}</SelectItem>
+                      )}
+                  </SelectContent>
+                </Select>
+              )}
             </div>
             <Field
               name="notas"

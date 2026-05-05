@@ -5,8 +5,6 @@ import { revalidatePath } from "next/cache"
 
 import { createClient } from "@/lib/supabase/server"
 
-import type { AreaCapitan } from "./areas"
-
 const ENLACE_REGISTRO_TTL_MS = 3 * 24 * 60 * 60 * 1000 // 3 días
 
 type CapitanInput = {
@@ -14,7 +12,7 @@ type CapitanInput = {
   apellido: string
   congregacion: string
   telefono: string
-  area: AreaCapitan
+  area: string
   notas: string
   disponibilidad: string[]
 }

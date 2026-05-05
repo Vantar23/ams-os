@@ -36,18 +36,30 @@ export default async function CapitanesPage() {
     )
   }
 
-  const { data: capitanes } = await supabase
-    .from("capitanes")
-    .select(
-      "id, nombre, apellido, congregacion, telefono, area, notas, disponibilidad, user_id, created_at",
-    )
-    .eq("asamblea_id", asamblea.id)
-    .order("created_at", { ascending: false })
+  const [{ data: capitanes }, { data: areas }] = await Promise.all([
+    supabase
+      .from("capitanes")
+      .select(
+        "id, nombre, apellido, congregacion, telefono, area, notas, disponibilidad, user_id, created_at",
+      )
+      .eq("asamblea_id", asamblea.id)
+      .order("created_at", { ascending: false }),
+    supabase
+      .from("areas")
+      .select("id, piso, nombre")
+      .eq("asamblea_id", asamblea.id)
+      .order("piso", { ascending: true })
+      .order("nombre", { ascending: true }),
+  ])
 
   return (
     <>
       <PageHeader parent="Personal" title="Capitanes" />
-      <CapitanesClient asamblea={asamblea} capitanes={capitanes ?? []} />
+      <CapitanesClient
+        asamblea={asamblea}
+        capitanes={capitanes ?? []}
+        areas={areas ?? []}
+      />
     </>
   )
 }

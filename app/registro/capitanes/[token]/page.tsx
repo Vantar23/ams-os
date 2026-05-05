@@ -46,5 +46,18 @@ export default async function Page({
     )
   }
 
-  return <CapitanRegistroForm token={token} asamblea={asamblea} />
+  const { data: areas } = await supabase
+    .from("areas")
+    .select("id, piso, nombre")
+    .eq("asamblea_id", asamblea.asamblea_id)
+    .order("piso", { ascending: true })
+    .order("nombre", { ascending: true })
+
+  return (
+    <CapitanRegistroForm
+      token={token}
+      asamblea={asamblea}
+      areas={areas ?? []}
+    />
+  )
 }

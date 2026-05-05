@@ -7,7 +7,6 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import { z } from "zod"
 
-import { AREAS_CAPITAN, type AreaCapitan } from "@/app/(app)/capitanes/areas"
 import { DisponibilidadSelector } from "@/components/disponibilidad-selector"
 import { Button } from "@/components/ui/button"
 import {
@@ -37,7 +36,7 @@ const schema = z
     apellido: z.string().min(1, "Requerido"),
     congregacion: z.string().min(1, "Requerido"),
     telefono: z.string().min(6, "Teléfono inválido"),
-    area: z.enum(AREAS_CAPITAN),
+    area: z.string().min(1, "Selecciona un área"),
     notas: z.string().optional(),
     email: z.email("Correo inválido"),
     password: z.string().min(8, "Mínimo 8 caracteres"),
@@ -57,12 +56,20 @@ type Asamblea = {
   titulo: string
 }
 
+type AreaOption = { id: string; piso: string; nombre: string }
+
+function areaLabel(a: { piso: string; nombre: string }): string {
+  return `${a.piso} — ${a.nombre}`
+}
+
 export function CapitanRegistroForm({
   token,
   asamblea,
+  areas,
 }: {
   token: string
   asamblea: Asamblea
+  areas: AreaOption[]
 }) {
   const router = useRouter()
   const supabase = React.useMemo(() => createClient(), [])
@@ -74,6 +81,11 @@ export function CapitanRegistroForm({
     DisponibilidadSlot[]
   >([])
 
+  const areaOptions = React.useMemo(
+    () => areas.map((a) => ({ ...a, label: areaLabel(a) })),
+    [areas],
+  )
+
   const form = useForm<Values>({
     resolver: zodResolver(schema),
     defaultValues: {
@@ -81,7 +93,7 @@ export function CapitanRegistroForm({
       apellido: "",
       congregacion: "",
       telefono: "",
-      area: "Entrada",
+      area: "",
       notas: "",
       email: "",
       password: "",
@@ -133,7 +145,7 @@ export function CapitanRegistroForm({
         apellido: values.apellido,
         congregacion: values.congregacion,
         telefono: values.telefono,
-        area: values.area as AreaCapitan,
+        area: values.area,
         notas: values.notas ?? "",
         disponibilidad,
       })
@@ -313,23 +325,30 @@ export function CapitanRegistroForm({
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Área a cargo</FormLabel>
-                    <Select
-                      onValueChange={field.onChange}
-                      value={field.value}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {AREAS_CAPITAN.map((a) => (
-                          <SelectItem key={a} value={a}>
-                            {a}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    {areaOptions.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">
+                        Aún no hay áreas registradas. Pídele al organizador que
+                        las cree antes de continuar.
+                      </p>
+                    ) : (
+                      <Select
+                        onValueChange={field.onChange}
+                        value={field.value}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecciona un área" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {areaOptions.map((a) => (
+                            <SelectItem key={a.id} value={a.label}>
+                              {a.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
                     <FormMessage />
                   </FormItem>
                 )}
