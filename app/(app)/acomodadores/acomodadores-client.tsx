@@ -736,7 +736,7 @@ function CapitanSelector({
           <SelectItem value={SIN_CAPITAN_VALUE}>Sin capitán</SelectItem>
           {capitanes.map((c) => (
             <SelectItem key={c.id} value={c.id}>
-              {c.nombre} {c.apellido} · {c.area}
+              {c.nombre} {c.apellido}
             </SelectItem>
           ))}
         </SelectContent>
