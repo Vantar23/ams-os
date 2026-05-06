@@ -1,9 +1,8 @@
 import { AppSidebar } from "@/components/app-sidebar"
+import { RoleProvider, type Role } from "@/components/role-context"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { createClient } from "@/lib/supabase/server"
-
-type Role = "owner" | "capitan" | "subcapitan" | "auxiliar"
 
 async function getCurrentRole(): Promise<Role | null> {
   const supabase = await createClient()
@@ -38,10 +37,12 @@ export default async function AppLayout({
 
   return (
     <TooltipProvider>
-      <SidebarProvider>
-        <AppSidebar role={role ?? undefined} />
-        <SidebarInset>{children}</SidebarInset>
-      </SidebarProvider>
+      <RoleProvider role={role}>
+        <SidebarProvider>
+          <AppSidebar role={role ?? undefined} />
+          <SidebarInset>{children}</SidebarInset>
+        </SidebarProvider>
+      </RoleProvider>
     </TooltipProvider>
   )
 }

@@ -1,3 +1,5 @@
+"use client"
+
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -7,6 +9,7 @@ import {
 } from "@/components/ui/breadcrumb"
 import { Separator } from "@/components/ui/separator"
 import { SidebarTrigger } from "@/components/ui/sidebar"
+import { roleLabel, useRole } from "@/components/role-context"
 
 export function PageHeader({
   parent,
@@ -15,6 +18,8 @@ export function PageHeader({
   parent?: string
   title: string
 }) {
+  const role = useRole()
+  const label = roleLabel(role)
   return (
     <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
       <SidebarTrigger className="-ml-1" />
@@ -37,6 +42,11 @@ export function PageHeader({
           </BreadcrumbItem>
         </BreadcrumbList>
       </Breadcrumb>
+      {label && (
+        <span className="ml-auto inline-flex items-center rounded-md border bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+          {label}
+        </span>
+      )}
     </header>
   )
 }
