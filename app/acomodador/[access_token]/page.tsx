@@ -71,7 +71,7 @@ export default async function Page({
           href={`/acomodador/${access_token}/mapa`}
           icon={<MapIcon className="size-5" />}
           title="Mapa"
-          description="Consulta las áreas del lugar."
+          description="Consulta los planos del recinto."
         />
         <NavCard
           href={`/acomodador/${access_token}/instrucciones`}

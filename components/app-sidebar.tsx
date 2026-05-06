@@ -86,15 +86,20 @@ export function AppSidebar({
   const groups =
     role === "capitan"
       ? visibleNav
-          .map((g) =>
-            g.title === "Asignaciones"
-              ? { ...g, items: g.items.filter((i) => i.title === "Puestos") }
-              : g,
-          )
+          .map((g) => {
+            if (g.title === "Asignaciones") {
+              return { ...g, items: g.items.filter((i) => i.title === "Puestos") }
+            }
+            if (g.title === "Lugar") {
+              return { ...g, items: g.items.filter((i) => i.title === "Mapa") }
+            }
+            return g
+          })
           .filter(
             (g) =>
               g.title === "Personal" ||
-              (g.title === "Asignaciones" && g.items.length > 0),
+              ((g.title === "Asignaciones" || g.title === "Lugar") &&
+                g.items.length > 0),
           )
       : visibleNav
 
