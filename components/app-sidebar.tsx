@@ -35,6 +35,7 @@ const data = {
     {
       title: "Personal",
       items: [
+        { title: "Sub. y Aux.", url: "/sub-aux" },
         { title: "Capitanes", url: "/capitanes" },
         { title: "Acomodadores", url: "/acomodadores" },
         { title: "Hermanas de Apoyo", url: "/hermanas-de-apoyo" },
@@ -70,7 +71,7 @@ const data = {
   ],
 }
 
-type Role = "owner" | "capitan" | null | undefined
+type Role = "owner" | "capitan" | "subcapitan" | "auxiliar" | null | undefined
 
 export function AppSidebar({
   role = "owner",
@@ -85,8 +86,10 @@ export function AppSidebar({
     .map((g) => ({ ...g, items: g.items.filter((i) => i.url !== "#") }))
     .filter((g) => g.items.length > 0)
 
+  const isCapitanLike =
+    role === "capitan" || role === "subcapitan" || role === "auxiliar"
   const groups =
-    role === "capitan"
+    isCapitanLike
       ? visibleNav
           .map((g) => {
             if (g.title === "Asignaciones") {

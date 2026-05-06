@@ -3,7 +3,9 @@ import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { createClient } from "@/lib/supabase/server"
 
-async function getCurrentRole(): Promise<"owner" | "capitan" | null> {
+type Role = "owner" | "capitan" | "subcapitan" | "auxiliar"
+
+async function getCurrentRole(): Promise<Role | null> {
   const supabase = await createClient()
   const {
     data: { user },
@@ -24,7 +26,7 @@ async function getCurrentRole(): Promise<"owner" | "capitan" | null> {
     .eq("asamblea_id", asambleaId)
     .eq("user_id", user.id)
     .maybeSingle()
-  return (miembro?.role as "owner" | "capitan" | undefined) ?? null
+  return (miembro?.role as Role | undefined) ?? null
 }
 
 export default async function AppLayout({
