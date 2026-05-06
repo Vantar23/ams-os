@@ -17,6 +17,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarRail,
+  useSidebar,
 } from "@/components/ui/sidebar"
 import { createClient } from "@/lib/supabase/client"
 
@@ -77,6 +78,7 @@ export function AppSidebar({
 }: React.ComponentProps<typeof Sidebar> & { role?: Role }) {
   const pathname = usePathname()
   const router = useRouter()
+  const { isMobile, setOpenMobile } = useSidebar()
   const [signingOut, setSigningOut] = React.useState(false)
   // Hide placeholder items that don't have a route yet.
   const visibleNav = data.navMain
@@ -142,7 +144,14 @@ export function AppSidebar({
                       asChild
                       isActive={item.url !== "#" && pathname === item.url}
                     >
-                      <Link href={item.url}>{item.title}</Link>
+                      <Link
+                        href={item.url}
+                        onClick={() => {
+                          if (isMobile) setOpenMobile(false)
+                        }}
+                      >
+                        {item.title}
+                      </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 ))}
