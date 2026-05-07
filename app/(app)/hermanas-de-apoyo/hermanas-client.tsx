@@ -96,7 +96,7 @@ type CapitanOption = {
   id: string
   nombre: string
   apellido: string
-  area: string
+  area: string[]
 }
 
 const SIN_CAPITAN_VALUE = "__none__"
@@ -736,7 +736,7 @@ function CapitanSelector({
           <SelectItem value={SIN_CAPITAN_VALUE}>Sin capitán</SelectItem>
           {capitanes.map((c) => (
             <SelectItem key={c.id} value={c.id}>
-              {c.nombre} {c.apellido} · {c.area}
+              {c.nombre} {c.apellido} · {c.area.join(", ")}
             </SelectItem>
           ))}
         </SelectContent>
@@ -953,7 +953,7 @@ function HermanaRow({
                   <span className="text-foreground">
                     {capitan.nombre} {capitan.apellido}
                   </span>{" "}
-                  · {capitan.area}
+                  · {capitan.area.join(", ")}
                 </span>
               ) : (
                 "—"
@@ -1013,7 +1013,7 @@ function HermanaRow({
                         <span>
                           {capitan.nombre} {capitan.apellido}
                           <span className="block text-xs text-muted-foreground">
-                            {capitan.area}
+                            {capitan.area.join(", ")}
                           </span>
                         </span>
                       ) : (

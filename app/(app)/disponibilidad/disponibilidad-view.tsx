@@ -30,7 +30,7 @@ type Capitan = {
   id: string
   nombre: string
   apellido: string
-  area: string
+  area: string[]
   telefono: string
   disponibilidad: string[]
   asistencia_confirmada: string[]
@@ -362,7 +362,7 @@ export function DisponibilidadView({
                     <MatrixRow
                       key={c.id}
                       title={`${c.nombre} ${c.apellido}`}
-                      subtitle={c.area}
+                      subtitle={c.area.join(", ")}
                       telefono={c.telefono}
                       disponibilidad={c.disponibilidad}
                       confirmadas={c.asistencia_confirmada}
@@ -449,7 +449,7 @@ export function DisponibilidadView({
                       <PersonRow
                         key={c.id}
                         title={`${c.nombre} ${c.apellido}`}
-                        subtitle={c.area}
+                        subtitle={c.area.join(", ")}
                         telefono={c.telefono}
                         confirmed={confirmed}
                         onToggle={(v) =>

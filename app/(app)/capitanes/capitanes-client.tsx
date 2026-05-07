@@ -45,13 +45,7 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
+import { AreasSelector, type AreaOption } from "@/components/areas-selector"
 import {
   Table,
   TableBody,
@@ -76,11 +70,7 @@ type Asamblea = {
   titulo: string
 }
 
-export type AreaOption = {
-  id: string
-  piso: string
-  nombre: string
-}
+export type { AreaOption }
 
 export type Capitan = {
   id: string
@@ -88,15 +78,11 @@ export type Capitan = {
   apellido: string
   congregacion: string
   telefono: string
-  area: string
+  area: string[]
   notas: string | null
   disponibilidad: string[]
   user_id: string | null
   created_at: string
-}
-
-function areaLabel(area: { piso: string; nombre: string }): string {
-  return `${area.piso} — ${area.nombre}`
 }
 
 export function CapitanesClient({
@@ -183,7 +169,7 @@ export function CapitanesClient({
               <TableHead>Nombre</TableHead>
               <TableHead>Congregación</TableHead>
               <TableHead>Teléfono</TableHead>
-              <TableHead>Área</TableHead>
+              <TableHead>Áreas</TableHead>
               <TableHead>Notas</TableHead>
               <TableHead className="w-[1%]"></TableHead>
             </TableRow>
@@ -449,7 +435,7 @@ function CapitanRow({
                 {capitan.telefono}
               </a>
             </TableCell>
-            <TableCell>{capitan.area}</TableCell>
+            <TableCell>{capitan.area.join(", ")}</TableCell>
             <TableCell className="text-muted-foreground">
               {capitan.notas || "—"}
             </TableCell>
@@ -484,7 +470,7 @@ function CapitanRow({
                     </p>
                   </div>
                   <span className="shrink-0 rounded-full border border-border px-2 py-0.5 text-[11px] text-muted-foreground">
-                    {capitan.area}
+                    {capitan.area.join(", ")}
                   </span>
                 </div>
                 <dl className="mt-3 grid gap-2 text-sm">
@@ -717,15 +703,13 @@ type DraftDatos = {
 function CapitanFormDialog(props: FormProps) {
   const router = useRouter()
   const cap = props.mode === "edit" ? props.capitan : null
-  const areaOptions = props.areas.map((a) => ({ ...a, label: areaLabel(a) }))
-  const initialArea: string =
-    cap?.area ?? (areaOptions[0]?.label ?? "")
+  const initialAreas: string[] = cap?.area ?? []
   const initialDisponibilidad = (cap?.disponibilidad ?? []) as DisponibilidadSlot[]
 
   const [step, setStep] = React.useState<"datos" | "disponibilidad">("datos")
   const [submitting, setSubmitting] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
-  const [area, setArea] = React.useState<string>(initialArea)
+  const [areas, setAreas] = React.useState<string[]>(initialAreas)
   const [disponibilidad, setDisponibilidad] =
     React.useState<DisponibilidadSlot[]>(initialDisponibilidad)
   const [datos, setDatos] = React.useState<DraftDatos | null>(null)
@@ -734,7 +718,7 @@ function CapitanFormDialog(props: FormProps) {
     if (!props.open) {
       setStep("datos")
       setError(null)
-      setArea(initialArea)
+      setAreas(initialAreas)
       setDisponibilidad(initialDisponibilidad)
       setDatos(null)
     }
@@ -753,14 +737,14 @@ function CapitanFormDialog(props: FormProps) {
   }
 
   async function persist(values: DraftDatos) {
-    if (!area) {
-      setError("Selecciona un área. Si no hay opciones, crea áreas primero.")
+    if (areas.length === 0) {
+      setError("Selecciona al menos un área. Si no hay opciones, crea áreas primero.")
       if (props.mode === "add") setStep("datos")
       return
     }
     setSubmitting(true)
     setError(null)
-    const payload = { ...values, area, disponibilidad }
+    const payload = { ...values, area: areas, disponibilidad }
     const { error: err } =
       props.mode === "add"
         ? (await agregarCapitan(props.asambleaId, payload))
@@ -855,29 +839,18 @@ function CapitanFormDialog(props: FormProps) {
               defaultValue={datos?.telefono ?? cap?.telefono}
             />
             <div className="grid gap-1.5">
-              <Label htmlFor="area">Área a cargo</Label>
-              {areaOptions.length === 0 ? (
+              <Label>Áreas a cargo</Label>
+              {props.areas.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
                   Aún no hay áreas registradas. Crea áreas en Lugar &gt; Áreas
                   antes de asignar un capitán.
                 </p>
               ) : (
-                <Select value={area} onValueChange={setArea}>
-                  <SelectTrigger id="area">
-                    <SelectValue placeholder="Selecciona un área" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {areaOptions.map((a) => (
-                      <SelectItem key={a.id} value={a.label}>
-                        {a.label}
-                      </SelectItem>
-                    ))}
-                    {area &&
-                      !areaOptions.some((a) => a.label === area) && (
-                        <SelectItem value={area}>{area}</SelectItem>
-                      )}
-                  </SelectContent>
-                </Select>
+                <AreasSelector
+                  areas={props.areas}
+                  value={areas}
+                  onChange={setAreas}
+                />
               )}
             </div>
             <Field

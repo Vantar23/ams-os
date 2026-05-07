@@ -9,7 +9,7 @@ export async function submitCapitanRegistro(input: {
   apellido: string
   congregacion: string
   telefono: string
-  area: string
+  area: string[]
   notas: string
   disponibilidad: string[]
 }): Promise<{ ok: boolean; error: string | null }> {

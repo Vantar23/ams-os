@@ -12,7 +12,7 @@ type CapitanInput = {
   apellido: string
   congregacion: string
   telefono: string
-  area: string
+  area: string[]
   notas: string
   disponibilidad: string[]
 }

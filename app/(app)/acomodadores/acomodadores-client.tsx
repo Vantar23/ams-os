@@ -96,7 +96,7 @@ type CapitanOption = {
   id: string
   nombre: string
   apellido: string
-  area: string
+  area: string[]
 }
 
 const SIN_CAPITAN_VALUE = "__none__"
@@ -953,7 +953,7 @@ function AcomodadorRow({
                   <span className="text-foreground">
                     {capitan.nombre} {capitan.apellido}
                   </span>{" "}
-                  · {capitan.area}
+                  · {capitan.area.join(", ")}
                 </span>
               ) : (
                 "—"
@@ -1013,7 +1013,7 @@ function AcomodadorRow({
                         <span>
                           {capitan.nombre} {capitan.apellido}
                           <span className="block text-xs text-muted-foreground">
-                            {capitan.area}
+                            {capitan.area.join(", ")}
                           </span>
                         </span>
                       ) : (
