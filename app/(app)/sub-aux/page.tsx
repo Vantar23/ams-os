@@ -20,13 +20,13 @@ export default async function SubAuxPage() {
   if (!asamblea) {
     return (
       <>
-        <PageHeader parent="Personal" title="Sub. y Aux." />
+        <PageHeader parent="Personal" title="Sup. y Aux." />
         <div className="flex flex-1 items-center justify-center p-10">
           <div className="max-w-md text-center">
             <h2 className="font-serif text-2xl">Aún no tienes una asamblea</h2>
             <p className="mt-3 text-sm text-muted-foreground">
-              Crea tu primera asamblea para empezar a registrar subcapitanes y
-              auxiliares.
+              Crea tu primera asamblea para empezar a registrar
+              superintendentes y auxiliares.
             </p>
             <Button asChild className="mt-6">
               <Link href="/register">Crear asamblea</Link>
@@ -55,7 +55,7 @@ export default async function SubAuxPage() {
 
   return (
     <>
-      <PageHeader parent="Personal" title="Sub. y Aux." />
+      <PageHeader parent="Personal" title="Sup. y Aux." />
       <SubAuxClient
         asamblea={asamblea}
         personas={personas ?? []}

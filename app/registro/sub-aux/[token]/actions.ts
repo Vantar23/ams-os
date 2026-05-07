@@ -9,7 +9,7 @@ export async function submitSubAuxRegistro(input: {
   apellido: string
   congregacion: string
   telefono: string
-  area: string
+  area: string[]
   notas: string
   disponibilidad: string[]
 }): Promise<{ ok: boolean; error: string | null }> {

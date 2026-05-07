@@ -7,6 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import { z } from "zod"
 
+import { AreasSelector } from "@/components/areas-selector"
 import { DisponibilidadSelector } from "@/components/disponibilidad-selector"
 import { Button } from "@/components/ui/button"
 import {
@@ -18,13 +19,6 @@ import {
   FormMessage,
 } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
 import type { DisponibilidadSlot } from "@/lib/disponibilidad"
 import { createClient } from "@/lib/supabase/client"
 
@@ -36,7 +30,7 @@ const schema = z
     apellido: z.string().min(1, "Requerido"),
     congregacion: z.string().min(1, "Requerido"),
     telefono: z.string().min(6, "Teléfono inválido"),
-    area: z.string().min(1, "Selecciona un área"),
+    area: z.array(z.string()).min(1, "Selecciona al menos un área"),
     notas: z.string().optional(),
     email: z.email("Correo inválido"),
     password: z.string().min(8, "Mínimo 8 caracteres"),
@@ -60,12 +54,8 @@ type AreaOption = { id: string; piso: string; nombre: string }
 type Role = "subcapitan" | "auxiliar"
 
 const ROLE_LABEL: Record<Role, string> = {
-  subcapitan: "Subcapitán",
+  subcapitan: "Superintendente",
   auxiliar: "Auxiliar",
-}
-
-function areaLabel(a: { piso: string; nombre: string }): string {
-  return `${a.piso} — ${a.nombre}`
 }
 
 export function SubAuxRegistroForm({
@@ -89,11 +79,6 @@ export function SubAuxRegistroForm({
     DisponibilidadSlot[]
   >([])
 
-  const areaOptions = React.useMemo(
-    () => areas.map((a) => ({ ...a, label: areaLabel(a) })),
-    [areas],
-  )
-
   const form = useForm<Values>({
     resolver: zodResolver(schema),
     defaultValues: {
@@ -101,7 +86,7 @@ export function SubAuxRegistroForm({
       apellido: "",
       congregacion: "",
       telefono: "",
-      area: "",
+      area: [],
       notas: "",
       email: "",
       password: "",
@@ -338,30 +323,20 @@ export function SubAuxRegistroForm({
                 name="area"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Área a cargo</FormLabel>
-                    {areaOptions.length === 0 ? (
+                    <FormLabel>Áreas a cargo</FormLabel>
+                    {areas.length === 0 ? (
                       <p className="text-sm text-muted-foreground">
                         Aún no hay áreas registradas. Pídele al organizador que
                         las cree antes de continuar.
                       </p>
                     ) : (
-                      <Select
-                        onValueChange={field.onChange}
-                        value={field.value}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Selecciona un área" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {areaOptions.map((a) => (
-                            <SelectItem key={a.id} value={a.label}>
-                              {a.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <FormControl>
+                        <AreasSelector
+                          areas={areas}
+                          value={field.value}
+                          onChange={field.onChange}
+                        />
+                      </FormControl>
                     )}
                     <FormMessage />
                   </FormItem>

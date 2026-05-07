@@ -14,6 +14,10 @@ import {
   Trash2Icon,
 } from "lucide-react"
 
+import {
+  AreasSelector,
+  type AreaOption,
+} from "@/components/areas-selector"
 import { DisponibilidadSelector } from "@/components/disponibilidad-selector"
 import type { DisponibilidadSlot } from "@/lib/disponibilidad"
 import { useMediaQuery } from "@/lib/use-media-query"
@@ -77,11 +81,7 @@ type Asamblea = {
   titulo: string
 }
 
-export type AreaOption = {
-  id: string
-  piso: string
-  nombre: string
-}
+export type { AreaOption }
 
 export type SubAuxPersona = {
   id: string
@@ -90,7 +90,7 @@ export type SubAuxPersona = {
   apellido: string
   congregacion: string
   telefono: string
-  area: string
+  area: string[]
   notas: string | null
   disponibilidad: string[]
   user_id: string | null
@@ -98,12 +98,8 @@ export type SubAuxPersona = {
 }
 
 const ROLE_LABEL: Record<SubAuxRole, string> = {
-  subcapitan: "Subcapitán",
+  subcapitan: "Superintendente",
   auxiliar: "Auxiliar",
-}
-
-function areaLabel(area: { piso: string; nombre: string }): string {
-  return `${area.piso} — ${area.nombre}`
 }
 
 export function SubAuxClient({
@@ -125,7 +121,7 @@ export function SubAuxClient({
     <div className="flex flex-1 flex-col gap-4 p-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-lg font-semibold">Sub. y Aux.</h2>
+          <h2 className="text-lg font-semibold">Sup. y Aux.</h2>
           <p className="text-sm text-muted-foreground">
             {personas.length} registrado{personas.length === 1 ? "" : "s"} ·{" "}
             <span className="text-foreground/70">
@@ -164,7 +160,7 @@ export function SubAuxClient({
                 <TableHead>Rol</TableHead>
                 <TableHead>Congregación</TableHead>
                 <TableHead>Teléfono</TableHead>
-                <TableHead>Área</TableHead>
+                <TableHead>Áreas</TableHead>
                 <TableHead>Notas</TableHead>
                 <TableHead className="w-[1%]"></TableHead>
               </TableRow>
@@ -299,7 +295,7 @@ function ShareDialog({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="subcapitan">Subcapitán</SelectItem>
+                  <SelectItem value="subcapitan">Superintendente</SelectItem>
                   <SelectItem value="auxiliar">Auxiliar</SelectItem>
                 </SelectContent>
               </Select>
@@ -468,7 +464,7 @@ function SubAuxRow({
                 {persona.telefono}
               </a>
             </TableCell>
-            <TableCell>{persona.area}</TableCell>
+            <TableCell>{persona.area.join(", ")}</TableCell>
             <TableCell className="text-muted-foreground">
               {persona.notas || "—"}
             </TableCell>
@@ -521,9 +517,9 @@ function SubAuxRow({
                     </dd>
                   </div>
                   <div className="flex justify-between gap-3">
-                    <dt className="text-muted-foreground">Área</dt>
-                    <dd className="max-w-[60%] truncate text-right">
-                      {persona.area}
+                    <dt className="text-muted-foreground">Áreas</dt>
+                    <dd className="max-w-[60%] text-right">
+                      {persona.area.join(", ")}
                     </dd>
                   </div>
                   {persona.notas && (
@@ -742,8 +738,7 @@ type DraftDatos = {
 function SubAuxFormDialog(props: FormProps) {
   const router = useRouter()
   const persona = props.mode === "edit" ? props.persona : null
-  const areaOptions = props.areas.map((a) => ({ ...a, label: areaLabel(a) }))
-  const initialArea: string = persona?.area ?? (areaOptions[0]?.label ?? "")
+  const initialAreas: string[] = persona?.area ?? []
   const initialRole: SubAuxRole = persona?.role ?? "subcapitan"
   const initialDisponibilidad = (persona?.disponibilidad ?? []) as DisponibilidadSlot[]
 
@@ -751,7 +746,7 @@ function SubAuxFormDialog(props: FormProps) {
   const [submitting, setSubmitting] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
   const [role, setRole] = React.useState<SubAuxRole>(initialRole)
-  const [area, setArea] = React.useState<string>(initialArea)
+  const [areas, setAreas] = React.useState<string[]>(initialAreas)
   const [disponibilidad, setDisponibilidad] =
     React.useState<DisponibilidadSlot[]>(initialDisponibilidad)
   const [datos, setDatos] = React.useState<DraftDatos | null>(null)
@@ -761,7 +756,7 @@ function SubAuxFormDialog(props: FormProps) {
       setStep("datos")
       setError(null)
       setRole(initialRole)
-      setArea(initialArea)
+      setAreas(initialAreas)
       setDisponibilidad(initialDisponibilidad)
       setDatos(null)
     }
@@ -780,14 +775,14 @@ function SubAuxFormDialog(props: FormProps) {
   }
 
   async function persist(values: DraftDatos) {
-    if (!area) {
-      setError("Selecciona un área. Si no hay opciones, crea áreas primero.")
+    if (areas.length === 0) {
+      setError("Selecciona al menos un área. Si no hay opciones, crea áreas primero.")
       if (props.mode === "add") setStep("datos")
       return
     }
     setSubmitting(true)
     setError(null)
-    const payload = { ...values, role, area, disponibilidad }
+    const payload = { ...values, role, area: areas, disponibilidad }
     const { error: err } =
       props.mode === "add"
         ? await agregarSubAux(props.asambleaId, payload)
@@ -838,7 +833,7 @@ function SubAuxFormDialog(props: FormProps) {
           <DialogDescription>
             {showDisponibilidadStep
               ? "Marca las sesiones en las que puede servir."
-              : "Registra al hermano y selecciona si es subcapitán o auxiliar."}
+              : "Registra al hermano y selecciona si es superintendente o auxiliar."}
           </DialogDescription>
         </DialogHeader>
 
@@ -858,7 +853,7 @@ function SubAuxFormDialog(props: FormProps) {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="subcapitan">Subcapitán</SelectItem>
+                  <SelectItem value="subcapitan">Superintendente</SelectItem>
                   <SelectItem value="auxiliar">Auxiliar</SelectItem>
                 </SelectContent>
               </Select>
@@ -897,28 +892,18 @@ function SubAuxFormDialog(props: FormProps) {
               defaultValue={datos?.telefono ?? persona?.telefono}
             />
             <div className="grid gap-1.5">
-              <Label htmlFor="area">Área a cargo</Label>
-              {areaOptions.length === 0 ? (
+              <Label>Áreas a cargo</Label>
+              {props.areas.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
                   Aún no hay áreas registradas. Crea áreas en Lugar &gt; Áreas
                   antes de continuar.
                 </p>
               ) : (
-                <Select value={area} onValueChange={setArea}>
-                  <SelectTrigger id="area">
-                    <SelectValue placeholder="Selecciona un área" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {areaOptions.map((a) => (
-                      <SelectItem key={a.id} value={a.label}>
-                        {a.label}
-                      </SelectItem>
-                    ))}
-                    {area && !areaOptions.some((a) => a.label === area) && (
-                      <SelectItem value={area}>{area}</SelectItem>
-                    )}
-                  </SelectContent>
-                </Select>
+                <AreasSelector
+                  areas={props.areas}
+                  value={areas}
+                  onChange={setAreas}
+                />
               )}
             </div>
             <Field

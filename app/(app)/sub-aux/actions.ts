@@ -15,7 +15,7 @@ type SubAuxInput = {
   apellido: string
   congregacion: string
   telefono: string
-  area: string
+  area: string[]
   notas: string
   disponibilidad: string[]
 }

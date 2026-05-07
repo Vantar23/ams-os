@@ -27,7 +27,7 @@ export function roleLabel(role: Role | null): string | null {
     case "capitan":
       return "Capitán"
     case "subcapitan":
-      return "Subcapitán"
+      return "Superintendente"
     case "auxiliar":
       return "Auxiliar"
     default:

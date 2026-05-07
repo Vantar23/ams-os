@@ -35,7 +35,7 @@ const data = {
     {
       title: "Personal",
       items: [
-        { title: "Sub. y Aux.", url: "/sub-aux" },
+        { title: "Sup. y Aux.", url: "/sub-aux" },
         { title: "Capitanes", url: "/capitanes" },
         { title: "Acomodadores", url: "/acomodadores" },
         { title: "Hermanas de Apoyo", url: "/hermanas-de-apoyo" },

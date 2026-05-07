@@ -22,7 +22,7 @@ type Info = {
 }
 
 const ROLE_LABEL: Record<Info["role"], string> = {
-  subcapitan: "subcapitán",
+  subcapitan: "superintendente",
   auxiliar: "auxiliar",
 }
 
