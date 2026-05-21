@@ -97,7 +97,14 @@ export function AppSidebar({
               return { ...g, items: g.items.filter((i) => i.title === "Puestos") }
             }
             if (g.title === "Lugar") {
-              return { ...g, items: g.items.filter((i) => i.title === "Mapa") }
+              const allowed =
+                role === "capitan"
+                  ? ["Mapa", "Recepción del local"]
+                  : ["Mapa"]
+              return {
+                ...g,
+                items: g.items.filter((i) => allowed.includes(i.title)),
+              }
             }
             return g
           })

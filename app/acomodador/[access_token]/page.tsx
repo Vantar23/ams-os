@@ -3,6 +3,7 @@ import {
   AlertOctagonIcon,
   BookOpenIcon,
   CalendarCheckIcon,
+  ClipboardCheckIcon,
   MapIcon,
 } from "lucide-react"
 
@@ -60,6 +61,12 @@ export default async function Page({
           icon={<CalendarCheckIcon className="size-5" />}
           title="Asistencia"
           description="Confirma las sesiones a las que vas a asistir."
+        />
+        <NavCard
+          href={`/acomodador/${access_token}/recepcion-local`}
+          icon={<ClipboardCheckIcon className="size-5" />}
+          title="Recepción del local"
+          description="Reporta cosas rotas o que falten al recibir el lugar."
         />
         <NavCard
           href={`/acomodador/${access_token}/incidencias`}
