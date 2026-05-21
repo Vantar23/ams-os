@@ -46,7 +46,7 @@ export default async function Page({
   const asignaciones = await loadAsignaciones(access_token)
 
   return (
-    <main className="mx-auto w-full max-w-2xl px-5 py-10 sm:py-14">
+    <main className="mx-auto w-full max-w-2xl px-4 py-6 sm:px-5 sm:py-14">
       <Link
         href={`/acomodador/${access_token}`}
         className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
@@ -54,12 +54,12 @@ export default async function Page({
         <ArrowLeftIcon className="size-3.5" />
         Volver
       </Link>
-      <h1 className="mt-4 font-serif text-[2rem] leading-[1.1] text-foreground sm:text-4xl sm:leading-tight">
+      <h1 className="mt-4 font-serif text-[1.75rem] leading-[1.15] text-foreground sm:text-4xl sm:leading-tight">
         Asistencia
       </h1>
-      <p className="mt-3 text-sm text-muted-foreground">
-        Reporta cuántos lugares vacíos hay en el área que tienes asignada por
-        sesión. Tu capitán lo verá en tiempo real.
+      <p className="mt-2 text-sm text-muted-foreground">
+        Reporta el conteo del área asignada por sesión. Tu capitán lo verá en
+        tiempo real.
       </p>
 
       {asignaciones.length === 0 ? (
@@ -90,6 +90,7 @@ export default async function Page({
                 <LugaresVaciosForm
                   accessToken={access_token}
                   asignacionId={a.asignacion_id}
+                  areaCapacidad={a.area_capacidad}
                   initialLugares={a.lugares_vacios}
                   reportadoAt={a.reportado_at}
                 />
