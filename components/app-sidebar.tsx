@@ -55,6 +55,7 @@ const data = {
       items: [
         { title: "Áreas", url: "/areas" },
         { title: "Mapa", url: "/mapa" },
+        { title: "Recepción del local", url: "/recepcion-local" },
       ],
     },
     {
