@@ -47,11 +47,15 @@ export function RecepcionForm({ accessToken }: { accessToken: string }) {
       setError("Selecciona o escribe qué encontraste.")
       return
     }
+    if (!foto) {
+      setError("Toma o adjunta una foto.")
+      return
+    }
     const fd = new FormData()
     fd.set("accessToken", accessToken)
     fd.set("categoria", categoria.trim())
     fd.set("descripcion", descripcion.trim())
-    if (foto) fd.set("foto", foto)
+    fd.set("foto", foto)
 
     setSubmitting(true)
     setError(null)

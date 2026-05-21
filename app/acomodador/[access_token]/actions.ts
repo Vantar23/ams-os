@@ -87,6 +87,9 @@ export async function reportarRecepcionLocal(
   if (!categoria) {
     return { ok: false, error: "Selecciona o escribe una categoría." }
   }
+  if (!foto || foto.size === 0) {
+    return { ok: false, error: "Adjunta una foto del problema." }
+  }
 
   const cookieStore = await cookies()
   const deviceKey = cookieStore.get(DEVICE_COOKIE)?.value
@@ -108,19 +111,16 @@ export async function reportarRecepcionLocal(
 
   const admin = createAdminClient()
 
-  let fotoPath: string | null = null
-  if (foto && foto.size > 0) {
-    const ext = guessExt(foto.type, foto.name)
-    fotoPath = `${acomodador.asamblea_id}/${crypto.randomUUID()}.${ext}`
-    const { error: upErr } = await admin.storage
-      .from("recepcion-local")
-      .upload(fotoPath, foto, {
-        contentType: foto.type || "image/jpeg",
-        upsert: false,
-      })
-    if (upErr) {
-      return { ok: false, error: `No se pudo subir la foto: ${upErr.message}` }
-    }
+  const ext = guessExt(foto.type, foto.name)
+  const fotoPath = `${acomodador.asamblea_id}/${crypto.randomUUID()}.${ext}`
+  const { error: upErr } = await admin.storage
+    .from("recepcion-local")
+    .upload(fotoPath, foto, {
+      contentType: foto.type || "image/jpeg",
+      upsert: false,
+    })
+  if (upErr) {
+    return { ok: false, error: `No se pudo subir la foto: ${upErr.message}` }
   }
 
   const { error: insertErr } = await admin
@@ -133,9 +133,7 @@ export async function reportarRecepcionLocal(
       reportado_por_acomodador_id: acomodador.id,
     })
   if (insertErr) {
-    if (fotoPath) {
-      await admin.storage.from("recepcion-local").remove([fotoPath])
-    }
+    await admin.storage.from("recepcion-local").remove([fotoPath])
     return { ok: false, error: insertErr.message }
   }
 

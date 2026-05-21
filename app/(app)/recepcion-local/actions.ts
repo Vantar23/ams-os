@@ -47,20 +47,20 @@ export async function agregarRecepcionItem(formData: FormData): Promise<{
   const foto = formData.get("foto") as File | null
 
   if (!categoria) return { error: "Selecciona o escribe una categoría." }
-
-  let fotoPath: string | null = null
-  if (foto && foto.size > 0) {
-    const admin = createAdminClient()
-    const ext = guessExt(foto.type, foto.name)
-    fotoPath = `${asambleaId}/${crypto.randomUUID()}.${ext}`
-    const { error: upErr } = await admin.storage
-      .from(BUCKET)
-      .upload(fotoPath, foto, {
-        contentType: foto.type || "image/jpeg",
-        upsert: false,
-      })
-    if (upErr) return { error: `No se pudo subir la foto: ${upErr.message}` }
+  if (!foto || foto.size === 0) {
+    return { error: "Adjunta una foto del problema." }
   }
+
+  const admin = createAdminClient()
+  const ext = guessExt(foto.type, foto.name)
+  const fotoPath = `${asambleaId}/${crypto.randomUUID()}.${ext}`
+  const { error: upErr } = await admin.storage
+    .from(BUCKET)
+    .upload(fotoPath, foto, {
+      contentType: foto.type || "image/jpeg",
+      upsert: false,
+    })
+  if (upErr) return { error: `No se pudo subir la foto: ${upErr.message}` }
 
   const { error } = await supabase.from("recepcion_local_items").insert({
     asamblea_id: asambleaId,
@@ -69,9 +69,7 @@ export async function agregarRecepcionItem(formData: FormData): Promise<{
     foto_path: fotoPath,
   })
   if (error) {
-    if (fotoPath) {
-      await createAdminClient().storage.from(BUCKET).remove([fotoPath])
-    }
+    await admin.storage.from(BUCKET).remove([fotoPath])
     return { error: error.message }
   }
 

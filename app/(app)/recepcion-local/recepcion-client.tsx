@@ -344,10 +344,14 @@ function AddRecepcionDialog({
       setError("Selecciona o escribe una categoría.")
       return
     }
+    if (!foto) {
+      setError("Adjunta una foto del problema.")
+      return
+    }
     const fd = new FormData()
     fd.set("categoria", categoria.trim())
     fd.set("descripcion", descripcion.trim())
-    if (foto) fd.set("foto", foto)
+    fd.set("foto", foto)
 
     setSubmitting(true)
     setError(null)
@@ -405,7 +409,7 @@ function AddRecepcionDialog({
           </div>
 
           <div className="grid gap-1.5">
-            <Label>Foto (opcional)</Label>
+            <Label>Foto</Label>
             {preview ? (
               <div className="relative overflow-hidden rounded-lg border">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
