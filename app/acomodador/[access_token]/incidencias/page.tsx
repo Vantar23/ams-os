@@ -5,6 +5,8 @@ import { BlockedView } from "../blocked-view"
 import { ClaimView } from "../claim-view"
 import { loadAcomodadorByToken } from "../load"
 
+import { IncidenciaForm } from "./incidencia-form"
+
 export default async function Page({
   params,
 }: {
@@ -27,7 +29,7 @@ export default async function Page({
   }
 
   return (
-    <main className="mx-auto w-full max-w-2xl px-5 py-10 sm:py-14">
+    <main className="mx-auto w-full max-w-2xl px-4 py-6 sm:px-5 sm:py-14">
       <Link
         href={`/acomodador/${access_token}`}
         className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
@@ -35,13 +37,15 @@ export default async function Page({
         <ArrowLeftIcon className="size-3.5" />
         Volver
       </Link>
-      <h1 className="mt-4 font-serif text-[2rem] leading-[1.1] text-foreground sm:text-4xl sm:leading-tight">
+      <h1 className="mt-4 font-serif text-[1.75rem] leading-[1.15] text-foreground sm:text-4xl sm:leading-tight">
         Incidencias
       </h1>
-      <p className="mt-3 text-sm text-muted-foreground">
-        Próximamente. Aquí podrás reportar lo que pase durante la asamblea para
-        que tu capitán y el resto del equipo lo vean en tiempo real.
+      <p className="mt-2 text-sm text-muted-foreground">
+        Reporta lo que pase durante la asamblea para que tu capitán lo vea en
+        tiempo real.
       </p>
+
+      <IncidenciaForm accessToken={access_token} />
     </main>
   )
 }
