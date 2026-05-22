@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server"
 import { RememberPersonal } from "@/components/remember-personal"
 
 import { ClaimView } from "./claim-view"
+import { RebindButton } from "./rebind-button"
 
 const DEVICE_COOKIE = "hermana_apoyo_device_key"
 
@@ -38,7 +39,7 @@ export default async function Page({
   const deviceKey = cookieStore.get(DEVICE_COOKIE)?.value
 
   if (!deviceKey) {
-    return <BlockedView reason="no_cookie" />
+    return <BlockedView reason="no_cookie" accessToken={access_token} />
   }
 
   const deviceKeyHash = await sha256(deviceKey)
@@ -50,12 +51,18 @@ export default async function Page({
 
   if (error) {
     if (error.message.includes("device_mismatch")) {
-      return <BlockedView reason="device_mismatch" />
+      return <BlockedView reason="device_mismatch" accessToken={access_token} />
     }
     if (error.message.includes("invalid_access_token")) {
-      return <BlockedView reason="invalid" />
+      return <BlockedView reason="invalid" accessToken={access_token} />
     }
-    return <BlockedView reason="error" message={error.message} />
+    return (
+      <BlockedView
+        reason="error"
+        message={error.message}
+        accessToken={access_token}
+      />
+    )
   }
 
   const hermana = (data ?? [])[0] as Hermana | undefined
@@ -114,9 +121,11 @@ function HermanaView({ hermana }: { hermana: Hermana }) {
 function BlockedView({
   reason,
   message,
+  accessToken,
 }: {
   reason: "device_mismatch" | "invalid" | "no_cookie" | "error"
   message?: string
+  accessToken?: string
 }) {
   const titles: Record<typeof reason, string> = {
     device_mismatch: "Este enlace ya está activo en otro dispositivo",
@@ -126,7 +135,7 @@ function BlockedView({
   }
   const descriptions: Record<typeof reason, string> = {
     device_mismatch:
-      "Tu enlace personal solo funciona en el primer dispositivo donde lo abriste. Pídele a tu capitán que te genere uno nuevo si necesitas pasarlo a este dispositivo.",
+      "Tu enlace personal ya está activo en otro dispositivo. Si es tuyo, puedes cerrar esa sesión y activarlo aquí.",
     invalid:
       "Este enlace no existe o fue invalidado. Pídele a tu capitán que te envíe uno nuevo.",
     no_cookie:
@@ -146,6 +155,9 @@ function BlockedView({
         <p className="mt-4 text-sm text-muted-foreground">
           {descriptions[reason]}
         </p>
+        {reason === "device_mismatch" && accessToken && (
+          <RebindButton accessToken={accessToken} />
+        )}
         <Link
           href="/"
           className="mt-8 inline-block text-sm text-foreground underline underline-offset-4"

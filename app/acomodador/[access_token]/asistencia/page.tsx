@@ -31,7 +31,7 @@ export default async function Page({
   const result = await loadAcomodadorByToken(access_token)
 
   if (result.kind === "blocked") {
-    return <BlockedView reason={result.reason} message={result.message} />
+    return <BlockedView reason={result.reason} message={result.message} accessToken={access_token} />
   }
   if (result.kind === "claim") {
     return (

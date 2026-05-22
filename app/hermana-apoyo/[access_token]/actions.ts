@@ -27,6 +27,25 @@ export async function claimAccess(
   return { ok: true, error: null }
 }
 
+export async function rebindAccess(
+  accessToken: string,
+): Promise<{ ok: boolean; error: string | null }> {
+  const cookieStore = await cookies()
+  const deviceKey = cookieStore.get(DEVICE_COOKIE)?.value
+  if (!deviceKey) return { ok: false, error: "no_cookie" }
+
+  const deviceKeyHash = await sha256(deviceKey)
+  const supabase = await createClient()
+  const { error } = await supabase.rpc("hermana_acceso_rebind", {
+    p_access_token: accessToken,
+    p_device_key_hash: deviceKeyHash,
+  })
+  if (error) return { ok: false, error: error.message }
+
+  revalidatePath(`/hermana-apoyo/${accessToken}`)
+  return { ok: true, error: null }
+}
+
 export async function toggleSelfAsistencia(input: {
   accessToken: string
   slot: string

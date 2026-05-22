@@ -2,6 +2,7 @@ import Link from "next/link"
 import { AlertTriangleIcon } from "lucide-react"
 
 import type { BlockReason } from "./load"
+import { RebindButton } from "./rebind-button"
 
 const TITLES: Record<BlockReason, string> = {
   device_mismatch: "Este enlace ya está activo en otro dispositivo",
@@ -23,9 +24,11 @@ const DESCRIPTIONS: Record<BlockReason, string> = {
 export function BlockedView({
   reason,
   message,
+  accessToken,
 }: {
   reason: BlockReason
   message?: string
+  accessToken?: string
 }) {
   return (
     <main className="flex min-h-svh items-center justify-center px-5 py-12">
@@ -37,8 +40,15 @@ export function BlockedView({
           {TITLES[reason]}
         </h1>
         <p className="mt-4 text-sm text-muted-foreground">
-          {reason === "error" && message ? message : DESCRIPTIONS[reason]}
+          {reason === "error" && message
+            ? message
+            : reason === "device_mismatch"
+              ? "Tu enlace personal ya está activo en otro dispositivo. Si es tuyo, puedes cerrar esa sesión y activarlo aquí."
+              : DESCRIPTIONS[reason]}
         </p>
+        {reason === "device_mismatch" && accessToken && (
+          <RebindButton accessToken={accessToken} />
+        )}
         <Link
           href="/"
           className="mt-8 inline-block text-sm text-foreground underline underline-offset-4"
