@@ -6,10 +6,22 @@ import {
   ArrowLeftIcon,
   CheckIcon,
   ChevronRightIcon,
+  HistoryIcon,
   PencilIcon,
   Trash2Icon,
+  Undo2Icon,
 } from "lucide-react"
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -38,6 +50,8 @@ import {
 import { useLocalStorage } from "@/lib/use-local-storage"
 import { uid } from "@/lib/uid"
 
+import { revertirAsistencia } from "./actions"
+
 export type Area = {
   id: string
   piso: string
@@ -54,6 +68,16 @@ export type Reporte = {
   areaNombre: string
   areaCapacidad: number
   acomodadorNombre: string
+}
+
+export type HistorialEntry = {
+  id: string
+  asignacionId: string
+  valor: number
+  origen: "acomodador" | "admin" | "revert"
+  reportadoAt: string
+  reportadoPor: string
+  esRevert: boolean
 }
 
 type Sesion = "manana" | "tarde"
@@ -158,10 +182,30 @@ function asistenciaFromConteo(c: Conteo): number {
 export function AsistenciaClient({
   areas,
   reportes,
+  historial,
 }: {
   areas: Area[]
   reportes: Reporte[]
+  historial: HistorialEntry[]
 }) {
+  const historialPorAsignacion = React.useMemo(() => {
+    const map = new Map<string, HistorialEntry[]>()
+    for (const h of historial) {
+      const list = map.get(h.asignacionId) ?? []
+      list.push(h)
+      map.set(h.asignacionId, list)
+    }
+    for (const list of map.values()) {
+      list.sort((a, b) => (a.reportadoAt < b.reportadoAt ? 1 : -1))
+    }
+    return map
+  }, [historial])
+
+  const [historialAbierto, setHistorialAbierto] = React.useState<{
+    asignacionId: string
+    areaNombre: string
+    slot?: string
+  } | null>(null)
   const [conteosRaw, setConteos] = useLocalStorage<StoredConteo[]>(
     "ams-os.asistencia",
     [],
@@ -528,7 +572,39 @@ export function AsistenciaClient({
                           >
                             <PencilIcon />
                           </Button>
-                        ) : null}
+                        ) : (
+                          (() => {
+                            const asignacionId = c.id.startsWith("db-")
+                              ? c.id.slice(3)
+                              : null
+                            if (!asignacionId) return null
+                            const tieneHistorial =
+                              (historialPorAsignacion.get(asignacionId)
+                                ?.length ?? 0) > 0
+                            if (!tieneHistorial) return null
+                            return (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon-sm"
+                                onClick={() =>
+                                  setHistorialAbierto({
+                                    asignacionId,
+                                    areaNombre: c.areaNombre,
+                                    slot: `${formatDia(c.dia)} · ${
+                                      c.sesion
+                                        ? SESION_LABEL[c.sesion]
+                                        : ""
+                                    }`,
+                                  })
+                                }
+                                aria-label="Ver historial"
+                              >
+                                <HistoryIcon />
+                              </Button>
+                            )
+                          })()
+                        )}
                       </TableCell>
                     </TableRow>
                   ))
@@ -546,6 +622,208 @@ export function AsistenciaClient({
         onSave={applyEdit}
         onDelete={deleteConteo}
       />
+
+      <HistorialDialog
+        abierto={historialAbierto}
+        entradas={
+          historialAbierto
+            ? historialPorAsignacion.get(historialAbierto.asignacionId) ?? []
+            : []
+        }
+        onClose={() => setHistorialAbierto(null)}
+      />
+    </>
+  )
+}
+
+function formatTimestamp(iso: string): string {
+  try {
+    return new Date(iso).toLocaleString("es-MX", {
+      day: "2-digit",
+      month: "short",
+      hour: "2-digit",
+      minute: "2-digit",
+    })
+  } catch {
+    return iso
+  }
+}
+
+function origenLabel(origen: HistorialEntry["origen"]): string {
+  if (origen === "acomodador") return "Acomodador"
+  if (origen === "admin") return "Admin"
+  return "Reversión"
+}
+
+function HistorialDialog({
+  abierto,
+  entradas,
+  onClose,
+}: {
+  abierto: {
+    asignacionId: string
+    areaNombre: string
+    slot?: string
+  } | null
+  entradas: HistorialEntry[]
+  onClose: () => void
+}) {
+  const [confirmando, setConfirmando] = React.useState<HistorialEntry | null>(
+    null,
+  )
+  const [enviando, setEnviando] = React.useState(false)
+  const [error, setError] = React.useState<string | null>(null)
+
+  const open = abierto !== null
+  const vigenteId = entradas[0]?.id ?? null
+
+  async function aplicarRevert() {
+    if (!confirmando) return
+    setEnviando(true)
+    setError(null)
+    const { ok, error: err } = await revertirAsistencia(confirmando.id)
+    setEnviando(false)
+    if (!ok) {
+      setError(err ?? "No se pudo revertir.")
+      return
+    }
+    setConfirmando(null)
+    onClose()
+  }
+
+  return (
+    <>
+      <Dialog
+        open={open}
+        onOpenChange={(o) => {
+          if (!o) {
+            onClose()
+            setError(null)
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Historial de movimientos</DialogTitle>
+            <DialogDescription>
+              {abierto?.areaNombre}
+              {abierto?.slot ? ` · ${abierto.slot}` : ""}
+            </DialogDescription>
+          </DialogHeader>
+
+          {entradas.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              Sin movimientos registrados.
+            </p>
+          ) : (
+            <ul className="grid gap-2">
+              {entradas.map((e) => {
+                const esVigente = e.id === vigenteId
+                return (
+                  <li
+                    key={e.id}
+                    className="flex items-start justify-between gap-3 rounded-lg border bg-background p-3"
+                  >
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-medium tabular-nums">
+                          {e.valor}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {origenLabel(e.origen)}
+                          {e.esRevert ? " (revertido)" : ""}
+                        </span>
+                        {esVigente && (
+                          <span className="inline-flex items-center rounded-full border border-primary/30 bg-primary/5 px-2 py-0.5 text-[10px] text-primary">
+                            Vigente
+                          </span>
+                        )}
+                      </div>
+                      <p className="mt-0.5 text-xs text-muted-foreground">
+                        {formatTimestamp(e.reportadoAt)} · {e.reportadoPor}
+                      </p>
+                    </div>
+                    {!esVigente && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setError(null)
+                          setConfirmando(e)
+                        }}
+                      >
+                        <Undo2Icon />
+                        Regresar
+                      </Button>
+                    )}
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+
+          {error && (
+            <p className="text-sm text-destructive">{error}</p>
+          )}
+
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onClose}>
+              Cerrar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog
+        open={confirmando !== null}
+        onOpenChange={(o) => {
+          if (!o) setConfirmando(null)
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Regresar a este reporte</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3">
+                <p>
+                  Se creará un nuevo reporte con el valor{" "}
+                  <span className="font-medium text-foreground tabular-nums">
+                    {confirmando?.valor}
+                  </span>{" "}
+                  y se marcará como vigente. El historial anterior se conserva.
+                </p>
+                {confirmando && (
+                  <div className="rounded-md border bg-muted/40 p-3 text-sm text-foreground">
+                    <div className="flex items-center justify-between text-xs text-muted-foreground">
+                      <span>Reportado</span>
+                      <span>{formatTimestamp(confirmando.reportadoAt)}</span>
+                    </div>
+                    <div className="mt-1 flex items-center justify-between text-xs text-muted-foreground">
+                      <span>Por</span>
+                      <span>{confirmando.reportadoPor}</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={enviando}>
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault()
+                aplicarRevert()
+              }}
+              disabled={enviando}
+            >
+              {enviando ? "Aplicando…" : "Confirmar y regresar"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   )
 }

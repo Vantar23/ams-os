@@ -4,6 +4,16 @@ import * as React from "react"
 import { useRouter } from "next/navigation"
 import { CheckIcon, MinusIcon, PlusIcon } from "lucide-react"
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
 
 import { reportarLugaresVacios } from "../actions"
@@ -45,6 +55,7 @@ export function LugaresVaciosForm({
   const [lastReportado, setLastReportado] = React.useState<string | null>(
     reportadoAt,
   )
+  const [confirmOpen, setConfirmOpen] = React.useState(false)
 
   function bump(delta: number) {
     setValor((v) => {
@@ -68,8 +79,14 @@ export function LugaresVaciosForm({
     setValor(n)
   }
 
-  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+  function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
+    setError(null)
+    setConfirmOpen(true)
+  }
+
+  async function confirmarReporte() {
+    setConfirmOpen(false)
     setSubmitting(true)
     setError(null)
     setSavedLabel(null)
@@ -92,6 +109,10 @@ export function LugaresVaciosForm({
 
   const asistencia =
     modo === "asistentes" ? valor : Math.max(0, areaCapacidad - valor)
+
+  const asistenciaSiConfirma = asistencia
+  const valorAnterior = initialLugares
+  const valorCambia = valorAnterior !== null && valorAnterior !== valor
 
   return (
     <form onSubmit={onSubmit} className="mt-4 grid gap-4">
@@ -202,6 +223,58 @@ export function LugaresVaciosForm({
           "Aún no reportado"
         )}
       </p>
+
+      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {valorCambia ? "Cambiar reporte" : "Confirmar reporte"}
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3">
+                <p>
+                  {valorCambia
+                    ? "Vas a sobrescribir tu último reporte. Revisa los números antes de confirmar."
+                    : "Revisa los números antes de confirmar."}
+                </p>
+                <div className="rounded-md border bg-muted/40 p-3 text-sm text-foreground">
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">
+                      {modo === "vacios" ? "Lugares vacíos" : "Asistentes"}
+                    </span>
+                    <span className="font-medium tabular-nums">{valor}</span>
+                  </div>
+                  <div className="mt-1 flex items-center justify-between">
+                    <span className="text-muted-foreground">
+                      Asistencia calculada
+                    </span>
+                    <span className="font-medium tabular-nums">
+                      {asistenciaSiConfirma}
+                      {modo === "vacios" && (
+                        <span className="ml-1 text-xs text-muted-foreground">
+                          de {areaCapacidad}
+                        </span>
+                      )}
+                    </span>
+                  </div>
+                  {valorCambia && valorAnterior !== null && (
+                    <div className="mt-1 flex items-center justify-between text-xs text-muted-foreground">
+                      <span>Valor anterior</span>
+                      <span className="tabular-nums">{valorAnterior}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Volver a contar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmarReporte}>
+              Confirmar y reportar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </form>
   )
 }

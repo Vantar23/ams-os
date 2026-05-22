@@ -68,6 +68,29 @@ export async function reportarLugaresVacios(input: {
     p_lugares: input.lugares,
   })
   if (error) return { ok: false, error: error.message }
+
+  // Guarda la entrada en el historial. No bloqueamos el éxito del reporte
+  // si esto falla — el reporte vigente ya está guardado en asignaciones.
+  try {
+    const admin = createAdminClient()
+    const { data: asignacion } = await admin
+      .from("asignaciones")
+      .select("asamblea_id, acomodador_id")
+      .eq("id", input.asignacionId)
+      .maybeSingle()
+    if (asignacion) {
+      await admin.from("asistencia_historial").insert({
+        asignacion_id: input.asignacionId,
+        asamblea_id: asignacion.asamblea_id,
+        lugares_vacios: input.lugares,
+        origen: "acomodador",
+        reportado_por_acomodador_id: asignacion.acomodador_id,
+      })
+    }
+  } catch {
+    /* no rompemos el reporte si el historial falla */
+  }
+
   revalidatePath(`/acomodador/${input.accessToken}/asistencia`)
   return { ok: true, error: null }
 }

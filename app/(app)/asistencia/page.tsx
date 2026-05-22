@@ -4,7 +4,12 @@ import { PageHeader } from "@/components/page-header"
 import { Button } from "@/components/ui/button"
 import { createClient } from "@/lib/supabase/server"
 
-import { AsistenciaClient, type Area, type Reporte } from "./asistencia-client"
+import {
+  AsistenciaClient,
+  type Area,
+  type HistorialEntry,
+  type Reporte,
+} from "./asistencia-client"
 
 export default async function AsistenciaPage() {
   const supabase = await createClient()
@@ -89,12 +94,58 @@ export default async function AsistenciaPage() {
     },
   )
 
+  const { data: historialRaw } = await supabase
+    .from("asistencia_historial")
+    .select(
+      "id, asignacion_id, lugares_vacios, origen, reportado_at, reportado_por_acomodador_id, reportado_por_user_id, revert_from_id, acomodadores(nombre, apellido)",
+    )
+    .eq("asamblea_id", asamblea.id)
+    .order("reportado_at", { ascending: false })
+
+  type HistRow = {
+    id: string
+    asignacion_id: string
+    lugares_vacios: number
+    origen: "acomodador" | "admin" | "revert"
+    reportado_at: string
+    reportado_por_acomodador_id: string | null
+    reportado_por_user_id: string | null
+    revert_from_id: string | null
+    acomodadores:
+      | { nombre: string; apellido: string }
+      | { nombre: string; apellido: string }[]
+      | null
+  }
+  function firstHist<T>(value: T | T[] | null | undefined): T | null {
+    if (Array.isArray(value)) return value[0] ?? null
+    return value ?? null
+  }
+  const historial: HistorialEntry[] = (
+    (historialRaw ?? []) as unknown as HistRow[]
+  ).map((h) => {
+    const ac = firstHist(h.acomodadores)
+    return {
+      id: h.id,
+      asignacionId: h.asignacion_id,
+      valor: h.lugares_vacios,
+      origen: h.origen,
+      reportadoAt: h.reportado_at,
+      reportadoPor: ac
+        ? `${ac.nombre} ${ac.apellido}`.trim()
+        : h.reportado_por_user_id
+          ? "Admin"
+          : "—",
+      esRevert: h.revert_from_id !== null,
+    }
+  })
+
   return (
     <>
       <PageHeader parent="Reportes" title="Asistencia" />
       <AsistenciaClient
         areas={(areas ?? []) as Area[]}
         reportes={reportes}
+        historial={historial}
       />
     </>
   )
