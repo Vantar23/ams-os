@@ -32,6 +32,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { MapaImage } from "@/components/mapa-image"
+import { compressImage } from "@/lib/compress-image"
 import { createClient } from "@/lib/supabase/client"
 
 import { agregarMapa, eliminarMapa } from "./actions"
@@ -212,6 +213,7 @@ function UploadMapaDialog({
   const [nombre, setNombre] = React.useState("")
   const [descripcion, setDescripcion] = React.useState("")
   const [submitting, setSubmitting] = React.useState(false)
+  const [procesando, setProcesando] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
 
   React.useEffect(() => {
@@ -227,11 +229,25 @@ function UploadMapaDialog({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
 
-  function pickFile(f: File) {
+  async function pickFile(f: File) {
     if (previewUrl) URL.revokeObjectURL(previewUrl)
-    setFile(f)
-    setPreviewUrl(URL.createObjectURL(f))
     if (!nombre) setNombre(f.name.replace(/\.[^.]+$/, ""))
+    setProcesando(true)
+    setError(null)
+    try {
+      // Mapas se hacen zoom — mantenemos mejor resolución y calidad.
+      const optimizado = await compressImage(f, {
+        maxDimension: 3000,
+        quality: 0.9,
+      })
+      setFile(optimizado)
+      setPreviewUrl(URL.createObjectURL(optimizado))
+    } catch {
+      setFile(f)
+      setPreviewUrl(URL.createObjectURL(f))
+    } finally {
+      setProcesando(false)
+    }
   }
 
   async function submit(e: React.FormEvent) {
@@ -325,9 +341,12 @@ function UploadMapaDialog({
             className="sr-only"
             onChange={(e) => {
               const f = e.target.files?.[0]
-              if (f) pickFile(f)
+              if (f) void pickFile(f)
             }}
           />
+          {procesando && (
+            <p className="text-xs text-muted-foreground">Optimizando imagen…</p>
+          )}
           {file && (
             <p className="truncate text-xs uppercase tracking-[0.15em] text-muted-foreground">
               {file.name} · {formatSize(file.size)}
@@ -371,9 +390,13 @@ function UploadMapaDialog({
         <DialogFooter>
           <Button
             type="submit"
-            disabled={!file || !nombre.trim() || submitting}
+            disabled={!file || !nombre.trim() || submitting || procesando}
           >
-            {submitting ? "Subiendo…" : "Guardar mapa"}
+            {submitting
+              ? "Subiendo…"
+              : procesando
+                ? "Optimizando…"
+                : "Guardar mapa"}
           </Button>
         </DialogFooter>
       </form>

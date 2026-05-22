@@ -7,6 +7,7 @@ import { CameraIcon, CheckIcon, UploadIcon, XIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { compressImage } from "@/lib/compress-image"
 
 import { reportarRecepcionLocal } from "../actions"
 import { CATEGORIAS_RECEPCION } from "@/app/(app)/recepcion-local/catalogo"
@@ -17,9 +18,27 @@ export function RecepcionForm({ accessToken }: { accessToken: string }) {
   const [descripcion, setDescripcion] = React.useState("")
   const [foto, setFoto] = React.useState<File | null>(null)
   const [preview, setPreview] = React.useState<string | null>(null)
+  const [procesandoFoto, setProcesandoFoto] = React.useState(false)
   const [submitting, setSubmitting] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
   const [savedAt, setSavedAt] = React.useState<number | null>(null)
+
+  async function onPickFoto(f: File | null) {
+    if (!f) {
+      setFoto(null)
+      return
+    }
+    setProcesandoFoto(true)
+    setError(null)
+    try {
+      const optimizada = await compressImage(f)
+      setFoto(optimizada)
+    } catch {
+      setFoto(f)
+    } finally {
+      setProcesandoFoto(false)
+    }
+  }
 
   React.useEffect(() => {
     if (!foto) {
@@ -141,21 +160,32 @@ export function RecepcionForm({ accessToken }: { accessToken: string }) {
       <div className="grid gap-2">
         <Label className="text-sm">Foto</Label>
         {preview ? (
-          <div className="relative overflow-hidden rounded-xl border">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={preview}
-              alt="vista previa"
-              className="max-h-72 w-full object-cover"
-            />
-            <button
-              type="button"
-              onClick={() => setFoto(null)}
-              aria-label="Quitar foto"
-              className="absolute right-2 top-2 inline-flex size-9 items-center justify-center rounded-full bg-background/80 text-foreground backdrop-blur"
-            >
-              <XIcon className="size-4" />
-            </button>
+          <div>
+            <div className="relative overflow-hidden rounded-xl border">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={preview}
+                alt="vista previa"
+                className="max-h-72 w-full object-cover"
+              />
+              <button
+                type="button"
+                onClick={() => setFoto(null)}
+                aria-label="Quitar foto"
+                className="absolute right-2 top-2 inline-flex size-9 items-center justify-center rounded-full bg-background/80 text-foreground backdrop-blur"
+              >
+                <XIcon className="size-4" />
+              </button>
+            </div>
+            {foto && (
+              <p className="mt-1.5 text-xs text-muted-foreground">
+                Optimizada · {formatBytes(foto.size)}
+              </p>
+            )}
+          </div>
+        ) : procesandoFoto ? (
+          <div className="flex h-24 items-center justify-center rounded-xl border border-dashed bg-background text-xs text-muted-foreground">
+            Optimizando foto…
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-2">
@@ -167,7 +197,7 @@ export function RecepcionForm({ accessToken }: { accessToken: string }) {
                 accept="image/*"
                 capture="environment"
                 className="hidden"
-                onChange={(e) => setFoto(e.target.files?.[0] ?? null)}
+                onChange={(e) => onPickFoto(e.target.files?.[0] ?? null)}
               />
             </label>
             <label className="flex h-24 cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border border-dashed bg-background text-muted-foreground transition-colors hover:bg-muted/40">
@@ -177,7 +207,7 @@ export function RecepcionForm({ accessToken }: { accessToken: string }) {
                 type="file"
                 accept="image/*"
                 className="hidden"
-                onChange={(e) => setFoto(e.target.files?.[0] ?? null)}
+                onChange={(e) => onPickFoto(e.target.files?.[0] ?? null)}
               />
             </label>
           </div>
@@ -189,10 +219,14 @@ export function RecepcionForm({ accessToken }: { accessToken: string }) {
       <Button
         type="submit"
         size="lg"
-        disabled={submitting}
+        disabled={submitting || procesandoFoto}
         className="h-12 w-full text-base"
       >
-        {submitting ? "Enviando…" : "Enviar reporte"}
+        {submitting
+          ? "Enviando…"
+          : procesandoFoto
+            ? "Procesando foto…"
+            : "Enviar reporte"}
       </Button>
 
       {savedAt !== null && (
@@ -203,4 +237,10 @@ export function RecepcionForm({ accessToken }: { accessToken: string }) {
       )}
     </form>
   )
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }

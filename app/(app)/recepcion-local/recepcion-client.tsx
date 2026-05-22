@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { compressImage } from "@/lib/compress-image"
 import {
   Select,
   SelectContent,
@@ -317,6 +318,24 @@ function AddRecepcionDialog({
   const [descripcion, setDescripcion] = React.useState("")
   const [foto, setFoto] = React.useState<File | null>(null)
   const [preview, setPreview] = React.useState<string | null>(null)
+  const [procesandoFoto, setProcesandoFoto] = React.useState(false)
+
+  async function onPickFoto(f: File | null) {
+    if (!f) {
+      setFoto(null)
+      return
+    }
+    setProcesandoFoto(true)
+    setError(null)
+    try {
+      const optimizada = await compressImage(f)
+      setFoto(optimizada)
+    } catch {
+      setFoto(f)
+    } finally {
+      setProcesandoFoto(false)
+    }
+  }
 
   React.useEffect(() => {
     if (!open) {
@@ -411,17 +430,28 @@ function AddRecepcionDialog({
           <div className="grid gap-1.5">
             <Label>Foto</Label>
             {preview ? (
-              <div className="relative overflow-hidden rounded-lg border">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={preview} alt="" className="max-h-64 w-full object-cover" />
-                <button
-                  type="button"
-                  onClick={() => setFoto(null)}
-                  className="absolute right-2 top-2 inline-flex size-8 items-center justify-center rounded-full bg-background/80 text-foreground backdrop-blur"
-                  aria-label="Quitar foto"
-                >
-                  <XIcon className="size-4" />
-                </button>
+              <div>
+                <div className="relative overflow-hidden rounded-lg border">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={preview} alt="" className="max-h-64 w-full object-cover" />
+                  <button
+                    type="button"
+                    onClick={() => setFoto(null)}
+                    className="absolute right-2 top-2 inline-flex size-8 items-center justify-center rounded-full bg-background/80 text-foreground backdrop-blur"
+                    aria-label="Quitar foto"
+                  >
+                    <XIcon className="size-4" />
+                  </button>
+                </div>
+                {foto && (
+                  <p className="mt-1.5 text-xs text-muted-foreground">
+                    Optimizada · {formatBytes(foto.size)}
+                  </p>
+                )}
+              </div>
+            ) : procesandoFoto ? (
+              <div className="flex items-center justify-center rounded-lg border border-dashed bg-background px-4 py-6 text-sm text-muted-foreground">
+                Optimizando foto…
               </div>
             ) : (
               <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed bg-background px-4 py-6 text-sm text-muted-foreground transition-colors hover:bg-muted/40">
@@ -432,7 +462,7 @@ function AddRecepcionDialog({
                   accept="image/*"
                   capture="environment"
                   className="hidden"
-                  onChange={(e) => setFoto(e.target.files?.[0] ?? null)}
+                  onChange={(e) => onPickFoto(e.target.files?.[0] ?? null)}
                 />
               </label>
             )}
@@ -441,14 +471,28 @@ function AddRecepcionDialog({
           {error && <p className="text-sm text-destructive">{error}</p>}
 
           <DialogFooter>
-            <Button type="submit" disabled={submitting} className="w-full sm:w-auto">
-              {submitting ? "Guardando…" : "Guardar reporte"}
+            <Button
+              type="submit"
+              disabled={submitting || procesandoFoto}
+              className="w-full sm:w-auto"
+            >
+              {submitting
+                ? "Guardando…"
+                : procesandoFoto
+                  ? "Procesando foto…"
+                  : "Guardar reporte"}
             </Button>
           </DialogFooter>
         </form>
       </DialogContent>
     </Dialog>
   )
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
 function formatDate(iso: string): string {

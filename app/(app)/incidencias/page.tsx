@@ -32,6 +32,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { compressImage } from "@/lib/compress-image"
 import { uid } from "@/lib/uid"
 import { cn } from "@/lib/utils"
 
@@ -212,10 +213,21 @@ function ReportWizard({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
 
-  function takePhoto(f: File) {
+  const [procesandoFoto, setProcesandoFoto] = React.useState(false)
+
+  async function takePhoto(f: File) {
     if (fotoUrl) URL.revokeObjectURL(fotoUrl)
-    setFoto(f)
-    setFotoUrl(URL.createObjectURL(f))
+    setProcesandoFoto(true)
+    try {
+      const optimizada = await compressImage(f)
+      setFoto(optimizada)
+      setFotoUrl(URL.createObjectURL(optimizada))
+    } catch {
+      setFoto(f)
+      setFotoUrl(URL.createObjectURL(f))
+    } finally {
+      setProcesandoFoto(false)
+    }
   }
 
   function clearPhoto() {
@@ -227,7 +239,7 @@ function ReportWizard({
 
   const canAdvance =
     (step === 0 && !!tipo) ||
-    (step === 1 && !!foto && !!fotoUrl) ||
+    (step === 1 && !!foto && !!fotoUrl && !procesandoFoto) ||
     step === 2
 
   function next() {
@@ -387,9 +399,14 @@ function ReportWizard({
               className="sr-only"
               onChange={(e) => {
                 const f = e.target.files?.[0]
-                if (f) takePhoto(f)
+                if (f) void takePhoto(f)
               }}
             />
+            {procesandoFoto && (
+              <p className="text-xs text-muted-foreground">
+                Optimizando foto…
+              </p>
+            )}
           </div>
         )}
 
