@@ -4,7 +4,7 @@ import { PageHeader } from "@/components/page-header"
 import { Button } from "@/components/ui/button"
 import { createClient } from "@/lib/supabase/server"
 
-import { AsistenciaClient, type Area } from "./asistencia-client"
+import { AsistenciaClient, type Area, type Reporte } from "./asistencia-client"
 
 export default async function AsistenciaPage() {
   const supabase = await createClient()
@@ -43,10 +43,59 @@ export default async function AsistenciaPage() {
     .order("piso", { ascending: true })
     .order("nombre", { ascending: true })
 
+  const { data: reportesRaw } = await supabase
+    .from("asignaciones")
+    .select(
+      "id, slot, lugares_vacios, reportado_at, area_id, acomodador_id, areas(nombre, capacidad), acomodadores(nombre, apellido)",
+    )
+    .eq("asamblea_id", asamblea.id)
+    .not("lugares_vacios", "is", null)
+    .order("reportado_at", { ascending: false })
+
+  type Row = {
+    id: string
+    slot: string
+    lugares_vacios: number
+    reportado_at: string
+    area_id: string
+    acomodador_id: string
+    areas:
+      | { nombre: string; capacidad: number }
+      | { nombre: string; capacidad: number }[]
+      | null
+    acomodadores:
+      | { nombre: string; apellido: string }
+      | { nombre: string; apellido: string }[]
+      | null
+  }
+  function first<T>(value: T | T[] | null | undefined): T | null {
+    if (Array.isArray(value)) return value[0] ?? null
+    return value ?? null
+  }
+  const reportes: Reporte[] = ((reportesRaw ?? []) as unknown as Row[]).map(
+    (r) => {
+      const area = first(r.areas)
+      const ac = first(r.acomodadores)
+      return {
+        id: r.id,
+        slot: r.slot,
+        valor: r.lugares_vacios,
+        reportadoAt: r.reportado_at,
+        areaId: r.area_id,
+        areaNombre: area?.nombre ?? "—",
+        areaCapacidad: area?.capacidad ?? 0,
+        acomodadorNombre: ac ? `${ac.nombre} ${ac.apellido}`.trim() : "—",
+      }
+    },
+  )
+
   return (
     <>
       <PageHeader parent="Reportes" title="Asistencia" />
-      <AsistenciaClient areas={(areas ?? []) as Area[]} />
+      <AsistenciaClient
+        areas={(areas ?? []) as Area[]}
+        reportes={reportes}
+      />
     </>
   )
 }

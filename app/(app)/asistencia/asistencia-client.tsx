@@ -45,6 +45,17 @@ export type Area = {
   capacidad: number
 }
 
+export type Reporte = {
+  id: string
+  slot: string
+  valor: number
+  reportadoAt: string
+  areaId: string
+  areaNombre: string
+  areaCapacidad: number
+  acomodadorNombre: string
+}
+
 type Sesion = "manana" | "tarde"
 
 type Modo = "vacios" | "asistentes"
@@ -59,8 +70,36 @@ type Conteo = {
   dia: string
   sesion: Sesion
   timestamp: string
+  origen: "manual" | "acomodador"
+  reportadoPor?: string
   // legacy field, kept for backward-compat reads
   vacios?: number
+}
+
+const SLOT_DIA: Record<string, string> = {
+  viernes: "2026-10-02",
+  sabado: "2026-10-03",
+  domingo: "2026-10-04",
+}
+
+function reporteToConteo(r: Reporte): Conteo | null {
+  const [diaKey, sesionKey] = r.slot.split("-") as [string, Sesion]
+  const dia = SLOT_DIA[diaKey]
+  if (!dia || (sesionKey !== "manana" && sesionKey !== "tarde")) return null
+  const modo: Modo = r.areaCapacidad > 0 ? "vacios" : "asistentes"
+  return {
+    id: `db-${r.id}`,
+    areaId: r.areaId,
+    areaNombre: r.areaNombre,
+    modo,
+    capacidadSnapshot: r.areaCapacidad,
+    valor: r.valor,
+    dia,
+    sesion: sesionKey,
+    timestamp: r.reportadoAt,
+    origen: "acomodador",
+    reportadoPor: r.acomodadorNombre,
+  }
 }
 
 const DIAS = [
@@ -107,6 +146,7 @@ function normalizeConteo(c: StoredConteo): Conteo {
     modo: c.modo ?? "vacios",
     capacidadSnapshot: c.capacidadSnapshot ?? 0,
     valor: c.valor ?? c.vacios ?? 0,
+    origen: "manual",
   }
 }
 
@@ -115,15 +155,26 @@ function asistenciaFromConteo(c: Conteo): number {
   return Math.max(0, c.capacidadSnapshot - c.valor)
 }
 
-export function AsistenciaClient({ areas }: { areas: Area[] }) {
+export function AsistenciaClient({
+  areas,
+  reportes,
+}: {
+  areas: Area[]
+  reportes: Reporte[]
+}) {
   const [conteosRaw, setConteos] = useLocalStorage<StoredConteo[]>(
     "ams-os.asistencia",
     [],
   )
-  const conteos = React.useMemo(
-    () => conteosRaw.map(normalizeConteo),
-    [conteosRaw],
-  )
+  const conteos = React.useMemo(() => {
+    const locales = conteosRaw.map(normalizeConteo)
+    const remotos = reportes
+      .map(reporteToConteo)
+      .filter((c): c is Conteo => c !== null)
+    const all = [...locales, ...remotos]
+    all.sort((a, b) => (a.timestamp < b.timestamp ? 1 : -1))
+    return all
+  }, [conteosRaw, reportes])
 
   const [step, setStep] = React.useState<"area" | "valor">("area")
   const [selected, setSelected] = React.useState<Area | null>(null)
@@ -165,6 +216,7 @@ export function AsistenciaClient({ areas }: { areas: Area[] }) {
       dia,
       sesion,
       timestamp: new Date().toISOString(),
+      origen: "manual",
     }
     setConteos((prev) => [conteo, ...prev])
     setSavedAt(Date.now())
@@ -436,7 +488,12 @@ export function AsistenciaClient({ areas }: { areas: Area[] }) {
                         {c.sesion ? SESION_LABEL[c.sesion] : "—"}
                       </TableCell>
                       <TableCell className="font-medium">
-                        {c.areaNombre}
+                        <span>{c.areaNombre}</span>
+                        {c.origen === "acomodador" && (
+                          <span className="ml-2 inline-flex items-center rounded-full border border-primary/30 bg-primary/5 px-2 py-0.5 text-[10px] text-primary">
+                            {c.reportadoPor ?? "Acomodador"}
+                          </span>
+                        )}
                       </TableCell>
                       <TableCell className="text-right tabular-nums">
                         {c.modo === "vacios" ? (
@@ -461,15 +518,17 @@ export function AsistenciaClient({ areas }: { areas: Area[] }) {
                         {asistenciaFromConteo(c)}
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon-sm"
-                          onClick={() => setEditing(c)}
-                          aria-label="Editar conteo"
-                        >
-                          <PencilIcon />
-                        </Button>
+                        {c.origen === "manual" ? (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon-sm"
+                            onClick={() => setEditing(c)}
+                            aria-label="Editar conteo"
+                          >
+                            <PencilIcon />
+                          </Button>
+                        ) : null}
                       </TableCell>
                     </TableRow>
                   ))
