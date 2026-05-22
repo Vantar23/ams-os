@@ -1,40 +1,95 @@
-"use client"
-
-import * as React from "react"
-import { CheckIcon } from "lucide-react"
+import Link from "next/link"
+import { redirect } from "next/navigation"
 
 import { PageHeader } from "@/components/page-header"
 import {
-  AsambleaFormFields,
-  INITIAL_ASAMBLEA,
+  EMPTY_ASAMBLEA,
+  ESTADOS,
   type AsambleaFormValues,
+  type Estado,
 } from "@/components/asamblea-form-fields"
 import { Button } from "@/components/ui/button"
+import { createClient } from "@/lib/supabase/server"
 
-export default function AjustesPage() {
-  const [values, setValues] = React.useState<AsambleaFormValues>(INITIAL_ASAMBLEA)
-  const [saved, setSaved] = React.useState<AsambleaFormValues>(INITIAL_ASAMBLEA)
-  const [showSaved, setShowSaved] = React.useState(false)
+import { AjustesClient } from "./ajustes-client"
 
-  const dirty = React.useMemo(
-    () => JSON.stringify(values) !== JSON.stringify(saved),
-    [values, saved]
-  )
+export default async function AjustesPage() {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) redirect("/login")
 
-  function update<K extends keyof AsambleaFormValues>(k: K, v: AsambleaFormValues[K]) {
-    setValues((s) => ({ ...s, [k]: v }))
-    setShowSaved(false)
+  const { data: asambleas } = await supabase
+    .from("asambleas")
+    .select(
+      "id, numero, edicion, titulo, fechas, sede, estado, dias_count, dias_label, sesiones_count, sesiones_label, whatsapp_grupo_url",
+    )
+    .order("created_at", { ascending: false })
+    .limit(1)
+  const asamblea = asambleas?.[0]
+
+  if (!asamblea) {
+    return (
+      <>
+        <PageHeader parent="Configuración" title="Ajustes" />
+        <div className="flex flex-1 items-center justify-center p-10">
+          <div className="max-w-md text-center">
+            <h2 className="font-serif text-2xl">Aún no tienes una asamblea</h2>
+            <p className="mt-3 text-sm text-muted-foreground">
+              Crea tu primera asamblea para poder editar sus ajustes.
+            </p>
+            <Button asChild className="mt-6">
+              <Link href="/register">Crear asamblea</Link>
+            </Button>
+          </div>
+        </div>
+      </>
+    )
   }
 
-  function onSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    setSaved(values)
-    setShowSaved(true)
+  const { data: miembro } = await supabase
+    .from("asamblea_miembros")
+    .select("role")
+    .eq("asamblea_id", asamblea.id)
+    .eq("user_id", user.id)
+    .maybeSingle()
+
+  if (miembro?.role !== "owner") {
+    return (
+      <>
+        <PageHeader parent="Configuración" title="Ajustes" />
+        <div className="flex flex-1 items-center justify-center p-10">
+          <div className="max-w-md text-center">
+            <h2 className="font-serif text-2xl">Sin acceso</h2>
+            <p className="mt-3 text-sm text-muted-foreground">
+              Solo el propietario de la asamblea puede modificar los ajustes.
+            </p>
+          </div>
+        </div>
+      </>
+    )
   }
 
-  function onReset() {
-    setValues(saved)
-    setShowSaved(false)
+  const estado = (
+    ESTADOS as readonly string[]
+  ).includes(asamblea.estado ?? "")
+    ? (asamblea.estado as Estado)
+    : EMPTY_ASAMBLEA.estado
+
+  const initial: AsambleaFormValues = {
+    numero: asamblea.numero != null ? String(asamblea.numero) : "",
+    edicion: asamblea.edicion ?? "",
+    titulo: asamblea.titulo ?? "",
+    fechas: asamblea.fechas ?? "",
+    sede: asamblea.sede ?? "",
+    estado,
+    diasCount: asamblea.dias_count != null ? String(asamblea.dias_count) : "",
+    diasLabel: asamblea.dias_label ?? "",
+    sesionesCount:
+      asamblea.sesiones_count != null ? String(asamblea.sesiones_count) : "",
+    sesionesLabel: asamblea.sesiones_label ?? "",
+    whatsappGrupoUrl: asamblea.whatsapp_grupo_url ?? "",
   }
 
   return (
@@ -53,36 +108,7 @@ export default function AjustesPage() {
           </p>
         </header>
 
-        <form onSubmit={onSubmit} className="mt-10">
-          <AsambleaFormFields values={values} onChange={update} />
-
-          <div className="mt-10 flex flex-col-reverse items-stretch gap-3 border-t border-border pt-6 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-xs uppercase tracking-[0.15em] text-muted-foreground">
-              {showSaved ? (
-                <span className="inline-flex items-center gap-1.5 text-foreground">
-                  <CheckIcon className="size-3.5" /> Cambios guardados
-                </span>
-              ) : dirty ? (
-                "Cambios sin guardar"
-              ) : (
-                "Sin cambios"
-              )}
-            </p>
-            <div className="flex gap-2 sm:gap-3">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={onReset}
-                disabled={!dirty}
-              >
-                Descartar
-              </Button>
-              <Button type="submit" disabled={!dirty}>
-                Guardar cambios
-              </Button>
-            </div>
-          </div>
-        </form>
+        <AjustesClient initial={initial} />
       </div>
     </>
   )
