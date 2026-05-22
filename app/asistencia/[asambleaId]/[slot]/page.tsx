@@ -5,7 +5,7 @@ import {
   DISPONIBILIDAD_SESIONES,
   type DisponibilidadSlot,
 } from "@/lib/disponibilidad"
-import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 
 import { AsistenciaGeneral } from "./asistencia-general"
 
@@ -23,7 +23,7 @@ export default async function Page({
     return <Invalid reason="slot" />
   }
 
-  const supabase = await createClient()
+  const supabase = createAdminClient()
   const { data: asamblea } = await supabase
     .from("asambleas")
     .select("id, numero, edicion")

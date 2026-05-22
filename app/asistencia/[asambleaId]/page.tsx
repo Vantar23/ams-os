@@ -1,6 +1,6 @@
 import Link from "next/link"
 
-import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 
 import { LoginRedirector } from "./login-redirector"
 
@@ -11,7 +11,7 @@ export default async function Page({
 }) {
   const { asambleaId } = await params
 
-  const supabase = await createClient()
+  const supabase = createAdminClient()
   const { data: asamblea } = await supabase
     .from("asambleas")
     .select("id, numero, edicion")
