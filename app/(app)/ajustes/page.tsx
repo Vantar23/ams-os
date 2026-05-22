@@ -7,7 +7,7 @@ import {
   ESTADOS,
   type AsambleaFormValues,
   type Estado,
-} from "@/components/asamblea-form-fields"
+} from "@/lib/asamblea"
 import { Button } from "@/components/ui/button"
 import { createClient } from "@/lib/supabase/server"
 

@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache"
 
 import { createClient } from "@/lib/supabase/server"
-import { ESTADOS, type AsambleaFormValues } from "@/components/asamblea-form-fields"
+import { ESTADOS, type AsambleaFormValues } from "@/lib/asamblea"
 
 export async function actualizarAsamblea(
   values: AsambleaFormValues,
