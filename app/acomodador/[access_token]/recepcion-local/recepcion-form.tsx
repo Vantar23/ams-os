@@ -59,10 +59,21 @@ export function RecepcionForm({ accessToken }: { accessToken: string }) {
 
     setSubmitting(true)
     setError(null)
-    const { ok, error: err } = await reportarRecepcionLocal(fd)
-    setSubmitting(false)
-    if (!ok) {
-      setError(err)
+    try {
+      const { ok, error: err } = await reportarRecepcionLocal(fd)
+      setSubmitting(false)
+      if (!ok) {
+        setError(err)
+        return
+      }
+    } catch (err) {
+      setSubmitting(false)
+      const msg = err instanceof Error ? err.message : String(err)
+      setError(
+        msg.toLowerCase().includes("body")
+          ? "La foto es muy grande para enviarla. Prueba con una más ligera."
+          : `No se pudo enviar el reporte: ${msg}`,
+      )
       return
     }
     setCategoria("")
