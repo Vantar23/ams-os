@@ -7,6 +7,7 @@ import {
   ArrowLeftIcon,
   CheckIcon,
   CopyIcon,
+  DownloadIcon,
   LinkIcon,
   MessageCircleIcon,
   PencilIcon,
@@ -20,6 +21,12 @@ import {
 } from "@/components/areas-selector"
 import { DisponibilidadSelector } from "@/components/disponibilidad-selector"
 import type { DisponibilidadSlot } from "@/lib/disponibilidad"
+import {
+  downloadCsv,
+  formatDisponibilidad,
+  rowsToCsv,
+  todayStamp,
+} from "@/lib/export-csv"
 import { useMediaQuery } from "@/lib/use-media-query"
 
 import {
@@ -130,6 +137,7 @@ export function SubAuxClient({
           </p>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row">
+          <ExportarExcelButton personas={personas} asamblea={asamblea} />
           <Button
             type="button"
             variant="outline"
@@ -1027,4 +1035,50 @@ function whatsappResetShareUrl(
   const phone = telefono.replace(/\D/g, "")
   const text = `Hola ${nombre}, este es tu enlace para activar tu cuenta de ${roleLabel.toLowerCase()} o restablecer tu contraseña: ${url}`
   return `https://wa.me/${phone}?text=${encodeURIComponent(text)}`
+}
+
+function ExportarExcelButton({
+  personas,
+  asamblea,
+}: {
+  personas: SubAuxPersona[]
+  asamblea: Asamblea
+}) {
+  function handleExport() {
+    const headers = [
+      "Nombre",
+      "Apellido",
+      "Rol",
+      "Congregación",
+      "Teléfono",
+      "Áreas",
+      "Disponibilidad",
+      "Notas",
+    ]
+    const rows = personas.map((p) => [
+      p.nombre,
+      p.apellido,
+      ROLE_LABEL[p.role],
+      p.congregacion,
+      p.telefono,
+      p.area.join(", "),
+      formatDisponibilidad(p.disponibilidad),
+      p.notas ?? "",
+    ])
+    const csv = rowsToCsv(headers, rows)
+    downloadCsv(`sup-aux-asamblea-${asamblea.numero}-${todayStamp()}.csv`, csv)
+  }
+
+  return (
+    <Button
+      type="button"
+      variant="outline"
+      onClick={handleExport}
+      disabled={personas.length === 0}
+      className="w-full sm:w-auto"
+    >
+      <DownloadIcon />
+      Exportar a Excel
+    </Button>
+  )
 }

@@ -7,6 +7,7 @@ import {
   ArrowLeftIcon,
   CheckIcon,
   CopyIcon,
+  DownloadIcon,
   LinkIcon,
   MessageCircleIcon,
   PencilIcon,
@@ -17,6 +18,12 @@ import {
 
 import { DisponibilidadSelector } from "@/components/disponibilidad-selector"
 import type { DisponibilidadSlot } from "@/lib/disponibilidad"
+import {
+  downloadCsv,
+  formatDisponibilidad,
+  rowsToCsv,
+  todayStamp,
+} from "@/lib/export-csv"
 import { useMediaQuery } from "@/lib/use-media-query"
 import { cn } from "@/lib/utils"
 
@@ -161,6 +168,11 @@ export function AcomodadoresClient({
         </div>
         <div className="flex flex-col gap-2 sm:flex-row">
           <CopyAccesoLinkButton asambleaId={asamblea.id} />
+          <ExportarExcelButton
+            acomodadores={acomodadores}
+            capitanes={capitanes}
+            asamblea={asamblea}
+          />
           <Button
             type="button"
             variant="outline"
@@ -1217,4 +1229,58 @@ function whatsappShareUrl(telefono: string, nombre: string, url: string): string
   const phone = telefono.replace(/\D/g, "")
   const text = `Hola ${nombre}, estás invitado a servir como acomodador en la asamblea. Este es tu enlace personal de registro y acceso a la plataforma. Funciona solo en el primer dispositivo donde lo abras: ${url}`
   return `https://wa.me/${phone}?text=${encodeURIComponent(text)}`
+}
+
+function ExportarExcelButton({
+  acomodadores,
+  capitanes,
+  asamblea,
+}: {
+  acomodadores: Acomodador[]
+  capitanes: CapitanOption[]
+  asamblea: Asamblea
+}) {
+  function handleExport() {
+    const capitanById = new Map(capitanes.map((c) => [c.id, c]))
+    const headers = [
+      "Nombre",
+      "Apellido",
+      "Congregación",
+      "Teléfono",
+      "Capitán",
+      "Áreas del capitán",
+      "Disponibilidad",
+      "Notas",
+      "Acceso",
+    ]
+    const rows = acomodadores.map((a) => {
+      const cap = a.capitan_id ? capitanById.get(a.capitan_id) : null
+      return [
+        a.nombre,
+        a.apellido,
+        a.congregacion,
+        a.telefono,
+        cap ? `${cap.nombre} ${cap.apellido}` : "",
+        cap ? cap.area.join(", ") : "",
+        formatDisponibilidad(a.disponibilidad),
+        a.notas ?? "",
+        a.device_bound_at ? "Activo" : "Sin abrir",
+      ]
+    })
+    const csv = rowsToCsv(headers, rows)
+    downloadCsv(`acomodadores-asamblea-${asamblea.numero}-${todayStamp()}.csv`, csv)
+  }
+
+  return (
+    <Button
+      type="button"
+      variant="outline"
+      onClick={handleExport}
+      disabled={acomodadores.length === 0}
+      className="w-full sm:w-auto"
+    >
+      <DownloadIcon />
+      Exportar a Excel
+    </Button>
+  )
 }
