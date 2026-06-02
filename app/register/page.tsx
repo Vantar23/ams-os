@@ -53,10 +53,53 @@ export default function RegisterPage() {
   const router = useRouter()
   const supabase = React.useMemo(() => createClient(), [])
   const [step, setStep] = React.useState<1 | 2>(1)
+  const [initializing, setInitializing] = React.useState(true)
   const [userValues, setUserValues] = React.useState<UserValues>(EMPTY_USER)
   const [asamblea, setAsamblea] = React.useState<AsambleaFormValues>(
     INITIAL_ASAMBLEA,
   )
+
+  // Si el usuario ya tiene sesión (p. ej. creó la cuenta pero la creación de la
+  // asamblea se interrumpió), no lo mandamos al paso 1 de nuevo: o ya tiene una
+  // asamblea y va al resumen, o saltamos directo al paso 2 para que la cree.
+  React.useEffect(() => {
+    let active = true
+    ;(async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      if (!active) return
+      if (!user) {
+        setInitializing(false)
+        return
+      }
+      const { data: asambleas } = await supabase
+        .from("asambleas")
+        .select("id")
+        .limit(1)
+      if (!active) return
+      if (asambleas && asambleas.length > 0) {
+        router.replace("/resumen")
+        return
+      }
+      const meta = (user.user_metadata ?? {}) as {
+        nombre?: string
+        apellido?: string
+      }
+      setUserValues({
+        nombre: meta.nombre ?? "",
+        apellido: meta.apellido ?? "",
+        email: user.email ?? "",
+        password: "",
+        confirmPassword: "",
+      })
+      setStep(2)
+      setInitializing(false)
+    })()
+    return () => {
+      active = false
+    }
+  }, [supabase, router])
 
   function updateAsamblea<K extends keyof AsambleaFormValues>(
     k: K,
@@ -118,6 +161,14 @@ export default function RegisterPage() {
     }
     router.replace("/resumen")
     router.refresh()
+  }
+
+  if (initializing) {
+    return (
+      <main className="flex min-h-svh items-center justify-center px-5 py-10 sm:py-12">
+        <p className="text-sm text-muted-foreground">Cargando…</p>
+      </main>
+    )
   }
 
   return (

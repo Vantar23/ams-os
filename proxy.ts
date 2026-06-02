@@ -9,7 +9,11 @@ const PUBLIC_PREFIXES = [
   "/hermana-apoyo/",
   "/asistencia/",
 ]
-const AUTH_ROUTES = new Set(["/login", "/register"])
+// /register no entra aquí: un usuario con sesión pero sin asamblea necesita
+// poder llegar a /register para crear su primera asamblea (la propia página
+// lo manda a /resumen si ya tiene una). Si lo redirigiéramos aquí, quedaría
+// atrapado en /resumen sin forma de crear la asamblea.
+const AUTH_ROUTES = new Set(["/login"])
 const ACOMODADOR_PREFIX = "/acomodador/"
 const HERMANA_APOYO_PREFIX = "/hermana-apoyo/"
 const DEVICE_COOKIE = "acomodador_device_key"
