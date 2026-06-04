@@ -30,7 +30,7 @@ const schema = z
     apellido: z.string().min(1, "Requerido"),
     congregacion: z.string().min(1, "Requerido"),
     telefono: z.string().min(6, "Teléfono inválido"),
-    area: z.array(z.string()).min(1, "Selecciona al menos un área"),
+    area: z.array(z.string()),
     notas: z.string().optional(),
     email: z.email("Correo inválido"),
     password: z.string().min(8, "Mínimo 8 caracteres"),
@@ -323,11 +323,15 @@ export function SubAuxRegistroForm({
                 name="area"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Áreas a cargo</FormLabel>
+                    <FormLabel>
+                      Áreas a cargo{" "}
+                      <span className="text-muted-foreground">(opcional)</span>
+                    </FormLabel>
                     {areas.length === 0 ? (
                       <p className="text-sm text-muted-foreground">
-                        Aún no hay áreas registradas. Pídele al organizador que
-                        las cree antes de continuar.
+                        Aún no hay áreas registradas. Puedes continuar sin
+                        seleccionar un área; el organizador puede asignarlas más
+                        tarde.
                       </p>
                     ) : (
                       <FormControl>

@@ -30,6 +30,7 @@ const data = {
         { title: "Información", url: "#" },
         { title: "Programa", url: "#" },
         { title: "Sesiones", url: "#" },
+        { title: "Pautas", url: "/pautas" },
       ],
     },
     {
@@ -87,20 +88,17 @@ export function AppSidebar({
     .map((g) => ({ ...g, items: g.items.filter((i) => i.url !== "#") }))
     .filter((g) => g.items.length > 0)
 
-  const isCapitanLike =
-    role === "capitan" || role === "subcapitan" || role === "auxiliar"
+  // Superintendentes (subcapitan) and auxiliares see the full menu, like owner.
+  // Only capitanes get the restricted navigation.
   const groups =
-    isCapitanLike
+    role === "capitan"
       ? visibleNav
           .map((g) => {
             if (g.title === "Asignaciones") {
               return { ...g, items: g.items.filter((i) => i.title === "Puestos") }
             }
             if (g.title === "Lugar") {
-              const allowed =
-                role === "capitan"
-                  ? ["Mapa", "Recepción del local"]
-                  : ["Mapa"]
+              const allowed = ["Mapa", "Recepción del local"]
               return {
                 ...g,
                 items: g.items.filter((i) => allowed.includes(i.title)),

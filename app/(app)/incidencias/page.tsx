@@ -52,7 +52,8 @@ export default async function IncidenciasPage() {
     .maybeSingle()
   const role = miembro?.role as string | undefined
 
-  if (role !== "owner" && role !== "capitan") {
+  const allowedRoles = ["owner", "capitan", "subcapitan", "auxiliar"]
+  if (!role || !allowedRoles.includes(role)) {
     return (
       <>
         <PageHeader parent="Reportes" title="Incidencias" />

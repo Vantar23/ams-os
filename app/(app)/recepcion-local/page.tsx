@@ -53,7 +53,8 @@ export default async function RecepcionLocalPage() {
     .maybeSingle()
   const role = miembro?.role as string | undefined
 
-  if (role !== "owner" && role !== "capitan") {
+  const allowedRoles = ["owner", "capitan", "subcapitan", "auxiliar"]
+  if (!role || !allowedRoles.includes(role)) {
     return (
       <>
         <PageHeader parent="Lugar" title="Recepción del local" />

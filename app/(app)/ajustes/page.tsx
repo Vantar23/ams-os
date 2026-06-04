@@ -55,7 +55,8 @@ export default async function AjustesPage() {
     .eq("user_id", user.id)
     .maybeSingle()
 
-  if (miembro?.role !== "owner") {
+  const allowedRoles = ["owner", "subcapitan", "auxiliar"]
+  if (!miembro?.role || !allowedRoles.includes(miembro.role)) {
     return (
       <>
         <PageHeader parent="Configuración" title="Ajustes" />
