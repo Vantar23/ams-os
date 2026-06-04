@@ -1,6 +1,8 @@
 import Link from "next/link"
 import { ArrowLeftIcon } from "lucide-react"
 
+import { PautasAcomodadores } from "@/components/pautas-acomodadores"
+
 import { BlockedView } from "../blocked-view"
 import { ClaimView } from "../claim-view"
 import { loadAcomodadorByToken } from "../load"
@@ -35,12 +37,19 @@ export default async function Page({
         <ArrowLeftIcon className="size-3.5" />
         Volver
       </Link>
-      <h1 className="mt-4 font-serif text-[2rem] leading-[1.1] text-foreground sm:text-4xl sm:leading-tight">
+      <p className="mt-4 text-[11px] uppercase tracking-[0.2em] text-muted-foreground sm:text-xs sm:tracking-[0.25em]">
+        Departamento de Acomodadores
+      </p>
+      <h1 className="mt-3 font-serif text-[2rem] leading-[1.1] text-foreground sm:text-4xl sm:leading-tight">
         Instrucciones
       </h1>
-      <p className="mt-3 text-sm text-muted-foreground">
-        Próximamente. Aquí encontrarás los procedimientos y recordatorios para
-        tu servicio durante la asamblea.
+
+      <div className="mt-6">
+        <PautasAcomodadores />
+      </div>
+
+      <p className="mt-12 border-t border-border pt-6 text-center text-xs text-muted-foreground">
+        Muchas gracias por su valioso trabajo en esta actividad teocrática.
       </p>
     </main>
   )
