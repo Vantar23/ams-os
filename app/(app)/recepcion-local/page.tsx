@@ -70,13 +70,23 @@ export default async function RecepcionLocalPage() {
     )
   }
 
-  const { data: rows } = await supabase
-    .from("recepcion_local_items")
-    .select(
-      "id, categoria, descripcion, foto_path, estado, created_at, reportado_por_acomodador_id, reportado_por_user_id",
-    )
-    .eq("asamblea_id", asamblea.id)
-    .order("created_at", { ascending: false })
+  const [{ data: rows }, { data: areaRows }] = await Promise.all([
+    supabase
+      .from("recepcion_local_items")
+      .select(
+        "id, desperfecto, descripcion, nivel, zona, butaca, otro_objeto, foto_path, estado, created_at, reportado_por_acomodador_id, reportado_por_user_id",
+      )
+      .eq("asamblea_id", asamblea.id)
+      .order("created_at", { ascending: false }),
+    supabase
+      .from("areas")
+      .select("piso, nombre")
+      .eq("asamblea_id", asamblea.id)
+      .order("piso", { ascending: true })
+      .order("nombre", { ascending: true }),
+  ])
+
+  const areas = (areaRows ?? []) as Array<{ piso: string; nombre: string }>
 
   const baseItems = (rows ?? []) as Array<
     Omit<RecepcionItem, "foto_url" | "reporter_label"> & {
@@ -120,8 +130,12 @@ export default async function RecepcionLocalPage() {
 
   const items: RecepcionItem[] = baseItems.map((r) => ({
     id: r.id,
-    categoria: r.categoria,
+    desperfecto: r.desperfecto,
     descripcion: r.descripcion,
+    nivel: r.nivel,
+    zona: r.zona,
+    butaca: r.butaca,
+    otro_objeto: r.otro_objeto,
     estado: r.estado as RecepcionItem["estado"],
     created_at: r.created_at,
     foto_url: r.foto_path ? urlByPath.get(r.foto_path) ?? null : null,
@@ -135,7 +149,7 @@ export default async function RecepcionLocalPage() {
   return (
     <>
       <PageHeader parent="Lugar" title="Recepción del local" />
-      <RecepcionClient asamblea={asamblea} items={items} />
+      <RecepcionClient asamblea={asamblea} items={items} areas={areas} />
     </>
   )
 }

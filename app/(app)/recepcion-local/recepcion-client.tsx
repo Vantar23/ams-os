@@ -41,7 +41,12 @@ import {
 } from "@/components/ui/alert-dialog"
 
 import {
-  CATEGORIAS_RECEPCION,
+  RecepcionLocationFields,
+  type AreaOption,
+} from "@/components/recepcion-location-fields"
+
+import {
+  DESPERFECTOS_RECEPCION,
   ESTADO_LABEL,
   type EstadoRecepcion,
 } from "./catalogo"
@@ -53,8 +58,12 @@ import {
 
 export type RecepcionItem = {
   id: string
-  categoria: string
+  desperfecto: string
   descripcion: string | null
+  nivel: string | null
+  zona: string | null
+  butaca: string | null
+  otro_objeto: string | null
   estado: EstadoRecepcion
   created_at: string
   foto_url: string | null
@@ -66,9 +75,11 @@ type Asamblea = { id: string; numero: string; edicion: string }
 export function RecepcionClient({
   asamblea,
   items,
+  areas,
 }: {
   asamblea: Asamblea
   items: RecepcionItem[]
+  areas: AreaOption[]
 }) {
   const [addOpen, setAddOpen] = React.useState(false)
   const [filtro, setFiltro] = React.useState<EstadoRecepcion | "todos">("todos")
@@ -134,7 +145,11 @@ export function RecepcionClient({
         </ul>
       )}
 
-      <AddRecepcionDialog open={addOpen} onOpenChange={setAddOpen} />
+      <AddRecepcionDialog
+        open={addOpen}
+        onOpenChange={setAddOpen}
+        areas={areas}
+      />
     </div>
   )
 }
@@ -181,7 +196,7 @@ function RecepcionCard({ item }: { item: RecepcionItem }) {
           /* eslint-disable-next-line @next/next/no-img-element */
           <img
             src={item.foto_url}
-            alt={item.categoria}
+            alt={item.desperfecto}
             className="size-full object-cover"
           />
         ) : (
@@ -195,8 +210,9 @@ function RecepcionCard({ item }: { item: RecepcionItem }) {
 
       <div className="flex flex-1 flex-col gap-2 p-4">
         <h3 className="text-base font-medium text-foreground">
-          {item.categoria}
+          {item.desperfecto}
         </h3>
+        <Ubicacion item={item} />
         {item.descripcion && (
           <p className="text-sm text-muted-foreground">{item.descripcion}</p>
         )}
@@ -260,7 +276,7 @@ function RecepcionCard({ item }: { item: RecepcionItem }) {
         <Dialog open={imageOpen} onOpenChange={setImageOpen}>
           <DialogContent className="max-w-3xl p-0">
             <DialogHeader className="sr-only">
-              <DialogTitle>{item.categoria}</DialogTitle>
+              <DialogTitle>{item.desperfecto}</DialogTitle>
             </DialogHeader>
             <button
               type="button"
@@ -273,13 +289,35 @@ function RecepcionCard({ item }: { item: RecepcionItem }) {
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={item.foto_url}
-              alt={item.categoria}
+              alt={item.desperfecto}
               className="max-h-[85vh] w-full object-contain"
             />
           </DialogContent>
         </Dialog>
       )}
     </li>
+  )
+}
+
+function Ubicacion({ item }: { item: RecepcionItem }) {
+  const partes = [
+    item.nivel,
+    item.zona,
+    item.butaca ? `Butaca ${item.butaca}` : null,
+    item.otro_objeto,
+  ].filter(Boolean) as string[]
+  if (partes.length === 0) return null
+  return (
+    <p className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+      {partes.map((p, i) => (
+        <span
+          key={i}
+          className="inline-flex items-center rounded-full border border-border bg-background px-2 py-0.5"
+        >
+          {p}
+        </span>
+      ))}
+    </p>
   )
 }
 
@@ -307,15 +345,21 @@ function EstadoChip({
 function AddRecepcionDialog({
   open,
   onOpenChange,
+  areas,
 }: {
   open: boolean
   onOpenChange: (v: boolean) => void
+  areas: AreaOption[]
 }) {
   const router = useRouter()
   const [submitting, setSubmitting] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
-  const [categoria, setCategoria] = React.useState("")
+  const [desperfecto, setDesperfecto] = React.useState("")
   const [descripcion, setDescripcion] = React.useState("")
+  const [nivel, setNivel] = React.useState("")
+  const [zona, setZona] = React.useState("")
+  const [butaca, setButaca] = React.useState("")
+  const [otroObjeto, setOtroObjeto] = React.useState("")
   const [foto, setFoto] = React.useState<File | null>(null)
   const [preview, setPreview] = React.useState<string | null>(null)
   const [procesandoFoto, setProcesandoFoto] = React.useState(false)
@@ -339,8 +383,12 @@ function AddRecepcionDialog({
 
   React.useEffect(() => {
     if (!open) {
-      setCategoria("")
+      setDesperfecto("")
       setDescripcion("")
+      setNivel("")
+      setZona("")
+      setButaca("")
+      setOtroObjeto("")
       setFoto(null)
       setPreview(null)
       setError(null)
@@ -359,8 +407,8 @@ function AddRecepcionDialog({
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
-    if (!categoria.trim()) {
-      setError("Selecciona o escribe una categoría.")
+    if (!desperfecto.trim()) {
+      setError("Selecciona o escribe el desperfecto.")
       return
     }
     if (!foto) {
@@ -368,8 +416,12 @@ function AddRecepcionDialog({
       return
     }
     const fd = new FormData()
-    fd.set("categoria", categoria.trim())
+    fd.set("desperfecto", desperfecto.trim())
     fd.set("descripcion", descripcion.trim())
+    fd.set("nivel", nivel.trim())
+    fd.set("zona", zona.trim())
+    fd.set("butaca", butaca.trim())
+    fd.set("otro_objeto", otroObjeto.trim())
     fd.set("foto", foto)
 
     setSubmitting(true)
@@ -395,20 +447,32 @@ function AddRecepcionDialog({
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={onSubmit} className="grid gap-4">
+          <RecepcionLocationFields
+            areas={areas}
+            nivel={nivel}
+            zona={zona}
+            butaca={butaca}
+            otroObjeto={otroObjeto}
+            onNivel={setNivel}
+            onZona={setZona}
+            onButaca={setButaca}
+            onOtroObjeto={setOtroObjeto}
+          />
+
           <div className="grid gap-1.5">
-            <Label htmlFor="categoria">Categoría</Label>
+            <Label htmlFor="desperfecto">Desperfecto</Label>
             <Input
-              id="categoria"
-              name="categoria"
-              value={categoria}
-              onChange={(e) => setCategoria(e.target.value)}
-              list="categoria-options"
+              id="desperfecto"
+              name="desperfecto"
+              value={desperfecto}
+              onChange={(e) => setDesperfecto(e.target.value)}
+              list="desperfecto-options"
               placeholder="Silla rota, foco fundido, …"
               autoComplete="off"
               required
             />
-            <datalist id="categoria-options">
-              {CATEGORIAS_RECEPCION.map((c) => (
+            <datalist id="desperfecto-options">
+              {DESPERFECTOS_RECEPCION.map((c) => (
                 <option key={c} value={c} />
               ))}
             </datalist>

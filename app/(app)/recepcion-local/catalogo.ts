@@ -1,4 +1,4 @@
-export const CATEGORIAS_RECEPCION = [
+export const DESPERFECTOS_RECEPCION = [
   "Silla rota",
   "Banca dañada",
   "Foco fundido",

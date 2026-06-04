@@ -42,11 +42,15 @@ export async function agregarRecepcionItem(formData: FormData): Promise<{
   if (ctx.error) return { error: ctx.error }
   const { supabase, asambleaId } = ctx
 
-  const categoria = String(formData.get("categoria") ?? "").trim()
+  const desperfecto = String(formData.get("desperfecto") ?? "").trim()
   const descripcion = String(formData.get("descripcion") ?? "").trim()
+  const nivel = String(formData.get("nivel") ?? "").trim()
+  const zona = String(formData.get("zona") ?? "").trim()
+  const butaca = String(formData.get("butaca") ?? "").trim()
+  const otroObjeto = String(formData.get("otro_objeto") ?? "").trim()
   const foto = formData.get("foto") as File | null
 
-  if (!categoria) return { error: "Selecciona o escribe una categoría." }
+  if (!desperfecto) return { error: "Selecciona o escribe el desperfecto." }
   if (!foto || foto.size === 0) {
     return { error: "Adjunta una foto del problema." }
   }
@@ -64,8 +68,12 @@ export async function agregarRecepcionItem(formData: FormData): Promise<{
 
   const { error } = await supabase.from("recepcion_local_items").insert({
     asamblea_id: asambleaId,
-    categoria,
+    desperfecto,
     descripcion: descripcion || null,
+    nivel: nivel || null,
+    zona: zona || null,
+    butaca: butaca || null,
+    otro_objeto: otroObjeto || null,
     foto_path: fotoPath,
   })
   if (error) {

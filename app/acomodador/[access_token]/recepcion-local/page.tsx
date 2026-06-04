@@ -1,6 +1,8 @@
 import Link from "next/link"
 import { ArrowLeftIcon } from "lucide-react"
 
+import { createAdminClient } from "@/lib/supabase/admin"
+
 import { BlockedView } from "../blocked-view"
 import { ClaimView } from "../claim-view"
 import { loadAcomodadorByToken } from "../load"
@@ -28,6 +30,15 @@ export default async function Page({
     )
   }
 
+  const admin = createAdminClient()
+  const { data: areaRows } = await admin
+    .from("areas")
+    .select("piso, nombre")
+    .eq("asamblea_id", result.acomodador.asamblea_id)
+    .order("piso", { ascending: true })
+    .order("nombre", { ascending: true })
+  const areas = (areaRows ?? []) as Array<{ piso: string; nombre: string }>
+
   return (
     <main className="mx-auto w-full max-w-2xl px-4 py-6 sm:px-5 sm:py-14">
       <Link
@@ -45,7 +56,7 @@ export default async function Page({
         verá tu reporte.
       </p>
 
-      <RecepcionForm accessToken={access_token} />
+      <RecepcionForm accessToken={access_token} areas={areas} />
     </main>
   )
 }

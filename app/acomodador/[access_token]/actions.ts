@@ -121,13 +121,17 @@ export async function reportarRecepcionLocal(
   formData: FormData,
 ): Promise<{ ok: boolean; error: string | null }> {
   const accessToken = String(formData.get("accessToken") ?? "")
-  const categoria = String(formData.get("categoria") ?? "").trim()
+  const desperfecto = String(formData.get("desperfecto") ?? "").trim()
   const descripcion = String(formData.get("descripcion") ?? "").trim()
+  const nivel = String(formData.get("nivel") ?? "").trim()
+  const zona = String(formData.get("zona") ?? "").trim()
+  const butaca = String(formData.get("butaca") ?? "").trim()
+  const otroObjeto = String(formData.get("otro_objeto") ?? "").trim()
   const foto = formData.get("foto") as File | null
 
   if (!accessToken) return { ok: false, error: "Token inválido." }
-  if (!categoria) {
-    return { ok: false, error: "Selecciona o escribe una categoría." }
+  if (!desperfecto) {
+    return { ok: false, error: "Selecciona o escribe el desperfecto." }
   }
   if (!foto || foto.size === 0) {
     return { ok: false, error: "Adjunta una foto del problema." }
@@ -169,8 +173,12 @@ export async function reportarRecepcionLocal(
     .from("recepcion_local_items")
     .insert({
       asamblea_id: acomodador.asamblea_id,
-      categoria,
+      desperfecto,
       descripcion: descripcion || null,
+      nivel: nivel || null,
+      zona: zona || null,
+      butaca: butaca || null,
+      otro_objeto: otroObjeto || null,
       foto_path: fotoPath,
       reportado_por_acomodador_id: acomodador.id,
     })

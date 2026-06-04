@@ -9,13 +9,28 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { compressImage } from "@/lib/compress-image"
 
-import { reportarRecepcionLocal } from "../actions"
-import { CATEGORIAS_RECEPCION } from "@/app/(app)/recepcion-local/catalogo"
+import {
+  RecepcionLocationFields,
+  type AreaOption,
+} from "@/components/recepcion-location-fields"
 
-export function RecepcionForm({ accessToken }: { accessToken: string }) {
+import { reportarRecepcionLocal } from "../actions"
+import { DESPERFECTOS_RECEPCION } from "@/app/(app)/recepcion-local/catalogo"
+
+export function RecepcionForm({
+  accessToken,
+  areas,
+}: {
+  accessToken: string
+  areas: AreaOption[]
+}) {
   const router = useRouter()
-  const [categoria, setCategoria] = React.useState("")
+  const [desperfecto, setDesperfecto] = React.useState("")
   const [descripcion, setDescripcion] = React.useState("")
+  const [nivel, setNivel] = React.useState("")
+  const [zona, setZona] = React.useState("")
+  const [butaca, setButaca] = React.useState("")
+  const [otroObjeto, setOtroObjeto] = React.useState("")
   const [foto, setFoto] = React.useState<File | null>(null)
   const [preview, setPreview] = React.useState<string | null>(null)
   const [procesandoFoto, setProcesandoFoto] = React.useState(false)
@@ -57,13 +72,13 @@ export function RecepcionForm({ accessToken }: { accessToken: string }) {
   }, [savedAt])
 
   function pickSugerencia(c: string) {
-    setCategoria(c)
+    setDesperfecto(c)
   }
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
-    if (!categoria.trim()) {
-      setError("Selecciona o escribe qué encontraste.")
+    if (!desperfecto.trim()) {
+      setError("Selecciona o escribe el desperfecto.")
       return
     }
     if (!foto) {
@@ -72,8 +87,12 @@ export function RecepcionForm({ accessToken }: { accessToken: string }) {
     }
     const fd = new FormData()
     fd.set("accessToken", accessToken)
-    fd.set("categoria", categoria.trim())
+    fd.set("desperfecto", desperfecto.trim())
     fd.set("descripcion", descripcion.trim())
+    fd.set("nivel", nivel.trim())
+    fd.set("zona", zona.trim())
+    fd.set("butaca", butaca.trim())
+    fd.set("otro_objeto", otroObjeto.trim())
     fd.set("foto", foto)
 
     setSubmitting(true)
@@ -95,8 +114,12 @@ export function RecepcionForm({ accessToken }: { accessToken: string }) {
       )
       return
     }
-    setCategoria("")
+    setDesperfecto("")
     setDescripcion("")
+    setNivel("")
+    setZona("")
+    setButaca("")
+    setOtroObjeto("")
     setFoto(null)
     setSavedAt(Date.now())
     router.refresh()
@@ -104,34 +127,47 @@ export function RecepcionForm({ accessToken }: { accessToken: string }) {
 
   return (
     <form onSubmit={onSubmit} className="mt-6 grid gap-5">
+      <RecepcionLocationFields
+        areas={areas}
+        nivel={nivel}
+        zona={zona}
+        butaca={butaca}
+        otroObjeto={otroObjeto}
+        onNivel={setNivel}
+        onZona={setZona}
+        onButaca={setButaca}
+        onOtroObjeto={setOtroObjeto}
+        size="lg"
+      />
+
       <div className="grid gap-2">
-        <Label htmlFor="categoria" className="text-sm">
-          ¿Qué encontraste?
+        <Label htmlFor="desperfecto" className="text-sm">
+          Desperfecto
         </Label>
         <Input
-          id="categoria"
-          name="categoria"
-          value={categoria}
-          onChange={(e) => setCategoria(e.target.value)}
-          list="acomodador-categoria-options"
+          id="desperfecto"
+          name="desperfecto"
+          value={desperfecto}
+          onChange={(e) => setDesperfecto(e.target.value)}
+          list="acomodador-desperfecto-options"
           placeholder="Silla rota, foco fundido, …"
           autoComplete="off"
           required
           className="h-12 text-base"
         />
-        <datalist id="acomodador-categoria-options">
-          {CATEGORIAS_RECEPCION.map((c) => (
+        <datalist id="acomodador-desperfecto-options">
+          {DESPERFECTOS_RECEPCION.map((c) => (
             <option key={c} value={c} />
           ))}
         </datalist>
         <div className="-mx-1 flex flex-wrap gap-1.5 overflow-x-auto pb-1">
-          {CATEGORIAS_RECEPCION.slice(0, 8).map((c) => (
+          {DESPERFECTOS_RECEPCION.slice(0, 8).map((c) => (
             <button
               key={c}
               type="button"
               onClick={() => pickSugerencia(c)}
               className={`shrink-0 rounded-full border px-3 py-1 text-xs transition-colors ${
-                categoria === c
+                desperfecto === c
                   ? "border-primary bg-primary/10 text-primary"
                   : "border-border bg-background text-muted-foreground hover:border-foreground/30 hover:text-foreground"
               }`}
