@@ -1,7 +1,15 @@
 import { createServerClient } from "@supabase/ssr"
 import { NextResponse, type NextRequest } from "next/server"
 
-const PUBLIC_ROUTES = new Set(["/", "/login", "/register"])
+const PUBLIC_ROUTES = new Set([
+  "/",
+  "/login",
+  "/register",
+  // Assets de la PWA: el service worker y el manifest deben servirse sin
+  // sesión o el registro de push falla (redirigirlos a /login rompe todo).
+  "/sw.js",
+  "/manifest.webmanifest",
+])
 const PUBLIC_PREFIXES = [
   "/registro/",
   "/restablecer/",
