@@ -24,6 +24,10 @@ const CAPITAN_ALLOWED_PREFIXES = [
   "/hermanas-de-apoyo",
   "/disponibilidad",
   "/puestos",
+  // El sidebar de capitán muestra Mapa y Recepción del local; deben poder
+  // entrar (la página valida el rol por su cuenta).
+  "/mapa",
+  "/recepcion-local",
 ]
 const CAPITAN_LANDING = "/acomodadores"
 

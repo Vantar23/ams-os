@@ -48,6 +48,9 @@ export function RecepcionLocationFields({
   const zonas = uniq(
     areas.filter((a) => a.piso === nivel).map((a) => a.nombre),
   )
+  // Sin catálogo de áreas no hay opciones que elegir: deja escribir libre en
+  // vez de mostrar selects deshabilitados.
+  const sinCatalogo = niveles.length === 0
 
   const controlClass = size === "lg" ? "h-12 text-base" : undefined
   const labelClass = size === "lg" ? "text-sm" : undefined
@@ -56,58 +59,83 @@ export function RecepcionLocationFields({
     <>
       <div className="grid grid-cols-2 gap-3">
         <div className="grid gap-1.5">
-          <Label className={labelClass}>Nivel</Label>
-          <Select
-            value={nivel}
-            onValueChange={(v) => {
-              onNivel(v === NONE ? "" : v)
-              onZona("") // la zona depende del nivel
-            }}
-            disabled={niveles.length === 0}
-          >
-            <SelectTrigger className={controlClass}>
-              <SelectValue
-                placeholder={niveles.length === 0 ? "Sin niveles" : "Elige nivel"}
-              />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={NONE}>Sin especificar</SelectItem>
-              {niveles.map((n) => (
-                <SelectItem key={n} value={n}>
-                  {n}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <Label htmlFor={sinCatalogo ? "nivel" : undefined} className={labelClass}>
+            Nivel
+          </Label>
+          {sinCatalogo ? (
+            <Input
+              id="nivel"
+              name="nivel"
+              value={nivel}
+              onChange={(e) => onNivel(e.target.value)}
+              placeholder="Ej. Planta baja"
+              autoComplete="off"
+              className={controlClass}
+            />
+          ) : (
+            <Select
+              value={nivel}
+              onValueChange={(v) => {
+                onNivel(v === NONE ? "" : v)
+                onZona("") // la zona depende del nivel
+              }}
+            >
+              <SelectTrigger className={controlClass}>
+                <SelectValue placeholder="Elige nivel" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={NONE}>Sin especificar</SelectItem>
+                {niveles.map((n) => (
+                  <SelectItem key={n} value={n}>
+                    {n}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
         </div>
 
         <div className="grid gap-1.5">
-          <Label className={labelClass}>Zona</Label>
-          <Select
-            value={zona}
-            onValueChange={(v) => onZona(v === NONE ? "" : v)}
-            disabled={!nivel || zonas.length === 0}
-          >
-            <SelectTrigger className={controlClass}>
-              <SelectValue
-                placeholder={
-                  !nivel
-                    ? "Elige nivel primero"
-                    : zonas.length === 0
-                      ? "Sin zonas"
-                      : "Elige zona"
-                }
-              />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={NONE}>Sin especificar</SelectItem>
-              {zonas.map((z) => (
-                <SelectItem key={z} value={z}>
-                  {z}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <Label htmlFor={sinCatalogo ? "zona" : undefined} className={labelClass}>
+            Zona
+          </Label>
+          {sinCatalogo ? (
+            <Input
+              id="zona"
+              name="zona"
+              value={zona}
+              onChange={(e) => onZona(e.target.value)}
+              placeholder="Ej. Sección A"
+              autoComplete="off"
+              className={controlClass}
+            />
+          ) : (
+            <Select
+              value={zona}
+              onValueChange={(v) => onZona(v === NONE ? "" : v)}
+              disabled={!nivel || zonas.length === 0}
+            >
+              <SelectTrigger className={controlClass}>
+                <SelectValue
+                  placeholder={
+                    !nivel
+                      ? "Elige nivel primero"
+                      : zonas.length === 0
+                        ? "Sin zonas"
+                        : "Elige zona"
+                  }
+                />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={NONE}>Sin especificar</SelectItem>
+                {zonas.map((z) => (
+                  <SelectItem key={z} value={z}>
+                    {z}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
         </div>
       </div>
 
