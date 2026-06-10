@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import { ArrowLeftIcon, SendIcon } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
-import { createClient } from "@/lib/supabase/client"
+import { createRealtimeClient } from "@/lib/supabase/realtime"
 import { cn } from "@/lib/utils"
 
 import { enviarRespuestaAdmin, marcarMensajesLeidos } from "./actions"
@@ -95,27 +95,37 @@ export function MensajesClient({
   const conversacion =
     conversaciones.find((c) => c.key === seleccionada) ?? null
 
-  // Suscripción realtime: cualquier mensaje nuevo en la asamblea refresca
-  // los datos del servidor.
+  // Suscripción realtime (con el JWT del usuario — sin él, RLS no entrega
+  // eventos) + sondeo de respaldo por si el socket falla.
   React.useEffect(() => {
-    const supabase = createClient()
-    const channel = supabase
-      .channel(`mensajes-${asamblea.id}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "mensajes",
-          filter: `asamblea_id=eq.${asamblea.id}`,
-        },
-        () => router.refresh(),
-      )
-      .subscribe()
+    let cancelado = false
+    let cleanup: (() => void) | null = null
+    createRealtimeClient().then((supabase) => {
+      if (cancelado) return
+      const channel = supabase
+        .channel(`mensajes-${asamblea.id}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "INSERT",
+            schema: "public",
+            table: "mensajes",
+            filter: `asamblea_id=eq.${asamblea.id}`,
+          },
+          () => router.refresh(),
+        )
+        .subscribe()
+      cleanup = () => {
+        supabase.removeChannel(channel)
+      }
+    })
+    const interval = setInterval(() => router.refresh(), 15000)
     const onFocus = () => router.refresh()
     window.addEventListener("focus", onFocus)
     return () => {
-      supabase.removeChannel(channel)
+      cancelado = true
+      cleanup?.()
+      clearInterval(interval)
       window.removeEventListener("focus", onFocus)
     }
   }, [asamblea.id, router])

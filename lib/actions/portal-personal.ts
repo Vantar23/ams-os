@@ -76,6 +76,23 @@ export async function enviarMensajePersonal(
   return { ok: true, error: null }
 }
 
+export async function contarNoLeidosPersonal(
+  tipo: PersonalTipo,
+  accessToken: string,
+): Promise<number> {
+  const deviceKeyHash = await deviceHash(tipo)
+  if (!deviceKeyHash) return 0
+
+  const supabase = await createClient()
+  const { data, error } = await supabase.rpc("mensajes_no_leidos_personal", {
+    p_tipo: tipo,
+    p_access_token: accessToken,
+    p_device_key_hash: deviceKeyHash,
+  })
+  if (error) return 0
+  return (data as number | null) ?? 0
+}
+
 export async function reportarIncidenciaPersonal(
   formData: FormData,
 ): Promise<{ ok: boolean; error: string | null }> {

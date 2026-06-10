@@ -6,11 +6,13 @@ export function NavCard({
   icon,
   title,
   description,
+  badge,
 }: {
   href: string
   icon: React.ReactNode
   title: string
   description: string
+  badge?: React.ReactNode
 }) {
   return (
     <Link
@@ -20,10 +22,11 @@ export function NavCard({
       <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-border bg-background text-foreground">
         {icon}
       </span>
-      <span className="flex flex-col">
+      <span className="flex min-w-0 flex-1 flex-col">
         <span className="text-base font-medium text-foreground">{title}</span>
         <span className="text-xs text-muted-foreground">{description}</span>
       </span>
+      {badge && <span className="shrink-0">{badge}</span>}
     </Link>
   )
 }

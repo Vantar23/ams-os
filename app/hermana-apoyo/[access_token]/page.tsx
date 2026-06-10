@@ -10,6 +10,7 @@ import {
 
 import { CapitanCard } from "@/components/capitan-card"
 import { NavCard } from "@/components/nav-card"
+import { PersonalMensajesBadge } from "@/components/personal-mensajes-badge"
 import { RememberPersonal } from "@/components/remember-personal"
 import {
   momentoEnRecinto,
@@ -102,6 +103,9 @@ export default async function Page({
           icon={<MessageCircleIcon className="size-5" />}
           title="Mensajes"
           description="Escríbele al equipo de administración."
+          badge={
+            <PersonalMensajesBadge tipo="hermana" accessToken={access_token} />
+          }
         />
         <NavCard
           href={`/hermana-apoyo/${access_token}/asistencia`}

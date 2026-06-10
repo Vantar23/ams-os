@@ -19,6 +19,7 @@ import {
   SidebarRail,
   useSidebar,
 } from "@/components/ui/sidebar"
+import { MensajesBadge } from "@/components/mensajes-badge"
 import { createClient } from "@/lib/supabase/client"
 
 const data = {
@@ -160,7 +161,8 @@ export function AppSidebar({
                           if (isMobile) setOpenMobile(false)
                         }}
                       >
-                        {item.title}
+                        <span>{item.title}</span>
+                        {item.title === "Mensajes" && <MensajesBadge />}
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
