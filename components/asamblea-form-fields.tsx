@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/select"
 import {
   ESTADOS,
+  deriveEstructura,
   formatFechas,
   parseFechas,
   type AsambleaFormValues,
@@ -44,6 +45,15 @@ type Props = {
 }
 
 export function AsambleaFormFields({ values, onChange }: Props) {
+  React.useEffect(() => {
+    const range = parseFechas(values.fechas ?? "")
+    if (!range) return
+    const derived = deriveEstructura(range)
+    for (const key of Object.keys(derived) as (keyof typeof derived)[]) {
+      if (values[key] !== derived[key]) onChange(key, derived[key])
+    }
+  }, [values, onChange])
+
   return (
     <div className="space-y-10">
       <section>
@@ -149,25 +159,28 @@ export function AsambleaFormFields({ values, onChange }: Props) {
           Estructura
         </p>
         <h2 className="mt-2 font-serif text-xl">Días y sesiones</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Se calculan automáticamente a partir de las fechas. Cada día tiene
+          sesión de mañana y tarde.
+        </p>
         <div className="mt-5 space-y-4">
           <div className="grid gap-3 sm:grid-cols-[120px_1fr]">
             <Field label="Días" id="diasCount">
               <Input
                 id="diasCount"
-                type="number"
-                min={1}
-                inputMode="numeric"
-                required
+                readOnly
+                tabIndex={-1}
+                className="text-muted-foreground"
                 value={values.diasCount ?? ""}
-                onChange={(e) => onChange("diasCount", e.target.value)}
               />
             </Field>
             <Field label="Detalle de días" id="diasLabel">
               <Input
                 id="diasLabel"
-                required
+                readOnly
+                tabIndex={-1}
+                className="text-muted-foreground"
                 value={values.diasLabel ?? ""}
-                onChange={(e) => onChange("diasLabel", e.target.value)}
               />
             </Field>
           </div>
@@ -175,20 +188,19 @@ export function AsambleaFormFields({ values, onChange }: Props) {
             <Field label="Sesiones" id="sesionesCount">
               <Input
                 id="sesionesCount"
-                type="number"
-                min={1}
-                inputMode="numeric"
-                required
+                readOnly
+                tabIndex={-1}
+                className="text-muted-foreground"
                 value={values.sesionesCount ?? ""}
-                onChange={(e) => onChange("sesionesCount", e.target.value)}
               />
             </Field>
             <Field label="Detalle de sesiones" id="sesionesLabel">
               <Input
                 id="sesionesLabel"
-                required
+                readOnly
+                tabIndex={-1}
+                className="text-muted-foreground"
                 value={values.sesionesLabel ?? ""}
-                onChange={(e) => onChange("sesionesLabel", e.target.value)}
               />
             </Field>
           </div>

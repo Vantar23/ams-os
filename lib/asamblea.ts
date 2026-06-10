@@ -80,6 +80,38 @@ export function formatFechas({ from, to }: FechasRange): string {
   return `${d1} al ${d2} de ${m1}, ${y1}`
 }
 
+const DIAS_SEMANA = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"]
+
+const MS_POR_DIA = 86_400_000
+
+export type EstructuraDerivada = Pick<
+  AsambleaFormValues,
+  "diasCount" | "diasLabel" | "sesionesCount" | "sesionesLabel"
+>
+
+export function deriveEstructura({ from, to }: FechasRange): EstructuraDerivada {
+  const fin = to && to >= from ? to : from
+  const count = Math.round((fin.getTime() - from.getTime()) / MS_POR_DIA) + 1
+  let diasLabel: string
+  if (count > 7) {
+    diasLabel = `${DIAS_SEMANA[from.getDay()]} a ${DIAS_SEMANA[fin.getDay()]}`
+  } else {
+    const dias: string[] = []
+    const cursor = new Date(from)
+    for (let i = 0; i < count; i++) {
+      dias.push(DIAS_SEMANA[cursor.getDay()])
+      cursor.setDate(cursor.getDate() + 1)
+    }
+    diasLabel = dias.join(" · ")
+  }
+  return {
+    diasCount: String(count),
+    diasLabel,
+    sesionesCount: String(count * 2),
+    sesionesLabel: "Mañana y tarde",
+  }
+}
+
 function mesIndex(nombre: string): number {
   return MESES.indexOf(nombre.toLowerCase())
 }
