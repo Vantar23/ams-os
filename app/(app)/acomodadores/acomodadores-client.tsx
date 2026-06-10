@@ -16,6 +16,10 @@ import {
   Trash2Icon,
 } from "lucide-react"
 
+import {
+  BuscadorPersonal,
+  coincideBusqueda,
+} from "@/components/buscador-personal"
 import { DisponibilidadSelector } from "@/components/disponibilidad-selector"
 import {
   formatPuestosAsignados,
@@ -134,9 +138,24 @@ export function AcomodadoresClient({
   const [creatingEnlace, setCreatingEnlace] = React.useState(false)
   const [shareError, setShareError] = React.useState<string | null>(null)
   const [manualOpen, setManualOpen] = React.useState(false)
+  const [busqueda, setBusqueda] = React.useState("")
   const [mobileCardsContainer, setMobileCardsContainer] =
     React.useState<HTMLDivElement | null>(null)
   const isDesktop = useMediaQuery("(min-width: 768px)")
+
+  const capitanNombreById = new Map(
+    capitanes.map((c) => [c.id, `${c.nombre} ${c.apellido}`]),
+  )
+  const visibles = acomodadores.filter((a) =>
+    coincideBusqueda(
+      busqueda,
+      a.nombre,
+      a.apellido,
+      a.congregacion,
+      a.telefono,
+      a.capitan_id ? capitanNombreById.get(a.capitan_id) : null,
+    ),
+  )
 
   const origin = typeof window === "undefined" ? "" : window.location.origin
   const inviteUrl = enlaceToken
@@ -203,6 +222,8 @@ export function AcomodadoresClient({
         </div>
       </div>
 
+      <BuscadorPersonal value={busqueda} onChange={setBusqueda} />
+
       {/* Desktop table (hidden in mobile) */}
       <div style={{ display: isDesktop ? "block" : "none" }}>
         <div className="overflow-x-auto rounded-xl border">
@@ -218,18 +239,19 @@ export function AcomodadoresClient({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {acomodadores.length === 0 ? (
+            {visibles.length === 0 ? (
               <TableRow>
                 <TableCell
                   colSpan={6}
                   className="h-24 text-center text-muted-foreground"
                 >
-                  Aún no se ha registrado ningún acomodador. Comparte el enlace
-                  para empezar.
+                  {acomodadores.length === 0
+                    ? "Aún no se ha registrado ningún acomodador. Comparte el enlace para empezar."
+                    : "Ningún acomodador coincide con la búsqueda."}
                 </TableCell>
               </TableRow>
             ) : (
-              acomodadores.map((a) => (
+              visibles.map((a) => (
                 <AcomodadorRow
                   key={a.id}
                   acomodador={a}
@@ -248,10 +270,11 @@ export function AcomodadoresClient({
       {/* Mobile cards target — actual cards portaled in from each row */}
       <div style={{ display: isDesktop ? "none" : "block" }}>
         <div ref={setMobileCardsContainer} className="grid gap-2">
-          {acomodadores.length === 0 && (
+          {visibles.length === 0 && (
             <div className="rounded-xl border p-6 text-center text-sm text-muted-foreground">
-              Aún no se ha registrado ningún acomodador. Comparte el enlace
-              para empezar.
+              {acomodadores.length === 0
+                ? "Aún no se ha registrado ningún acomodador. Comparte el enlace para empezar."
+                : "Ningún acomodador coincide con la búsqueda."}
             </div>
           )}
         </div>

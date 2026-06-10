@@ -8,12 +8,14 @@ import {
   MapPinIcon,
 } from "lucide-react"
 
+import { CapitanCard } from "@/components/capitan-card"
 import { RememberPersonal } from "@/components/remember-personal"
 import {
   momentoEnRecinto,
   slotLabelCorto,
   slotsVisibles,
 } from "@/lib/disponibilidad"
+import { createAdminClient } from "@/lib/supabase/admin"
 
 import { BlockedView } from "./blocked-view"
 import { ClaimView } from "./claim-view"
@@ -41,6 +43,7 @@ export default async function Page({
   }
 
   const { acomodador } = result
+  const capitan = await loadCapitanAsignado(acomodador.id)
   const asignaciones = await loadAsignaciones(access_token)
   const visibles = slotsVisibles(
     asignaciones.map((a) => a.slot),
@@ -78,6 +81,14 @@ export default async function Page({
           </span>
         ))}
       </div>
+
+      {capitan && (
+        <CapitanCard
+          nombre={capitan.nombre}
+          apellido={capitan.apellido}
+          telefono={capitan.telefono}
+        />
+      )}
 
       <nav className="mt-10 grid gap-3">
         <NavCard
@@ -118,6 +129,26 @@ export default async function Page({
       </p>
     </main>
   )
+}
+
+async function loadCapitanAsignado(acomodadorId: string) {
+  const admin = createAdminClient()
+  const { data: fila } = await admin
+    .from("acomodadores")
+    .select("capitan_id")
+    .eq("id", acomodadorId)
+    .maybeSingle()
+  if (!fila?.capitan_id) return null
+  const { data: capitan } = await admin
+    .from("capitanes")
+    .select("nombre, apellido, telefono")
+    .eq("id", fila.capitan_id)
+    .maybeSingle()
+  return capitan as {
+    nombre: string
+    apellido: string
+    telefono: string | null
+  } | null
 }
 
 function NavCard({

@@ -19,6 +19,10 @@ import {
   AreasSelector,
   type AreaOption,
 } from "@/components/areas-selector"
+import {
+  BuscadorPersonal,
+  coincideBusqueda,
+} from "@/components/buscador-personal"
 import { DisponibilidadSelector } from "@/components/disponibilidad-selector"
 import type { DisponibilidadSlot } from "@/lib/disponibilidad"
 import {
@@ -121,9 +125,22 @@ export function SubAuxClient({
 }) {
   const [addOpen, setAddOpen] = React.useState(false)
   const [shareOpen, setShareOpen] = React.useState(false)
+  const [busqueda, setBusqueda] = React.useState("")
   const [mobileCardsContainer, setMobileCardsContainer] =
     React.useState<HTMLDivElement | null>(null)
   const isDesktop = useMediaQuery("(min-width: 768px)")
+
+  const visibles = personas.filter((p) =>
+    coincideBusqueda(
+      busqueda,
+      p.nombre,
+      p.apellido,
+      p.congregacion,
+      p.telefono,
+      ROLE_LABEL[p.role],
+      p.area.join(" "),
+    ),
+  )
 
   return (
     <div className="flex flex-1 flex-col gap-4 p-4">
@@ -159,6 +176,8 @@ export function SubAuxClient({
         </div>
       </div>
 
+      <BuscadorPersonal value={busqueda} onChange={setBusqueda} />
+
       {/* Desktop table */}
       <div style={{ display: isDesktop ? "block" : "none" }}>
         <div className="overflow-x-auto rounded-xl border">
@@ -175,17 +194,19 @@ export function SubAuxClient({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {personas.length === 0 ? (
+              {visibles.length === 0 ? (
                 <TableRow>
                   <TableCell
                     colSpan={7}
                     className="h-24 text-center text-muted-foreground"
                   >
-                    Sin registros. Agrega el primero para comenzar.
+                    {personas.length === 0
+                      ? "Sin registros. Agrega el primero para comenzar."
+                      : "Ningún registro coincide con la búsqueda."}
                   </TableCell>
                 </TableRow>
               ) : (
-                personas.map((p) => (
+                visibles.map((p) => (
                   <SubAuxRow
                     key={p.id}
                     persona={p}
@@ -202,9 +223,11 @@ export function SubAuxClient({
       {/* Mobile cards target */}
       <div style={{ display: isDesktop ? "none" : "block" }}>
         <div ref={setMobileCardsContainer} className="grid gap-2">
-          {personas.length === 0 && (
+          {visibles.length === 0 && (
             <div className="rounded-xl border p-6 text-center text-sm text-muted-foreground">
-              Sin registros. Agrega el primero para comenzar.
+              {personas.length === 0
+                ? "Sin registros. Agrega el primero para comenzar."
+                : "Ningún registro coincide con la búsqueda."}
             </div>
           )}
         </div>

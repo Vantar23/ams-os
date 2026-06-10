@@ -2,7 +2,9 @@ import Link from "next/link"
 import { cookies } from "next/headers"
 import { AlertTriangleIcon, MapPinIcon } from "lucide-react"
 
+import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
+import { CapitanCard } from "@/components/capitan-card"
 import { RememberPersonal } from "@/components/remember-personal"
 import {
   momentoEnRecinto,
@@ -112,16 +114,45 @@ export default async function Page({
     momentoEnRecinto(),
   )
   const puestos = todas.filter((p) => visibles.includes(p.slot))
+  const capitan = await loadCapitanAsignado(hermana.id)
 
-  return <HermanaView hermana={hermana} puestos={puestos} />
+  return <HermanaView hermana={hermana} puestos={puestos} capitan={capitan} />
+}
+
+async function loadCapitanAsignado(hermanaId: string) {
+  const admin = createAdminClient()
+  const { data: fila } = await admin
+    .from("hermanas_apoyo")
+    .select("capitan_id")
+    .eq("id", hermanaId)
+    .maybeSingle()
+  if (!fila?.capitan_id) return null
+  const { data: capitan } = await admin
+    .from("capitanes")
+    .select("nombre, apellido, telefono")
+    .eq("id", fila.capitan_id)
+    .maybeSingle()
+  return capitan as {
+    nombre: string
+    apellido: string
+    telefono: string | null
+  } | null
+}
+
+type CapitanAsignado = {
+  nombre: string
+  apellido: string
+  telefono: string | null
 }
 
 function HermanaView({
   hermana,
   puestos,
+  capitan,
 }: {
   hermana: Hermana
   puestos: Puesto[]
+  capitan: CapitanAsignado | null
 }) {
   return (
     <main className="mx-auto w-full max-w-2xl px-5 py-10 sm:py-14">
@@ -153,6 +184,14 @@ function HermanaView({
           </span>
         ))}
       </div>
+
+      {capitan && (
+        <CapitanCard
+          nombre={capitan.nombre}
+          apellido={capitan.apellido}
+          telefono={capitan.telefono}
+        />
+      )}
 
       <p className="mt-12 border-t border-border pt-6 text-center text-xs text-muted-foreground">
         Si pierdes este enlace, escríbele a tu capitán para que te genere uno

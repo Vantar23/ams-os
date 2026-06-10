@@ -25,4 +25,11 @@ export function isValidPhone(phone: string): boolean {
   return /^\d{10}$/.test(phone)
 }
 
+/** Formatea un teléfono de 10 dígitos para mostrar: "22 1234 5678". */
+export function formatPhoneDisplay(phone: string): string {
+  const d = normalizePhone(phone)
+  if (!isValidPhone(d)) return phone
+  return `${d.slice(0, 2)} ${d.slice(2, 6)} ${d.slice(6)}`
+}
+
 export const TELEFONO_INVALIDO_MSG = "Teléfono inválido (10 dígitos, sin +52)"

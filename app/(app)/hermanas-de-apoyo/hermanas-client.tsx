@@ -16,6 +16,10 @@ import {
   Trash2Icon,
 } from "lucide-react"
 
+import {
+  BuscadorPersonal,
+  coincideBusqueda,
+} from "@/components/buscador-personal"
 import { DisponibilidadSelector } from "@/components/disponibilidad-selector"
 import {
   formatPuestosAsignados,
@@ -134,9 +138,24 @@ export function HermanasApoyoClient({
   const [creatingEnlace, setCreatingEnlace] = React.useState(false)
   const [shareError, setShareError] = React.useState<string | null>(null)
   const [manualOpen, setManualOpen] = React.useState(false)
+  const [busqueda, setBusqueda] = React.useState("")
   const [mobileCardsContainer, setMobileCardsContainer] =
     React.useState<HTMLDivElement | null>(null)
   const isDesktop = useMediaQuery("(min-width: 768px)")
+
+  const capitanNombreById = new Map(
+    capitanes.map((c) => [c.id, `${c.nombre} ${c.apellido}`]),
+  )
+  const visibles = hermanas.filter((h) =>
+    coincideBusqueda(
+      busqueda,
+      h.nombre,
+      h.apellido,
+      h.congregacion,
+      h.telefono,
+      h.capitan_id ? capitanNombreById.get(h.capitan_id) : null,
+    ),
+  )
 
   const origin = typeof window === "undefined" ? "" : window.location.origin
   const inviteUrl = enlaceToken
@@ -203,6 +222,8 @@ export function HermanasApoyoClient({
         </div>
       </div>
 
+      <BuscadorPersonal value={busqueda} onChange={setBusqueda} />
+
       {/* Desktop table (hidden in mobile) */}
       <div style={{ display: isDesktop ? "block" : "none" }}>
         <div className="overflow-x-auto rounded-xl border">
@@ -218,18 +239,19 @@ export function HermanasApoyoClient({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {hermanas.length === 0 ? (
+            {visibles.length === 0 ? (
               <TableRow>
                 <TableCell
                   colSpan={6}
                   className="h-24 text-center text-muted-foreground"
                 >
-                  Aún no se ha registrado ninguna hermana. Comparte el enlace
-                  para empezar.
+                  {hermanas.length === 0
+                    ? "Aún no se ha registrado ninguna hermana. Comparte el enlace para empezar."
+                    : "Ninguna hermana coincide con la búsqueda."}
                 </TableCell>
               </TableRow>
             ) : (
-              hermanas.map((a) => (
+              visibles.map((a) => (
                 <HermanaRow
                   key={a.id}
                   hermana={a}
@@ -248,10 +270,11 @@ export function HermanasApoyoClient({
       {/* Mobile cards target — actual cards portaled in from each row */}
       <div style={{ display: isDesktop ? "none" : "block" }}>
         <div ref={setMobileCardsContainer} className="grid gap-2">
-          {hermanas.length === 0 && (
+          {visibles.length === 0 && (
             <div className="rounded-xl border p-6 text-center text-sm text-muted-foreground">
-              Aún no se ha registrado ninguna hermana. Comparte el enlace
-              para empezar.
+              {hermanas.length === 0
+                ? "Aún no se ha registrado ninguna hermana. Comparte el enlace para empezar."
+                : "Ninguna hermana coincide con la búsqueda."}
             </div>
           )}
         </div>

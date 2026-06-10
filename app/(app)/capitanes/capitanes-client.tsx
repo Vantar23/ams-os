@@ -15,6 +15,10 @@ import {
   Trash2Icon,
 } from "lucide-react"
 
+import {
+  BuscadorPersonal,
+  coincideBusqueda,
+} from "@/components/buscador-personal"
 import { DisponibilidadSelector } from "@/components/disponibilidad-selector"
 import type { DisponibilidadSlot } from "@/lib/disponibilidad"
 import {
@@ -107,9 +111,21 @@ export function CapitanesClient({
   const [enlaceToken, setEnlaceToken] = React.useState<string | null>(null)
   const [creatingEnlace, setCreatingEnlace] = React.useState(false)
   const [shareError, setShareError] = React.useState<string | null>(null)
+  const [busqueda, setBusqueda] = React.useState("")
   const [mobileCardsContainer, setMobileCardsContainer] =
     React.useState<HTMLDivElement | null>(null)
   const isDesktop = useMediaQuery("(min-width: 768px)")
+
+  const visibles = capitanes.filter((c) =>
+    coincideBusqueda(
+      busqueda,
+      c.nombre,
+      c.apellido,
+      c.congregacion,
+      c.telefono,
+      c.area.join(" "),
+    ),
+  )
 
   const origin = typeof window === "undefined" ? "" : window.location.origin
   const inviteUrl = enlaceToken
@@ -169,6 +185,8 @@ export function CapitanesClient({
         </div>
       </div>
 
+      <BuscadorPersonal value={busqueda} onChange={setBusqueda} />
+
       {/* Desktop table */}
       <div style={{ display: isDesktop ? "block" : "none" }}>
         <div className="overflow-x-auto rounded-xl border">
@@ -184,17 +202,19 @@ export function CapitanesClient({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {capitanes.length === 0 ? (
+            {visibles.length === 0 ? (
               <TableRow>
                 <TableCell
                   colSpan={6}
                   className="h-24 text-center text-muted-foreground"
                 >
-                  Sin capitanes. Agrega el primero para comenzar.
+                  {capitanes.length === 0
+                    ? "Sin capitanes. Agrega el primero para comenzar."
+                    : "Ningún capitán coincide con la búsqueda."}
                 </TableCell>
               </TableRow>
             ) : (
-              capitanes.map((c) => (
+              visibles.map((c) => (
                 <CapitanRow
                   key={c.id}
                   capitan={c}
@@ -211,9 +231,11 @@ export function CapitanesClient({
       {/* Mobile cards target */}
       <div style={{ display: isDesktop ? "none" : "block" }}>
         <div ref={setMobileCardsContainer} className="grid gap-2">
-          {capitanes.length === 0 && (
+          {visibles.length === 0 && (
             <div className="rounded-xl border p-6 text-center text-sm text-muted-foreground">
-              Sin capitanes. Agrega el primero para comenzar.
+              {capitanes.length === 0
+                ? "Sin capitanes. Agrega el primero para comenzar."
+                : "Ningún capitán coincide con la búsqueda."}
             </div>
           )}
         </div>
