@@ -30,6 +30,7 @@ import {
   rowsToCsv,
   todayStamp,
 } from "@/lib/export-csv"
+import { isValidPhone, normalizePhone, TELEFONO_INVALIDO_MSG } from "@/lib/phone"
 import { useMediaQuery } from "@/lib/use-media-query"
 import { cn } from "@/lib/utils"
 
@@ -337,14 +338,19 @@ function ManualAddDialog({
   function onDatosSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     const fd = new FormData(e.currentTarget)
+    const telefono = normalizePhone(String(fd.get("telefono") ?? ""))
     const values: DraftDatos = {
       nombre: String(fd.get("nombre") ?? "").trim(),
       apellido: String(fd.get("apellido") ?? "").trim(),
       congregacion: String(fd.get("congregacion") ?? "").trim(),
-      telefono: String(fd.get("telefono") ?? "").trim(),
+      telefono,
       notas: String(fd.get("notas") ?? "").trim(),
     }
     setDatos(values)
+    if (!isValidPhone(telefono)) {
+      setError(TELEFONO_INVALIDO_MSG)
+      return
+    }
     setError(null)
     setStep("disponibilidad")
   }
@@ -639,14 +645,19 @@ function EditDialog({
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     const fd = new FormData(e.currentTarget)
+    const telefono = normalizePhone(String(fd.get("telefono") ?? ""))
     const values = {
       nombre: String(fd.get("nombre") ?? "").trim(),
       apellido: String(fd.get("apellido") ?? "").trim(),
       congregacion: String(fd.get("congregacion") ?? "").trim(),
-      telefono: String(fd.get("telefono") ?? "").trim(),
+      telefono,
       notas: String(fd.get("notas") ?? "").trim(),
       capitanId: capitanId === SIN_CAPITAN_VALUE ? null : capitanId,
       disponibilidad,
+    }
+    if (!isValidPhone(telefono)) {
+      setError(TELEFONO_INVALIDO_MSG)
+      return
     }
     setSubmitting(true)
     setError(null)

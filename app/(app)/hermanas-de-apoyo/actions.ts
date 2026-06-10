@@ -3,6 +3,7 @@
 import { randomBytes } from "crypto"
 import { revalidatePath } from "next/cache"
 
+import { isValidPhone, normalizePhone, TELEFONO_INVALIDO_MSG } from "@/lib/phone"
 import { createClient } from "@/lib/supabase/server"
 
 const ENLACE_REGISTRO_TTL_MS = 3 * 24 * 60 * 60 * 1000 // 3 días
@@ -57,7 +58,7 @@ export async function regenerarAccesoHermana(
   const supabase = await createClient()
   const { data, error } = await supabase.rpc("hermana_acceso_regenerar", {
     p_asamblea_id: asambleaId,
-    p_telefono: telefono,
+    p_telefono: normalizePhone(telefono),
   })
   if (error) return { token: null, error: error.message }
   revalidatePath("/hermanas-de-apoyo")
@@ -82,13 +83,16 @@ export async function actualizarHermana(
   } = await supabase.auth.getUser()
   if (!user) return { error: "No autenticado" }
 
+  const telefono = normalizePhone(values.telefono)
+  if (!isValidPhone(telefono)) return { error: TELEFONO_INVALIDO_MSG }
+
   const { error } = await supabase
     .from("hermanas_apoyo")
     .update({
       nombre: values.nombre,
       apellido: values.apellido,
       congregacion: values.congregacion,
-      telefono: values.telefono,
+      telefono,
       notas: values.notas || null,
       capitan_id: values.capitanId,
       disponibilidad: values.disponibilidad,
@@ -142,6 +146,11 @@ export async function agregarHermanaManual(
   } = await supabase.auth.getUser()
   if (!user) return { accessToken: null, error: "No autenticado" }
 
+  const telefono = normalizePhone(values.telefono)
+  if (!isValidPhone(telefono)) {
+    return { accessToken: null, error: TELEFONO_INVALIDO_MSG }
+  }
+
   const accessToken = randomBytes(32).toString("hex")
 
   const { error } = await supabase.from("hermanas_apoyo").insert({
@@ -149,7 +158,7 @@ export async function agregarHermanaManual(
     nombre: values.nombre,
     apellido: values.apellido,
     congregacion: values.congregacion,
-    telefono: values.telefono,
+    telefono,
     notas: values.notas || null,
     invited_by: user.id,
     access_token: accessToken,

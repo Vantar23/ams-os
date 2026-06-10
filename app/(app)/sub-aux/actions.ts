@@ -3,6 +3,7 @@
 import { randomBytes } from "crypto"
 import { revalidatePath } from "next/cache"
 
+import { isValidPhone, normalizePhone, TELEFONO_INVALIDO_MSG } from "@/lib/phone"
 import { createClient } from "@/lib/supabase/server"
 
 const ENLACE_REGISTRO_TTL_MS = 3 * 24 * 60 * 60 * 1000 // 3 días
@@ -30,6 +31,9 @@ export async function agregarSubAux(
   } = await supabase.auth.getUser()
   if (!user) return { id: null, error: "No autenticado" }
 
+  const telefono = normalizePhone(values.telefono)
+  if (!isValidPhone(telefono)) return { id: null, error: TELEFONO_INVALIDO_MSG }
+
   const { data, error } = await supabase
     .from("sub_aux")
     .insert({
@@ -38,7 +42,7 @@ export async function agregarSubAux(
       nombre: values.nombre,
       apellido: values.apellido,
       congregacion: values.congregacion,
-      telefono: values.telefono,
+      telefono,
       area: values.area,
       notas: values.notas || null,
       invited_by: user.id,
@@ -71,6 +75,9 @@ export async function actualizarSubAux(
   } = await supabase.auth.getUser()
   if (!user) return { error: "No autenticado" }
 
+  const telefono = normalizePhone(values.telefono)
+  if (!isValidPhone(telefono)) return { error: TELEFONO_INVALIDO_MSG }
+
   const { error } = await supabase
     .from("sub_aux")
     .update({
@@ -78,7 +85,7 @@ export async function actualizarSubAux(
       nombre: values.nombre,
       apellido: values.apellido,
       congregacion: values.congregacion,
-      telefono: values.telefono,
+      telefono,
       area: values.area,
       notas: values.notas || null,
       disponibilidad: values.disponibilidad,

@@ -1,5 +1,6 @@
 "use server"
 
+import { isValidPhone, normalizePhone, TELEFONO_INVALIDO_MSG } from "@/lib/phone"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
 
@@ -13,6 +14,10 @@ export async function submitCapitanRegistro(input: {
   notas: string
   disponibilidad: string[]
 }): Promise<{ ok: boolean; error: string | null }> {
+  const telefono = normalizePhone(input.telefono)
+  if (!isValidPhone(telefono)) {
+    return { ok: false, error: TELEFONO_INVALIDO_MSG }
+  }
   const supabase = await createClient()
   const {
     data: { user },
@@ -24,7 +29,7 @@ export async function submitCapitanRegistro(input: {
     p_nombre: input.nombre,
     p_apellido: input.apellido,
     p_congregacion: input.congregacion,
-    p_telefono: input.telefono,
+    p_telefono: telefono,
     p_area: input.area,
     p_notas: input.notas,
     p_disponibilidad: input.disponibilidad,

@@ -22,6 +22,8 @@ import { AreasSelector, type AreaOption } from "@/components/areas-selector"
 import type { DisponibilidadSlot } from "@/lib/disponibilidad"
 import { createClient } from "@/lib/supabase/client"
 
+import { isValidPhone, normalizePhone, TELEFONO_INVALIDO_MSG } from "@/lib/phone"
+
 import { submitCapitanRegistro } from "./actions"
 
 const schema = z
@@ -29,7 +31,10 @@ const schema = z
     nombre: z.string().min(1, "Requerido"),
     apellido: z.string().min(1, "Requerido"),
     congregacion: z.string().min(1, "Requerido"),
-    telefono: z.string().min(6, "Teléfono inválido"),
+    telefono: z
+      .string()
+      .transform(normalizePhone)
+      .refine(isValidPhone, TELEFONO_INVALIDO_MSG),
     area: z.array(z.string()).min(1, "Selecciona al menos un área"),
     notas: z.string().optional(),
     email: z.email("Correo inválido"),
@@ -295,12 +300,9 @@ export function CapitanRegistroForm({
                         type="tel"
                         inputMode="tel"
                         placeholder="5512345678"
-                        onKeyDown={(e) => {
-                          if (e.key === " ") e.preventDefault()
-                        }}
                         {...field}
                         onChange={(e) =>
-                          field.onChange(e.target.value.replace(/\s+/g, ""))
+                          field.onChange(e.target.value.replace(/[^\d+]/g, ""))
                         }
                       />
                     </FormControl>

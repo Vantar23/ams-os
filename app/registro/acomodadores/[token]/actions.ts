@@ -1,5 +1,6 @@
 "use server"
 
+import { isValidPhone, normalizePhone, TELEFONO_INVALIDO_MSG } from "@/lib/phone"
 import { createClient } from "@/lib/supabase/server"
 
 export async function submitRegistro(input: {
@@ -11,13 +12,17 @@ export async function submitRegistro(input: {
   notas: string
   disponibilidad?: string[]
 }): Promise<{ accessToken: string | null; error: string | null }> {
+  const telefono = normalizePhone(input.telefono)
+  if (!isValidPhone(telefono)) {
+    return { accessToken: null, error: TELEFONO_INVALIDO_MSG }
+  }
   const supabase = await createClient()
   const { data, error } = await supabase.rpc("registro_submit", {
     p_token: input.token,
     p_nombre: input.nombre,
     p_apellido: input.apellido,
     p_congregacion: input.congregacion,
-    p_telefono: input.telefono,
+    p_telefono: telefono,
     p_notas: input.notas,
     p_disponibilidad: input.disponibilidad ?? [],
   })

@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
 import type { DisponibilidadSlot } from "@/lib/disponibilidad"
+import { isValidPhone, normalizePhone, TELEFONO_INVALIDO_MSG } from "@/lib/phone"
 
 import { submitRegistro } from "./actions"
 
@@ -26,7 +27,10 @@ const schema = z.object({
   nombre: z.string().min(1, "Requerido"),
   apellido: z.string().min(1, "Requerido"),
   congregacion: z.string().min(1, "Requerido"),
-  telefono: z.string().min(6, "Teléfono inválido"),
+  telefono: z
+    .string()
+    .transform(normalizePhone)
+    .refine(isValidPhone, TELEFONO_INVALIDO_MSG),
   notas: z.string().optional(),
 })
 
@@ -159,12 +163,9 @@ export function RegistroForm({
                       type="tel"
                       inputMode="tel"
                       placeholder="5512345678"
-                      onKeyDown={(e) => {
-                        if (e.key === " ") e.preventDefault()
-                      }}
                       {...field}
                       onChange={(e) =>
-                        field.onChange(e.target.value.replace(/\s+/g, ""))
+                        field.onChange(e.target.value.replace(/[^\d+]/g, ""))
                       }
                     />
                   </FormControl>

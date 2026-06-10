@@ -27,6 +27,7 @@ import {
   rowsToCsv,
   todayStamp,
 } from "@/lib/export-csv"
+import { isValidPhone, normalizePhone, TELEFONO_INVALIDO_MSG } from "@/lib/phone"
 import { useMediaQuery } from "@/lib/use-media-query"
 
 import {
@@ -777,12 +778,17 @@ function SubAuxFormDialog(props: FormProps) {
       nombre: String(fd.get("nombre") ?? "").trim(),
       apellido: String(fd.get("apellido") ?? "").trim(),
       congregacion: String(fd.get("congregacion") ?? "").trim(),
-      telefono: String(fd.get("telefono") ?? "").trim(),
+      telefono: normalizePhone(String(fd.get("telefono") ?? "")),
       notas: String(fd.get("notas") ?? "").trim(),
     }
   }
 
   async function persist(values: DraftDatos) {
+    if (!isValidPhone(values.telefono)) {
+      setError(TELEFONO_INVALIDO_MSG)
+      if (props.mode === "add") setStep("datos")
+      return
+    }
     if (areas.length === 0) {
       setError("Selecciona al menos un área. Si no hay opciones, crea áreas primero.")
       if (props.mode === "add") setStep("datos")
