@@ -68,16 +68,43 @@ export function RealtimeAlerts({ asambleaId }: { asambleaId: string }) {
   const [pedirPermiso, setPedirPermiso] = React.useState(false)
   const [hintIos, setHintIos] = React.useState(false)
   React.useEffect(() => {
-    const t = setTimeout(() => {
+    let activo = true
+    const t = setTimeout(async () => {
       if (esIosSinInstalar()) {
-        setHintIos(window.localStorage.getItem(NOTIF_PROMPT_KEY) !== "1")
+        if (activo) {
+          setHintIos(window.localStorage.getItem(NOTIF_PROMPT_KEY) !== "1")
+        }
         return
       }
       if (typeof Notification === "undefined") return
+      if (Notification.permission === "granted") {
+        // Permiso ya dado: asegura la suscripción push de este dispositivo
+        // (idempotente por endpoint; repara guardados fallidos).
+        if (soportaPush()) {
+          try {
+            const key = await obtenerVapidKeyPublica()
+            if (key) {
+              const sub = await suscribirNavegador(key)
+              if (sub) {
+                await suscribirPushAdmin(sub)
+                pushActivoRef.current = true
+              }
+            }
+          } catch {
+            /* queda el aviso local */
+          }
+        }
+        return
+      }
       const descartado = window.localStorage.getItem(NOTIF_PROMPT_KEY) === "1"
-      setPedirPermiso(Notification.permission === "default" && !descartado)
+      if (activo) {
+        setPedirPermiso(Notification.permission === "default" && !descartado)
+      }
     }, 0)
-    return () => clearTimeout(t)
+    return () => {
+      activo = false
+      clearTimeout(t)
+    }
   }, [])
 
   async function activarNotificaciones() {
