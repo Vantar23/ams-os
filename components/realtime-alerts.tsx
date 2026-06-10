@@ -5,6 +5,14 @@ import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { AlertOctagonIcon, BellIcon, MessageCircleIcon, XIcon } from "lucide-react"
 
+import { suscribirPushAdmin } from "@/lib/actions/push-admin"
+import { obtenerVapidKeyPublica } from "@/lib/actions/portal-personal"
+import {
+  esIosSinInstalar,
+  soportaPush,
+  suscribirNavegador,
+  tienePushActivo,
+} from "@/lib/push/client"
 import { createRealtimeClient } from "@/lib/supabase/realtime"
 import { createClient } from "@/lib/supabase/client"
 
@@ -58,8 +66,13 @@ export function RealtimeAlerts({ asambleaId }: { asambleaId: string }) {
 
   // Permiso de notificaciones nativas del navegador.
   const [pedirPermiso, setPedirPermiso] = React.useState(false)
+  const [hintIos, setHintIos] = React.useState(false)
   React.useEffect(() => {
     const t = setTimeout(() => {
+      if (esIosSinInstalar()) {
+        setHintIos(window.localStorage.getItem(NOTIF_PROMPT_KEY) !== "1")
+        return
+      }
       if (typeof Notification === "undefined") return
       const descartado = window.localStorage.getItem(NOTIF_PROMPT_KEY) === "1"
       setPedirPermiso(Notification.permission === "default" && !descartado)
@@ -69,19 +82,40 @@ export function RealtimeAlerts({ asambleaId }: { asambleaId: string }) {
 
   async function activarNotificaciones() {
     if (typeof Notification === "undefined") return
-    await Notification.requestPermission()
-    setPedirPermiso(false)
+    try {
+      if (soportaPush()) {
+        const key = await obtenerVapidKeyPublica()
+        if (key) {
+          const sub = await suscribirNavegador(key)
+          if (sub) await suscribirPushAdmin(sub)
+        }
+      } else {
+        await Notification.requestPermission()
+      }
+    } finally {
+      setPedirPermiso(false)
+    }
   }
 
   function descartarPrompt() {
     window.localStorage.setItem(NOTIF_PROMPT_KEY, "1")
     setPedirPermiso(false)
+    setHintIos(false)
   }
+
+  const pushActivoRef = React.useRef(false)
+  React.useEffect(() => {
+    tienePushActivo().then((v) => {
+      pushActivoRef.current = v
+    })
+  }, [])
 
   const notificarNavegador = React.useCallback(
     (titulo: string, detalle: string, href: string, tag: string) => {
       if (typeof Notification === "undefined") return
       if (Notification.permission !== "granted") return
+      // Si el dispositivo ya recibe Web Push, el service worker avisa solo.
+      if (pushActivoRef.current) return
       // Con la pestaña visible ya se ve el toast; el aviso nativo es para
       // cuando estás en otra ventana o pestaña.
       if (document.visibilityState === "visible") return
@@ -237,30 +271,48 @@ export function RealtimeAlerts({ asambleaId }: { asambleaId: string }) {
     }
   }, [asambleaId, notificarIncidencia, notificarMensaje])
 
-  if (alertas.length === 0 && !pedirPermiso) return null
+  if (alertas.length === 0 && !pedirPermiso && !hintIos) return null
 
   return (
     <div className="pointer-events-none fixed bottom-4 right-4 z-[60] flex w-80 max-w-[calc(100vw-2rem)] flex-col gap-2">
-      {pedirPermiso && (
+      {(pedirPermiso || hintIos) && (
         <div className="pointer-events-auto flex items-start gap-3 rounded-xl border bg-popover p-3 text-popover-foreground shadow-lg ring-1 ring-foreground/10">
           <span className="mt-0.5 inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
             <BellIcon className="size-4" />
           </span>
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-medium">
-              ¿Activar notificaciones del navegador?
-            </p>
-            <p className="mt-0.5 text-xs text-muted-foreground">
-              Te avisamos de incidencias y mensajes nuevos aunque estés en
-              otra pestaña.
-            </p>
-            <button
-              type="button"
-              onClick={activarNotificaciones}
-              className="mt-2 inline-flex items-center rounded-full border border-primary/40 bg-primary/10 px-3 py-1 text-xs font-medium text-primary hover:bg-primary/15"
-            >
-              Activar
-            </button>
+            {hintIos ? (
+              <>
+                <p className="text-sm font-medium">
+                  Recibe avisos en tu iPhone
+                </p>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  Toca <span className="font-medium">Compartir</span> y luego{" "}
+                  <span className="font-medium">
+                    «Agregar a pantalla de inicio»
+                  </span>
+                  . Abre la app desde ahí y activa las notificaciones cuando
+                  te lo pregunte.
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="text-sm font-medium">
+                  ¿Activar notificaciones del navegador?
+                </p>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  Te avisamos de incidencias y mensajes nuevos aunque estés en
+                  otra pestaña.
+                </p>
+                <button
+                  type="button"
+                  onClick={activarNotificaciones}
+                  className="mt-2 inline-flex items-center rounded-full border border-primary/40 bg-primary/10 px-3 py-1 text-xs font-medium text-primary hover:bg-primary/15"
+                >
+                  Activar
+                </button>
+              </>
+            )}
           </div>
           <button
             type="button"

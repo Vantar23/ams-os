@@ -7,6 +7,11 @@
 import { cookies } from "next/headers"
 import { revalidatePath } from "next/cache"
 
+import {
+  guardarSuscripcion,
+  obtenerVapidPublicKey,
+  pushParaAdmins,
+} from "@/lib/push/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
 
@@ -73,7 +78,48 @@ export async function enviarMensajePersonal(
     p_cuerpo: texto,
   })
   if (error) return { ok: false, error: error.message }
+
+  // Push a los admins; nunca rompe el envío del mensaje.
+  try {
+    const persona = await openPersona(tipo, accessToken)
+    if (persona.persona) {
+      await pushParaAdmins(persona.persona.asamblea_id, {
+        titulo:
+          tipo === "hermana"
+            ? "Nuevo mensaje de una hermana de apoyo"
+            : "Nuevo mensaje de un acomodador",
+        cuerpo: texto,
+        url: "/mensajes",
+        tag: `msg-${persona.persona.id}`,
+      })
+    }
+  } catch {
+    /* push opcional */
+  }
   return { ok: true, error: null }
+}
+
+export async function obtenerVapidKeyPublica(): Promise<string | null> {
+  return obtenerVapidPublicKey()
+}
+
+export async function suscribirPushPersonal(
+  tipo: PersonalTipo,
+  accessToken: string,
+  sub: { endpoint: string; p256dh: string; auth: string },
+): Promise<{ ok: boolean; error: string | null }> {
+  const persona = await openPersona(tipo, accessToken)
+  if (!persona.ok || !persona.persona) {
+    return { ok: false, error: persona.error ?? "Acceso inválido." }
+  }
+  return guardarSuscripcion({
+    asambleaId: persona.persona.asamblea_id,
+    destinatario: tipo,
+    personaId: persona.persona.id,
+    endpoint: sub.endpoint,
+    p256dh: sub.p256dh,
+    auth: sub.auth,
+  })
 }
 
 export async function contarNoLeidosPersonal(
@@ -143,6 +189,16 @@ export async function reportarIncidenciaPersonal(
   if (insertErr) {
     await admin.storage.from("incidencias").remove([fotoPath])
     return { ok: false, error: insertErr.message }
+  }
+
+  try {
+    await pushParaAdmins(persona.persona.asamblea_id, {
+      titulo: "Nueva incidencia",
+      cuerpo: [tipo, ubicacion].filter(Boolean).join(" · "),
+      url: "/incidencias",
+    })
+  } catch {
+    /* push opcional */
   }
 
   revalidatePath(`${PORTAL_BASE[personalTipo]}/${accessToken}/incidencias`)

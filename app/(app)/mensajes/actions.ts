@@ -2,6 +2,8 @@
 
 import { revalidatePath } from "next/cache"
 
+import { pushParaPersona } from "@/lib/push/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
 
 export async function enviarRespuestaAdmin(input: {
@@ -31,6 +33,31 @@ export async function enviarRespuestaAdmin(input: {
     cuerpo: texto,
   })
   if (error) return { ok: false, error: error.message }
+
+  // Push al dispositivo de la persona; nunca rompe el envío.
+  try {
+    const admin = createAdminClient()
+    const tabla =
+      input.personaTipo === "acomodador" ? "acomodadores" : "hermanas_apoyo"
+    const base =
+      input.personaTipo === "acomodador" ? "/acomodador" : "/hermana-apoyo"
+    const { data: persona } = await admin
+      .from(tabla)
+      .select("access_token")
+      .eq("id", input.personaId)
+      .maybeSingle()
+    await pushParaPersona(input.asambleaId, input.personaTipo, input.personaId, {
+      titulo: "Mensaje de administración",
+      cuerpo: texto,
+      url: persona?.access_token
+        ? `${base}/${persona.access_token}/mensajes`
+        : "/",
+      tag: `respuesta-${input.personaId}`,
+    })
+  } catch {
+    /* push opcional */
+  }
+
   revalidatePath("/mensajes")
   return { ok: true, error: null }
 }
