@@ -9,10 +9,19 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { compressImage } from "@/lib/compress-image"
 
-import { reportarIncidencia } from "../actions"
+import {
+  reportarIncidenciaPersonal,
+  type PersonalTipo,
+} from "@/lib/actions/portal-personal"
 import { TIPOS_INCIDENCIA } from "@/app/(app)/incidencias/catalogo"
 
-export function IncidenciaForm({ accessToken }: { accessToken: string }) {
+export function IncidenciaForm({
+  accessToken,
+  tipoPersonal = "acomodador",
+}: {
+  accessToken: string
+  tipoPersonal?: PersonalTipo
+}) {
   const router = useRouter()
   const [tipo, setTipo] = React.useState("")
   const [ubicacion, setUbicacion] = React.useState("")
@@ -72,6 +81,7 @@ export function IncidenciaForm({ accessToken }: { accessToken: string }) {
       return
     }
     const fd = new FormData()
+    fd.set("personalTipo", tipoPersonal)
     fd.set("accessToken", accessToken)
     fd.set("tipo", tipo.trim())
     fd.set("ubicacion", ubicacion.trim())
@@ -81,7 +91,7 @@ export function IncidenciaForm({ accessToken }: { accessToken: string }) {
     setSubmitting(true)
     setError(null)
     try {
-      const { ok, error: err } = await reportarIncidencia(fd)
+      const { ok, error: err } = await reportarIncidenciaPersonal(fd)
       setSubmitting(false)
       if (!ok) {
         setError(err)

@@ -72,7 +72,7 @@ export default async function IncidenciasPage() {
   const { data: rows } = await supabase
     .from("incidencias")
     .select(
-      "id, tipo, ubicacion, descripcion, foto_path, estado, created_at, reportado_por_acomodador_id, reportado_por_user_id",
+      "id, tipo, ubicacion, descripcion, foto_path, estado, created_at, reportado_por_acomodador_id, reportado_por_hermana_id, reportado_por_user_id",
     )
     .eq("asamblea_id", asamblea.id)
     .order("created_at", { ascending: false })
@@ -81,6 +81,7 @@ export default async function IncidenciasPage() {
     Omit<IncidenciaItem, "foto_url" | "reporter_label"> & {
       foto_path: string | null
       reportado_por_acomodador_id: string | null
+      reportado_por_hermana_id: string | null
       reportado_por_user_id: string | null
     }
   >
@@ -117,6 +118,24 @@ export default async function IncidenciasPage() {
     }
   }
 
+  const hermanaIds = Array.from(
+    new Set(
+      baseItems
+        .map((r) => r.reportado_por_hermana_id)
+        .filter((v): v is string => Boolean(v)),
+    ),
+  )
+  const hermanaMap = new Map<string, string>()
+  if (hermanaIds.length > 0) {
+    const { data: hers } = await supabase
+      .from("hermanas_apoyo")
+      .select("id, nombre, apellido")
+      .in("id", hermanaIds)
+    for (const h of hers ?? []) {
+      hermanaMap.set(h.id, `${h.nombre ?? ""} ${h.apellido ?? ""}`.trim())
+    }
+  }
+
   const items: IncidenciaItem[] = baseItems.map((r) => ({
     id: r.id,
     tipo: r.tipo,
@@ -127,9 +146,11 @@ export default async function IncidenciasPage() {
     foto_url: r.foto_path ? urlByPath.get(r.foto_path) ?? null : null,
     reporter_label: r.reportado_por_acomodador_id
       ? acomodadorMap.get(r.reportado_por_acomodador_id) ?? "Acomodador"
-      : r.reportado_por_user_id
-        ? "Equipo"
-        : "—",
+      : r.reportado_por_hermana_id
+        ? hermanaMap.get(r.reportado_por_hermana_id) ?? "Hermana de apoyo"
+        : r.reportado_por_user_id
+          ? "Equipo"
+          : "—",
   }))
 
   return (

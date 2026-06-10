@@ -1,4 +1,3 @@
-import Link from "next/link"
 import {
   AlertOctagonIcon,
   BookOpenIcon,
@@ -6,9 +5,11 @@ import {
   ClipboardCheckIcon,
   MapIcon,
   MapPinIcon,
+  MessageCircleIcon,
 } from "lucide-react"
 
 import { CapitanCard } from "@/components/capitan-card"
+import { NavCard } from "@/components/nav-card"
 import { RememberPersonal } from "@/components/remember-personal"
 import {
   momentoEnRecinto,
@@ -98,6 +99,12 @@ export default async function Page({
           description="Confirma las sesiones a las que vas a asistir."
         />
         <NavCard
+          href={`/acomodador/${access_token}/mensajes`}
+          icon={<MessageCircleIcon className="size-5" />}
+          title="Mensajes"
+          description="Escríbele al equipo de administración."
+        />
+        <NavCard
           href={`/acomodador/${access_token}/incidencias`}
           icon={<AlertOctagonIcon className="size-5" />}
           title="Incidencias"
@@ -149,31 +156,4 @@ async function loadCapitanAsignado(acomodadorId: string) {
     apellido: string
     telefono: string | null
   } | null
-}
-
-function NavCard({
-  href,
-  icon,
-  title,
-  description,
-}: {
-  href: string
-  icon: React.ReactNode
-  title: string
-  description: string
-}) {
-  return (
-    <Link
-      href={href}
-      className="flex items-center gap-4 rounded-xl border bg-surface p-4 transition-colors hover:border-primary/50 hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-    >
-      <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-border bg-background text-foreground">
-        {icon}
-      </span>
-      <span className="flex flex-col">
-        <span className="text-base font-medium text-foreground">{title}</span>
-        <span className="text-xs text-muted-foreground">{description}</span>
-      </span>
-    </Link>
-  )
 }

@@ -64,6 +64,7 @@ const data = {
       items: [
         { title: "Asistencia", url: "/asistencia" },
         { title: "Incidencias", url: "/incidencias" },
+        { title: "Mensajes", url: "/mensajes" },
       ],
     },
     {

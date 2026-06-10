@@ -1,15 +1,19 @@
 import { AppSidebar } from "@/components/app-sidebar"
+import { RealtimeAlerts } from "@/components/realtime-alerts"
 import { RoleProvider, type Role } from "@/components/role-context"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { createClient } from "@/lib/supabase/server"
 
-async function getCurrentRole(): Promise<Role | null> {
+async function getCurrentMembership(): Promise<{
+  role: Role | null
+  asambleaId: string | null
+}> {
   const supabase = await createClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) return null
+  if (!user) return { role: null, asambleaId: null }
 
   const { data: asambleas } = await supabase
     .from("asambleas")
@@ -17,7 +21,7 @@ async function getCurrentRole(): Promise<Role | null> {
     .order("created_at", { ascending: false })
     .limit(1)
   const asambleaId = asambleas?.[0]?.id as string | undefined
-  if (!asambleaId) return null
+  if (!asambleaId) return { role: null, asambleaId: null }
 
   const { data: miembro } = await supabase
     .from("asamblea_miembros")
@@ -25,7 +29,10 @@ async function getCurrentRole(): Promise<Role | null> {
     .eq("asamblea_id", asambleaId)
     .eq("user_id", user.id)
     .maybeSingle()
-  return (miembro?.role as Role | undefined) ?? null
+  return {
+    role: (miembro?.role as Role | undefined) ?? null,
+    asambleaId,
+  }
 }
 
 export default async function AppLayout({
@@ -33,7 +40,7 @@ export default async function AppLayout({
 }: Readonly<{
   children: React.ReactNode
 }>) {
-  const role = await getCurrentRole()
+  const { role, asambleaId } = await getCurrentMembership()
 
   return (
     <TooltipProvider>
@@ -41,6 +48,7 @@ export default async function AppLayout({
         <SidebarProvider>
           <AppSidebar role={role ?? undefined} />
           <SidebarInset>{children}</SidebarInset>
+          {asambleaId && <RealtimeAlerts asambleaId={asambleaId} />}
         </SidebarProvider>
       </RoleProvider>
     </TooltipProvider>

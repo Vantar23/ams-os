@@ -14,15 +14,20 @@ import {
   type AreaOption,
 } from "@/components/recepcion-location-fields"
 
-import { reportarRecepcionLocal } from "../actions"
+import {
+  reportarRecepcionPersonal,
+  type PersonalTipo,
+} from "@/lib/actions/portal-personal"
 import { DESPERFECTOS_RECEPCION } from "@/app/(app)/recepcion-local/catalogo"
 
 export function RecepcionForm({
   accessToken,
   areas,
+  tipoPersonal = "acomodador",
 }: {
   accessToken: string
   areas: AreaOption[]
+  tipoPersonal?: PersonalTipo
 }) {
   const router = useRouter()
   const [desperfecto, setDesperfecto] = React.useState("")
@@ -86,6 +91,7 @@ export function RecepcionForm({
       return
     }
     const fd = new FormData()
+    fd.set("personalTipo", tipoPersonal)
     fd.set("accessToken", accessToken)
     fd.set("desperfecto", desperfecto.trim())
     fd.set("descripcion", descripcion.trim())
@@ -98,7 +104,7 @@ export function RecepcionForm({
     setSubmitting(true)
     setError(null)
     try {
-      const { ok, error: err } = await reportarRecepcionLocal(fd)
+      const { ok, error: err } = await reportarRecepcionPersonal(fd)
       setSubmitting(false)
       if (!ok) {
         setError(err)
