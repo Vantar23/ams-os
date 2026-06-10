@@ -10,7 +10,9 @@ import { createClient } from "@/lib/supabase/client"
 
 const TOAST_MS = 8000
 const POLL_MS = 20000
-const NOTIF_PROMPT_KEY = "ams-os.notif-prompt-descartado"
+// Versionado: al subir la versión, el aviso reaparece una vez para todos
+// (también para quienes lo descartaron con la versión anterior).
+const NOTIF_PROMPT_KEY = "ams-os.notif-prompt-descartado-v2"
 
 type Alerta = {
   id: number

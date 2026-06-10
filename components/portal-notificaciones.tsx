@@ -10,7 +10,9 @@ import {
 } from "@/lib/actions/portal-personal"
 
 const POLL_MS = 20000
-const PROMPT_KEY = "ams-os.notif-prompt-personal-descartado"
+// Versionado: al subir la versión, el aviso reaparece una vez para todos
+// (también para quienes lo descartaron con la versión anterior).
+const PROMPT_KEY = "ams-os.notif-prompt-personal-descartado-v2"
 
 /**
  * Notificaciones del navegador para los portales de acomodador y hermana de
