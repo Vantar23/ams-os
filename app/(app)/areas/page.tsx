@@ -39,7 +39,7 @@ export default async function AreasPage() {
   const { data: areas } = await supabase
     .from("areas")
     .select(
-      "id, piso, nombre, filas, acomodadores_necesarios, capacidad, created_at",
+      "id, piso, nombre, filas, acomodadores_necesarios, hermanas_necesarias, capacidad, created_at",
     )
     .eq("asamblea_id", asamblea.id)
     .order("piso", { ascending: true })
