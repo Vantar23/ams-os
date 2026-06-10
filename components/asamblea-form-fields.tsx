@@ -1,9 +1,17 @@
 "use client"
 
 import * as React from "react"
+import { CalendarIcon } from "lucide-react"
 
+import { Button } from "@/components/ui/button"
+import { Calendar } from "@/components/ui/calendar"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
 import {
   Select,
   SelectContent,
@@ -13,6 +21,8 @@ import {
 } from "@/components/ui/select"
 import {
   ESTADOS,
+  formatFechas,
+  parseFechas,
   type AsambleaFormValues,
   type Estado,
 } from "@/lib/asamblea"
@@ -87,11 +97,9 @@ export function AsambleaFormFields({ values, onChange }: Props) {
         <h2 className="mt-2 font-serif text-xl">Cuándo y dónde</h2>
         <div className="mt-5 space-y-4">
           <Field label="Fechas" id="fechas">
-            <Input
-              id="fechas"
-              required
+            <FechasPicker
               value={values.fechas ?? ""}
-              onChange={(e) => onChange("fechas", e.target.value)}
+              onChange={(v) => onChange("fechas", v)}
             />
           </Field>
           <Field label="Sede" id="sede">
@@ -186,6 +194,58 @@ export function AsambleaFormFields({ values, onChange }: Props) {
           </div>
         </div>
       </section>
+    </div>
+  )
+}
+
+function FechasPicker({
+  value,
+  onChange,
+}: {
+  value: string
+  onChange: (value: string) => void
+}) {
+  const range = React.useMemo(() => parseFechas(value), [value])
+
+  return (
+    <div className="relative">
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button
+            id="fechas"
+            type="button"
+            variant="outline"
+            className="w-full justify-start font-normal"
+          >
+            <CalendarIcon className="text-muted-foreground" />
+            {value || (
+              <span className="text-muted-foreground">
+                Selecciona las fechas
+              </span>
+            )}
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-auto p-3" align="start">
+          <Calendar
+            mode="range"
+            selected={range}
+            defaultMonth={range?.from}
+            onSelect={(r) =>
+              onChange(
+                r?.from ? formatFechas({ from: r.from, to: r.to }) : "",
+              )
+            }
+          />
+        </PopoverContent>
+      </Popover>
+      <input
+        className="sr-only"
+        tabIndex={-1}
+        aria-hidden
+        required
+        value={value}
+        onChange={() => {}}
+      />
     </div>
   )
 }

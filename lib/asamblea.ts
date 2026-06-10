@@ -47,3 +47,82 @@ export const EMPTY_ASAMBLEA: AsambleaFormValues = {
   sesionesLabel: "",
   whatsappGrupoUrl: "",
 }
+
+const MESES = [
+  "enero",
+  "febrero",
+  "marzo",
+  "abril",
+  "mayo",
+  "junio",
+  "julio",
+  "agosto",
+  "septiembre",
+  "octubre",
+  "noviembre",
+  "diciembre",
+]
+
+export type FechasRange = { from: Date; to?: Date }
+
+export function formatFechas({ from, to }: FechasRange): string {
+  const d1 = from.getDate()
+  const m1 = MESES[from.getMonth()]
+  const y1 = from.getFullYear()
+  if (!to || to.toDateString() === from.toDateString()) {
+    return `${d1} de ${m1}, ${y1}`
+  }
+  const d2 = to.getDate()
+  const m2 = MESES[to.getMonth()]
+  const y2 = to.getFullYear()
+  if (y1 !== y2) return `${d1} de ${m1}, ${y1} al ${d2} de ${m2}, ${y2}`
+  if (m1 !== m2) return `${d1} de ${m1} al ${d2} de ${m2}, ${y1}`
+  return `${d1} al ${d2} de ${m1}, ${y1}`
+}
+
+function mesIndex(nombre: string): number {
+  return MESES.indexOf(nombre.toLowerCase())
+}
+
+export function parseFechas(texto: string): FechasRange | undefined {
+  const s = texto.trim()
+  let m = s.match(/^(\d{1,2}) al (\d{1,2}) de ([a-zá-ú]+),? (\d{4})$/i)
+  if (m) {
+    const mes = mesIndex(m[3])
+    if (mes < 0) return undefined
+    return {
+      from: new Date(+m[4], mes, +m[1]),
+      to: new Date(+m[4], mes, +m[2]),
+    }
+  }
+  m = s.match(/^(\d{1,2}) de ([a-zá-ú]+) al (\d{1,2}) de ([a-zá-ú]+),? (\d{4})$/i)
+  if (m) {
+    const mes1 = mesIndex(m[2])
+    const mes2 = mesIndex(m[4])
+    if (mes1 < 0 || mes2 < 0) return undefined
+    return {
+      from: new Date(+m[5], mes1, +m[1]),
+      to: new Date(+m[5], mes2, +m[3]),
+    }
+  }
+  m = s.match(
+    /^(\d{1,2}) de ([a-zá-ú]+),? (\d{4}) al (\d{1,2}) de ([a-zá-ú]+),? (\d{4})$/i,
+  )
+  if (m) {
+    const mes1 = mesIndex(m[2])
+    const mes2 = mesIndex(m[5])
+    if (mes1 < 0 || mes2 < 0) return undefined
+    return {
+      from: new Date(+m[3], mes1, +m[1]),
+      to: new Date(+m[6], mes2, +m[4]),
+    }
+  }
+  m = s.match(/^(\d{1,2}) de ([a-zá-ú]+),? (\d{4})$/i)
+  if (m) {
+    const mes = mesIndex(m[2])
+    if (mes < 0) return undefined
+    const dia = new Date(+m[3], mes, +m[1])
+    return { from: dia, to: dia }
+  }
+  return undefined
+}
