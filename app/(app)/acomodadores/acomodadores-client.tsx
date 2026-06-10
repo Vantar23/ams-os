@@ -17,6 +17,12 @@ import {
 } from "lucide-react"
 
 import { DisponibilidadSelector } from "@/components/disponibilidad-selector"
+import {
+  formatPuestosAsignados,
+  PuestosAsignadosCell,
+  type PuestoAsignado,
+  type PuestosPorPersona,
+} from "@/components/puestos-asignados"
 import type { DisponibilidadSlot } from "@/lib/disponibilidad"
 import {
   downloadCsv,
@@ -113,11 +119,13 @@ export function AcomodadoresClient({
   acomodadores,
   capitanes,
   currentCapitanId,
+  puestos,
 }: {
   asamblea: Asamblea
   acomodadores: Acomodador[]
   capitanes: CapitanOption[]
   currentCapitanId: string | null
+  puestos: PuestosPorPersona
 }) {
   const router = useRouter()
   const [shareOpen, setShareOpen] = React.useState(false)
@@ -172,6 +180,7 @@ export function AcomodadoresClient({
             acomodadores={acomodadores}
             capitanes={capitanes}
             asamblea={asamblea}
+            puestos={puestos}
           />
           <Button
             type="button"
@@ -203,6 +212,7 @@ export function AcomodadoresClient({
               <TableHead>Congregación</TableHead>
               <TableHead>Teléfono</TableHead>
               <TableHead>Capitán</TableHead>
+              <TableHead>Puestos</TableHead>
               <TableHead>Acceso</TableHead>
             </TableRow>
           </TableHeader>
@@ -210,7 +220,7 @@ export function AcomodadoresClient({
             {acomodadores.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={5}
+                  colSpan={6}
                   className="h-24 text-center text-muted-foreground"
                 >
                   Aún no se ha registrado ningún acomodador. Comparte el enlace
@@ -224,6 +234,7 @@ export function AcomodadoresClient({
                   acomodador={a}
                   asambleaId={asamblea.id}
                   capitanes={capitanes}
+                  puestos={puestos[a.id]}
                   mobileCardsContainer={mobileCardsContainer}
                 />
               ))
@@ -875,11 +886,13 @@ function AcomodadorRow({
   acomodador,
   asambleaId,
   capitanes,
+  puestos,
   mobileCardsContainer,
 }: {
   acomodador: Acomodador
   asambleaId: string
   capitanes: CapitanOption[]
+  puestos: PuestoAsignado[] | undefined
   mobileCardsContainer: HTMLElement | null
 }) {
   const capitan = acomodador.capitan_id
@@ -971,6 +984,9 @@ function AcomodadorRow({
                 "—"
               )}
             </TableCell>
+            <TableCell>
+              <PuestosAsignadosCell items={puestos} />
+            </TableCell>
             <TableCell className="text-muted-foreground">
               {acomodador.device_bound_at ? "Activo" : "Sin abrir"}
             </TableCell>
@@ -1031,6 +1047,12 @@ function AcomodadorRow({
                       ) : (
                         <span className="text-muted-foreground">—</span>
                       )}
+                    </dd>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <dt className="text-muted-foreground">Puestos</dt>
+                    <dd className="text-right">
+                      <PuestosAsignadosCell items={puestos} />
                     </dd>
                   </div>
                 </dl>
@@ -1235,10 +1257,12 @@ function ExportarExcelButton({
   acomodadores,
   capitanes,
   asamblea,
+  puestos,
 }: {
   acomodadores: Acomodador[]
   capitanes: CapitanOption[]
   asamblea: Asamblea
+  puestos: PuestosPorPersona
 }) {
   function handleExport() {
     const capitanById = new Map(capitanes.map((c) => [c.id, c]))
@@ -1249,6 +1273,7 @@ function ExportarExcelButton({
       "Teléfono",
       "Capitán",
       "Áreas del capitán",
+      "Puestos",
       "Disponibilidad",
       "Notas",
       "Acceso",
@@ -1262,6 +1287,7 @@ function ExportarExcelButton({
         a.telefono,
         cap ? `${cap.nombre} ${cap.apellido}` : "",
         cap ? cap.area.join(", ") : "",
+        formatPuestosAsignados(puestos[a.id]),
         formatDisponibilidad(a.disponibilidad),
         a.notas ?? "",
         a.device_bound_at ? "Activo" : "Sin abrir",

@@ -56,3 +56,56 @@ export async function quitarPuesto(input: {
   revalidatePath("/puestos")
   return { error: null }
 }
+
+export async function asignarPuestoHermana(input: {
+  asambleaId: string
+  areaId: string
+  hermanaId: string
+  slot: string
+}): Promise<{ error: string | null }> {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { error: "No autenticado" }
+
+  // Replace any existing assignment for this hermana+slot.
+  const { error: delErr } = await supabase
+    .from("asignaciones_hermanas")
+    .delete()
+    .eq("hermana_apoyo_id", input.hermanaId)
+    .eq("slot", input.slot)
+  if (delErr) return { error: delErr.message }
+
+  const { error } = await supabase.from("asignaciones_hermanas").insert({
+    asamblea_id: input.asambleaId,
+    area_id: input.areaId,
+    hermana_apoyo_id: input.hermanaId,
+    slot: input.slot,
+  })
+
+  if (error) return { error: error.message }
+  revalidatePath("/puestos")
+  return { error: null }
+}
+
+export async function quitarPuestoHermana(input: {
+  hermanaId: string
+  slot: string
+}): Promise<{ error: string | null }> {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { error: "No autenticado" }
+
+  const { error } = await supabase
+    .from("asignaciones_hermanas")
+    .delete()
+    .eq("hermana_apoyo_id", input.hermanaId)
+    .eq("slot", input.slot)
+
+  if (error) return { error: error.message }
+  revalidatePath("/puestos")
+  return { error: null }
+}

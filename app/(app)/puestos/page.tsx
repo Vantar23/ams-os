@@ -36,26 +36,40 @@ export default async function PuestosPage() {
     )
   }
 
-  const [{ data: areas }, { data: acomodadores }, { data: asignaciones }] =
-    await Promise.all([
-      supabase
-        .from("areas")
-        .select(
-          "id, piso, nombre, filas, acomodadores_necesarios, capacidad",
-        )
-        .eq("asamblea_id", asamblea.id)
-        .order("piso", { ascending: true })
-        .order("nombre", { ascending: true }),
-      supabase
-        .from("acomodadores")
-        .select("id, nombre, apellido, congregacion, telefono, disponibilidad")
-        .eq("asamblea_id", asamblea.id)
-        .order("nombre", { ascending: true }),
-      supabase
-        .from("asignaciones")
-        .select("acomodador_id, area_id, slot")
-        .eq("asamblea_id", asamblea.id),
-    ])
+  const [
+    { data: areas },
+    { data: acomodadores },
+    { data: asignaciones },
+    { data: hermanas },
+    { data: asignacionesHermanas },
+  ] = await Promise.all([
+    supabase
+      .from("areas")
+      .select(
+        "id, piso, nombre, filas, acomodadores_necesarios, hermanas_necesarias, capacidad",
+      )
+      .eq("asamblea_id", asamblea.id)
+      .order("piso", { ascending: true })
+      .order("nombre", { ascending: true }),
+    supabase
+      .from("acomodadores")
+      .select("id, nombre, apellido, congregacion, telefono, disponibilidad")
+      .eq("asamblea_id", asamblea.id)
+      .order("nombre", { ascending: true }),
+    supabase
+      .from("asignaciones")
+      .select("acomodador_id, area_id, slot")
+      .eq("asamblea_id", asamblea.id),
+    supabase
+      .from("hermanas_apoyo")
+      .select("id, nombre, apellido, congregacion, telefono, disponibilidad")
+      .eq("asamblea_id", asamblea.id)
+      .order("nombre", { ascending: true }),
+    supabase
+      .from("asignaciones_hermanas")
+      .select("hermana_apoyo_id, area_id, slot")
+      .eq("asamblea_id", asamblea.id),
+  ])
 
   return (
     <>
@@ -65,6 +79,8 @@ export default async function PuestosPage() {
         areas={areas ?? []}
         acomodadores={acomodadores ?? []}
         asignaciones={asignaciones ?? []}
+        hermanas={hermanas ?? []}
+        asignacionesHermanas={asignacionesHermanas ?? []}
       />
     </>
   )

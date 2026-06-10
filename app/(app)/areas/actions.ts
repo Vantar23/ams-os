@@ -9,6 +9,7 @@ type AreaInput = {
   nombre: string
   filas: number
   acomodadoresNecesarios: number
+  hermanasNecesarias: number
   capacidad: number
 }
 
@@ -28,6 +29,7 @@ export async function agregarArea(
     nombre: values.nombre,
     filas: values.filas,
     acomodadores_necesarios: values.acomodadoresNecesarios,
+    hermanas_necesarias: values.hermanasNecesarias,
     capacidad: values.capacidad,
   })
 
@@ -53,6 +55,7 @@ export async function actualizarArea(
       nombre: values.nombre,
       filas: values.filas,
       acomodadores_necesarios: values.acomodadoresNecesarios,
+      hermanas_necesarias: values.hermanasNecesarias,
       capacidad: values.capacidad,
     })
     .eq("id", areaId)

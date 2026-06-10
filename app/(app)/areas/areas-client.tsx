@@ -52,6 +52,7 @@ export type Area = {
   nombre: string
   filas: number
   acomodadores_necesarios: number
+  hermanas_necesarias: number
   capacidad: number
   created_at: string
 }
@@ -103,6 +104,7 @@ export function AreasClient({
                 <TableHead>Área</TableHead>
                 <TableHead>Filas</TableHead>
                 <TableHead>Acomodadores necesarios</TableHead>
+                <TableHead>Hermanas necesarias</TableHead>
                 <TableHead>Capacidad</TableHead>
                 <TableHead className="w-[1%]"></TableHead>
               </TableRow>
@@ -111,7 +113,7 @@ export function AreasClient({
               {areas.length === 0 ? (
                 <TableRow>
                   <TableCell
-                    colSpan={6}
+                    colSpan={7}
                     className="h-24 text-center text-muted-foreground"
                   >
                     Sin áreas. Agrega la primera para comenzar.
@@ -203,6 +205,7 @@ function AreaRow({
             <TableCell>{area.nombre}</TableCell>
             <TableCell>{area.filas}</TableCell>
             <TableCell>{area.acomodadores_necesarios}</TableCell>
+            <TableCell>{area.hermanas_necesarias}</TableCell>
             <TableCell>{area.capacidad}</TableCell>
             <TableCell>
               <Button
@@ -243,6 +246,12 @@ function AreaRow({
                       Acomodadores necesarios
                     </dt>
                     <dd>{area.acomodadores_necesarios}</dd>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <dt className="text-muted-foreground">
+                      Hermanas necesarias
+                    </dt>
+                    <dd>{area.hermanas_necesarias}</dd>
                   </div>
                   <div className="flex justify-between gap-3">
                     <dt className="text-muted-foreground">Capacidad</dt>
@@ -327,6 +336,7 @@ function AreaFormDialog(props: FormProps) {
     const acomodadoresNecesarios = Number(
       fd.get("acomodadoresNecesarios") ?? 0,
     )
+    const hermanasNecesarias = Number(fd.get("hermanasNecesarias") ?? 0)
     const capacidad = Number(fd.get("capacidad") ?? 0)
 
     if (!piso || !nombre) {
@@ -336,12 +346,16 @@ function AreaFormDialog(props: FormProps) {
     if (
       Number.isNaN(filas) ||
       Number.isNaN(acomodadoresNecesarios) ||
+      Number.isNaN(hermanasNecesarias) ||
       Number.isNaN(capacidad) ||
       filas < 0 ||
       acomodadoresNecesarios < 0 ||
+      hermanasNecesarias < 0 ||
       capacidad < 0
     ) {
-      setError("Filas, acomodadores y capacidad deben ser números ≥ 0.")
+      setError(
+        "Filas, acomodadores, hermanas y capacidad deben ser números ≥ 0.",
+      )
       return
     }
 
@@ -352,6 +366,7 @@ function AreaFormDialog(props: FormProps) {
       nombre,
       filas,
       acomodadoresNecesarios,
+      hermanasNecesarias,
       capacidad,
     }
     const { error: err } =
@@ -404,7 +419,7 @@ function AreaFormDialog(props: FormProps) {
               required
             />
           </div>
-          <div className="grid gap-3 sm:grid-cols-3">
+          <div className="grid gap-3 sm:grid-cols-2">
             <div className="grid gap-1.5">
               <Label htmlFor="filas">Filas</Label>
               <Input
@@ -417,7 +432,20 @@ function AreaFormDialog(props: FormProps) {
               />
             </div>
             <div className="grid gap-1.5">
-              <Label htmlFor="acomodadoresNecesarios">Acomodadores</Label>
+              <Label htmlFor="capacidad">Capacidad</Label>
+              <Input
+                id="capacidad"
+                name="capacidad"
+                type="number"
+                inputMode="numeric"
+                min={0}
+                defaultValue={area?.capacidad ?? 0}
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="acomodadoresNecesarios">
+                Acomodadores necesarios
+              </Label>
               <Input
                 id="acomodadoresNecesarios"
                 name="acomodadoresNecesarios"
@@ -428,14 +456,14 @@ function AreaFormDialog(props: FormProps) {
               />
             </div>
             <div className="grid gap-1.5">
-              <Label htmlFor="capacidad">Capacidad</Label>
+              <Label htmlFor="hermanasNecesarias">Hermanas necesarias</Label>
               <Input
-                id="capacidad"
-                name="capacidad"
+                id="hermanasNecesarias"
+                name="hermanasNecesarias"
                 type="number"
                 inputMode="numeric"
                 min={0}
-                defaultValue={area?.capacidad ?? 0}
+                defaultValue={area?.hermanas_necesarias ?? 0}
               />
             </div>
           </div>

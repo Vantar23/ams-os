@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { MinusIcon, PlusIcon, UserPlusIcon } from "lucide-react"
 
 import { agregarAcomodadorManual } from "@/app/(app)/acomodadores/actions"
+import { agregarHermanaManual } from "@/app/(app)/hermanas-de-apoyo/actions"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -33,7 +34,12 @@ import {
 import { useMediaQuery } from "@/lib/use-media-query"
 import { cn } from "@/lib/utils"
 
-import { asignarPuesto, quitarPuesto } from "./actions"
+import {
+  asignarPuesto,
+  asignarPuestoHermana,
+  quitarPuesto,
+  quitarPuestoHermana,
+} from "./actions"
 
 function stripAccents(s: string): string {
   return s.normalize("NFD").replace(/\p{Diacritic}/gu, "")
@@ -47,10 +53,11 @@ type Area = {
   nombre: string
   filas: number
   acomodadores_necesarios: number
+  hermanas_necesarias: number
   capacidad: number
 }
 
-type Acomodador = {
+type Persona = {
   id: string
   nombre: string
   apellido: string
@@ -65,24 +72,69 @@ type Asignacion = {
   slot: string
 }
 
+type AsignacionHermana = {
+  hermana_apoyo_id: string
+  area_id: string
+  slot: string
+}
+
+type Rol = "acomodadores" | "hermanas"
+
+type ManualAddAction = (
+  asambleaId: string,
+  values: {
+    nombre: string
+    apellido: string
+    congregacion: string
+    telefono: string
+    notas: string
+    capitanId: string | null
+    disponibilidad: string[]
+  },
+) => Promise<{ accessToken: string | null; error: string | null }>
+
+type RolConfig = {
+  rol: Rol
+  personas: Persona[]
+  // Map<persona_id, area_id> for the current slot, only persisted values.
+  asignacionPorPersona: { personaId: string; areaId: string; slot: string }[]
+  necesarios: (area: Area) => number
+  asignar: (personaId: string, areaId: string) => Promise<{ error: string | null }>
+  quitar: (personaId: string) => Promise<{ error: string | null }>
+  manualAdd: ManualAddAction
+  // Etiquetas (género): "acomodador"/"hermana", "acomodadores"/"hermanas".
+  singular: string
+  plural: string
+}
+
 type LocalState = {
-  // Map<acomodador_id, areaId | null> for the currently selected slot.
+  // Map<persona_id, areaId | null> for the currently selected slot.
   // null = unassigned. Missing key = use persisted value.
   overrides: Record<string, string | null>
 }
+
+const ROLES: { key: Rol; label: string }[] = [
+  { key: "acomodadores", label: "Acomodadores" },
+  { key: "hermanas", label: "Hermanas de apoyo" },
+]
 
 export function PuestosClient({
   asamblea,
   areas,
   acomodadores,
   asignaciones,
+  hermanas,
+  asignacionesHermanas,
 }: {
   asamblea: Asamblea
   areas: Area[]
-  acomodadores: Acomodador[]
+  acomodadores: Persona[]
   asignaciones: Asignacion[]
+  hermanas: Persona[]
+  asignacionesHermanas: AsignacionHermana[]
 }) {
   const router = useRouter()
+  const [rol, setRol] = React.useState<Rol>("acomodadores")
   const [dia, setDia] = React.useState<DisponibilidadDia>("viernes")
   const [sesion, setSesion] = React.useState<DisponibilidadSesion>("manana")
   const [areaId, setAreaId] = React.useState<string>(areas[0]?.id ?? "")
@@ -91,10 +143,10 @@ export function PuestosClient({
   const [search, setSearch] = React.useState("")
   const isDesktop = useMediaQuery("(min-width: 768px)")
   const searchNorm = stripAccents(search.trim().toLowerCase())
-  function matchesSearch(ac: Acomodador): boolean {
+  function matchesSearch(p: Persona): boolean {
     if (!searchNorm) return true
     const full = stripAccents(
-      `${ac.nombre} ${ac.apellido} ${ac.congregacion}`.toLowerCase(),
+      `${p.nombre} ${p.apellido} ${p.congregacion}`.toLowerCase(),
     )
     return full.includes(searchNorm)
   }
@@ -102,40 +154,92 @@ export function PuestosClient({
   const slot = `${dia}-${sesion}` as DisponibilidadSlot
   const area = areas.find((a) => a.id === areaId) ?? null
 
-  // Persisted assignment for this acomodador in the current slot.
+  const cfg: RolConfig = React.useMemo(() => {
+    if (rol === "hermanas") {
+      return {
+        rol,
+        personas: hermanas,
+        asignacionPorPersona: asignacionesHermanas.map((a) => ({
+          personaId: a.hermana_apoyo_id,
+          areaId: a.area_id,
+          slot: a.slot,
+        })),
+        necesarios: (a: Area) => a.hermanas_necesarias,
+        asignar: (personaId: string, targetAreaId: string) =>
+          asignarPuestoHermana({
+            asambleaId: asamblea.id,
+            areaId: targetAreaId,
+            hermanaId: personaId,
+            slot,
+          }),
+        quitar: (personaId: string) =>
+          quitarPuestoHermana({ hermanaId: personaId, slot }),
+        manualAdd: agregarHermanaManual,
+        singular: "hermana",
+        plural: "hermanas",
+      }
+    }
+    return {
+      rol,
+      personas: acomodadores,
+      asignacionPorPersona: asignaciones.map((a) => ({
+        personaId: a.acomodador_id,
+        areaId: a.area_id,
+        slot: a.slot,
+      })),
+      necesarios: (a: Area) => a.acomodadores_necesarios,
+      asignar: (personaId: string, targetAreaId: string) =>
+        asignarPuesto({
+          asambleaId: asamblea.id,
+          areaId: targetAreaId,
+          acomodadorId: personaId,
+          slot,
+        }),
+      quitar: (personaId: string) =>
+        quitarPuesto({ acomodadorId: personaId, slot }),
+      manualAdd: agregarAcomodadorManual,
+      singular: "acomodador",
+      plural: "acomodadores",
+    }
+  }, [
+    rol,
+    acomodadores,
+    hermanas,
+    asignaciones,
+    asignacionesHermanas,
+    asamblea.id,
+    slot,
+  ])
+
+  // Persisted assignment for this persona in the current slot.
   const persistedAreaFor = React.useMemo(() => {
     const map = new Map<string, string | null>()
-    for (const a of asignaciones) {
-      if (a.slot === slot) map.set(a.acomodador_id, a.area_id)
+    for (const a of cfg.asignacionPorPersona) {
+      if (a.slot === slot) map.set(a.personaId, a.areaId)
     }
     return map
-  }, [asignaciones, slot])
+  }, [cfg.asignacionPorPersona, slot])
 
-  function currentAreaFor(acomodadorId: string): string | null {
-    if (acomodadorId in state.overrides) return state.overrides[acomodadorId]
-    return persistedAreaFor.get(acomodadorId) ?? null
+  function currentAreaFor(personaId: string): string | null {
+    if (personaId in state.overrides) return state.overrides[personaId]
+    return persistedAreaFor.get(personaId) ?? null
   }
 
-  // Reset overrides when slot changes (assignments live per slot).
+  // Reset overrides when slot or rol changes (assignments live per slot+rol).
   React.useEffect(() => {
     setState({ overrides: {} })
-  }, [slot])
+  }, [slot, rol])
 
-  async function asignar(acomodadorId: string) {
+  async function asignar(personaId: string) {
     if (!area) return
     setState((s) => ({
-      overrides: { ...s.overrides, [acomodadorId]: area.id },
+      overrides: { ...s.overrides, [personaId]: area.id },
     }))
-    const { error } = await asignarPuesto({
-      asambleaId: asamblea.id,
-      areaId: area.id,
-      acomodadorId,
-      slot,
-    })
+    const { error } = await cfg.asignar(personaId, area.id)
     if (error) {
       setState((s) => {
         const copy = { ...s.overrides }
-        delete copy[acomodadorId]
+        delete copy[personaId]
         return { overrides: copy }
       })
       alert(error)
@@ -144,15 +248,15 @@ export function PuestosClient({
     router.refresh()
   }
 
-  async function quitar(acomodadorId: string) {
+  async function quitar(personaId: string) {
     setState((s) => ({
-      overrides: { ...s.overrides, [acomodadorId]: null },
+      overrides: { ...s.overrides, [personaId]: null },
     }))
-    const { error } = await quitarPuesto({ acomodadorId, slot })
+    const { error } = await cfg.quitar(personaId)
     if (error) {
       setState((s) => {
         const copy = { ...s.overrides }
-        delete copy[acomodadorId]
+        delete copy[personaId]
         return { overrides: copy }
       })
       alert(error)
@@ -161,19 +265,19 @@ export function PuestosClient({
     router.refresh()
   }
 
-  // Group acomodadores for the current slot.
-  const asignadosAEsta: Acomodador[] = []
-  const sinAsignar: Acomodador[] = []
-  const enOtraArea: { acomodador: Acomodador; areaId: string }[] = []
+  // Group personas for the current slot.
+  const asignadosAEsta: Persona[] = []
+  const sinAsignar: Persona[] = []
+  const enOtraArea: { persona: Persona; areaId: string }[] = []
 
-  for (const ac of acomodadores) {
-    const current = currentAreaFor(ac.id)
+  for (const p of cfg.personas) {
+    const current = currentAreaFor(p.id)
     if (current === area?.id && current) {
-      asignadosAEsta.push(ac)
+      asignadosAEsta.push(p)
     } else if (current && current !== area?.id) {
-      enOtraArea.push({ acomodador: ac, areaId: current })
+      enOtraArea.push({ persona: p, areaId: current })
     } else {
-      sinAsignar.push(ac)
+      sinAsignar.push(p)
     }
   }
 
@@ -181,19 +285,42 @@ export function PuestosClient({
 
   // Per-area headcount for current slot.
   const headcountByArea = new Map<string, number>()
-  for (const ac of acomodadores) {
-    const target = currentAreaFor(ac.id)
+  for (const p of cfg.personas) {
+    const target = currentAreaFor(p.id)
     if (!target) continue
     headcountByArea.set(target, (headcountByArea.get(target) ?? 0) + 1)
   }
 
   const areaShortfalls = areas.map((a) => {
     const asignados = headcountByArea.get(a.id) ?? 0
-    const faltan = Math.max(0, a.acomodadores_necesarios - asignados)
-    return { area: a, asignados, faltan }
+    const necesarios = cfg.necesarios(a)
+    const faltan = Math.max(0, necesarios - asignados)
+    return { area: a, asignados, necesarios, faltan }
   })
 
   const totalFaltantes = areaShortfalls.reduce((s, x) => s + x.faltan, 0)
+
+  const necesariosArea = area ? cfg.necesarios(area) : 0
+
+  const rolSwitcher = (
+    <div className="inline-flex rounded-full border bg-background p-0.5 text-sm">
+      {ROLES.map((r) => (
+        <button
+          key={r.key}
+          type="button"
+          onClick={() => setRol(r.key)}
+          className={cn(
+            "rounded-full px-4 py-1.5 transition-colors",
+            rol === r.key
+              ? "bg-primary text-primary-foreground"
+              : "text-muted-foreground hover:text-foreground",
+          )}
+        >
+          {r.label}
+        </button>
+      ))}
+    </div>
+  )
 
   if (areas.length === 0) {
     return (
@@ -213,11 +340,14 @@ export function PuestosClient({
 
   return (
     <div className="flex flex-1 flex-col gap-4 p-4">
-      <div>
-        <h2 className="text-lg font-semibold">Puestos</h2>
-        <p className="text-sm text-muted-foreground">
-          Asamblea N° {asamblea.numero} — {asamblea.edicion}
-        </p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 className="text-lg font-semibold">Puestos</h2>
+          <p className="text-sm text-muted-foreground">
+            Asamblea N° {asamblea.numero} — {asamblea.edicion}
+          </p>
+        </div>
+        {rolSwitcher}
       </div>
 
       {/* Filters: día, turno, área */}
@@ -306,14 +436,14 @@ export function PuestosClient({
           >
             {totalFaltantes === 0
               ? "Todas las áreas cubiertas"
-              : `${totalFaltantes} acomodador${totalFaltantes === 1 ? "" : "es"} por asignar`}
+              : `${totalFaltantes} ${totalFaltantes === 1 ? cfg.singular : cfg.plural} por asignar`}
           </p>
         </div>
         <div className="mt-3 flex flex-wrap gap-2">
-          {areaShortfalls.map(({ area: a, asignados, faltan }) => {
+          {areaShortfalls.map(({ area: a, asignados, necesarios, faltan }) => {
             const active = a.id === areaId
             const short = faltan > 0
-            const complete = !short && a.acomodadores_necesarios > 0
+            const complete = !short && necesarios > 0
             return (
               <button
                 key={a.id}
@@ -345,7 +475,7 @@ export function PuestosClient({
                         : "text-muted-foreground",
                   )}
                 >
-                  {asignados}/{a.acomodadores_necesarios}
+                  {asignados}/{necesarios}
                 </span>
                 {short && (
                   <span className="rounded-full bg-destructive px-1.5 py-0.5 text-[10px] font-medium text-destructive-foreground">
@@ -375,7 +505,7 @@ export function PuestosClient({
             <div className="mb-3 flex items-baseline justify-between gap-3 border-b pb-2">
               <h3 className="text-xs font-medium uppercase tracking-[0.15em] text-muted-foreground">
                 Asignados a {area.nombre} ({asignadosAEsta.length} /{" "}
-                {area.acomodadores_necesarios})
+                {necesariosArea})
               </h3>
             </div>
             {asignadosAEsta.length === 0 ? (
@@ -384,24 +514,24 @@ export function PuestosClient({
               </p>
             ) : (
               <ul className="divide-y">
-                {asignadosAEsta.filter(matchesSearch).map((ac) => (
+                {asignadosAEsta.filter(matchesSearch).map((p) => (
                   <li
-                    key={ac.id}
+                    key={p.id}
                     className="flex items-center gap-3 py-2"
                   >
                     <span className="flex min-w-0 flex-1 flex-col">
                       <span className="truncate text-sm font-medium text-foreground">
-                        {ac.nombre} {ac.apellido}
+                        {p.nombre} {p.apellido}
                       </span>
                       <span className="truncate text-xs text-muted-foreground">
-                        {ac.congregacion}
+                        {p.congregacion}
                       </span>
                     </span>
                     <Button
                       type="button"
                       variant="outline"
                       size="sm"
-                      onClick={() => quitar(ac.id)}
+                      onClick={() => quitar(p.id)}
                     >
                       <MinusIcon />
                       Quitar
@@ -425,7 +555,7 @@ export function PuestosClient({
                 onClick={() => setQuickAddOpen(true)}
               >
                 <UserPlusIcon />
-                Agregar acomodador
+                Agregar {cfg.singular}
               </Button>
             </div>
             <Input
@@ -434,40 +564,42 @@ export function PuestosClient({
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Buscar por nombre, apellido o congregación"
               className="mt-3"
-              aria-label="Buscar acomodador"
+              aria-label={`Buscar ${cfg.singular}`}
             />
             {sinAsignar.length === 0 ? (
               <p className="py-4 text-sm text-muted-foreground">
-                Todos los acomodadores ya tienen asignación para este turno.
+                {cfg.rol === "hermanas"
+                  ? "Todas las hermanas ya tienen asignación para este turno."
+                  : "Todos los acomodadores ya tienen asignación para este turno."}
               </p>
             ) : (
               (() => {
                 const filtered = sinAsignar
                   .filter(matchesSearch)
                   .sort((a, b) => a.nombre.localeCompare(b.nombre))
-                const disponibles = filtered.filter((ac) =>
-                  ac.disponibilidad.includes(slot),
+                const disponibles = filtered.filter((p) =>
+                  p.disponibilidad.includes(slot),
                 )
                 const noDisponibles = filtered.filter(
-                  (ac) => !ac.disponibilidad.includes(slot),
+                  (p) => !p.disponibilidad.includes(slot),
                 )
-                const renderItem = (ac: Acomodador) => (
+                const renderItem = (p: Persona) => (
                   <li
-                    key={ac.id}
+                    key={p.id}
                     className="flex items-center gap-3 py-2"
                   >
                     <span className="flex min-w-0 flex-1 flex-col">
                       <span className="truncate text-sm font-medium text-foreground">
-                        {ac.nombre} {ac.apellido}
+                        {p.nombre} {p.apellido}
                       </span>
                       <span className="truncate text-xs text-muted-foreground">
-                        {ac.congregacion}
+                        {p.congregacion}
                       </span>
                     </span>
                     <Button
                       type="button"
                       size="sm"
-                      onClick={() => asignar(ac.id)}
+                      onClick={() => asignar(p.id)}
                     >
                       <PlusIcon />
                       Asignar
@@ -513,17 +645,17 @@ export function PuestosClient({
                 </summary>
                 <ul className="divide-y">
                   {enOtraArea
-                    .filter(({ acomodador }) => matchesSearch(acomodador))
-                    .map(({ acomodador: ac, areaId: aId }) => {
+                    .filter(({ persona }) => matchesSearch(persona))
+                    .map(({ persona: p, areaId: aId }) => {
                     const otherArea = areaById.get(aId)
                     return (
                       <li
-                        key={ac.id}
+                        key={p.id}
                         className="flex items-center gap-3 py-2"
                       >
                         <span className="flex min-w-0 flex-1 flex-col">
                           <span className="truncate text-sm font-medium text-foreground">
-                            {ac.nombre} {ac.apellido}
+                            {p.nombre} {p.apellido}
                           </span>
                           <span className="truncate text-xs text-muted-foreground">
                             {otherArea
@@ -535,7 +667,7 @@ export function PuestosClient({
                           type="button"
                           variant="outline"
                           size="sm"
-                          onClick={() => asignar(ac.id)}
+                          onClick={() => asignar(p.id)}
                         >
                           <PlusIcon />
                           Mover aquí
@@ -550,28 +682,35 @@ export function PuestosClient({
         </div>
       )}
 
-      <QuickAddAcomodadorDialog
+      <QuickAddDialog
+        key={cfg.rol}
         open={quickAddOpen}
         onOpenChange={setQuickAddOpen}
         asambleaId={asamblea.id}
         slot={slot}
+        manualAdd={cfg.manualAdd}
+        singular={cfg.singular}
         onCreated={() => router.refresh()}
       />
     </div>
   )
 }
 
-function QuickAddAcomodadorDialog({
+function QuickAddDialog({
   open,
   onOpenChange,
   asambleaId,
   slot,
+  manualAdd,
+  singular,
   onCreated,
 }: {
   open: boolean
   onOpenChange: (v: boolean) => void
   asambleaId: string
   slot: DisponibilidadSlot
+  manualAdd: ManualAddAction
+  singular: string
   onCreated: () => void
 }) {
   const [submitting, setSubmitting] = React.useState(false)
@@ -598,7 +737,7 @@ function QuickAddAcomodadorDialog({
     }
     setSubmitting(true)
     setError(null)
-    const { error: err } = await agregarAcomodadorManual(asambleaId, {
+    const { error: err } = await manualAdd(asambleaId, {
       nombre,
       apellido,
       congregacion,
@@ -620,10 +759,11 @@ function QuickAddAcomodadorDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Agregar acomodador</DialogTitle>
+          <DialogTitle>Agregar {singular}</DialogTitle>
           <DialogDescription>
-            Lo agregamos al pool de "Sin asignar". Puedes editar disponibilidad
-            o el capitán asignado más tarde desde Acomodadores.
+            Lo agregamos al pool de &quot;Sin asignar&quot;. Puedes editar la
+            disponibilidad o el capitán asignado más tarde desde la sección
+            correspondiente.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={onSubmit} className="grid gap-4">
