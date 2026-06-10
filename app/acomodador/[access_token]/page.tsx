@@ -9,7 +9,11 @@ import {
 } from "lucide-react"
 
 import { RememberPersonal } from "@/components/remember-personal"
-import { formatDisponibilidad } from "@/lib/export-csv"
+import {
+  momentoEnRecinto,
+  slotLabelCorto,
+  slotsVisibles,
+} from "@/lib/disponibilidad"
 
 import { BlockedView } from "./blocked-view"
 import { ClaimView } from "./claim-view"
@@ -38,19 +42,11 @@ export default async function Page({
 
   const { acomodador } = result
   const asignaciones = await loadAsignaciones(access_token)
-  const porArea = new Map<
-    string,
-    { nombre: string; piso: string; slots: string[] }
-  >()
-  for (const a of asignaciones) {
-    const grupo = porArea.get(a.area_id) ?? {
-      nombre: a.area_nombre,
-      piso: a.area_piso,
-      slots: [],
-    }
-    grupo.slots.push(a.slot)
-    porArea.set(a.area_id, grupo)
-  }
+  const visibles = slotsVisibles(
+    asignaciones.map((a) => a.slot),
+    momentoEnRecinto(),
+  )
+  const puestos = asignaciones.filter((a) => visibles.includes(a.slot))
 
   return (
     <main className="mx-auto w-full max-w-2xl px-5 py-10 sm:py-14">
@@ -72,29 +68,18 @@ export default async function Page({
         Estás asignado como acomodador
       </p>
 
-      {porArea.size > 0 && (
-        <section className="mt-8 rounded-xl border bg-surface p-4">
-          <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
-            Tu puesto
-          </p>
-          <ul className="mt-3 grid gap-3">
-            {[...porArea.values()].map((grupo) => (
-              <li key={grupo.nombre} className="flex items-start gap-3">
-                <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-border bg-background text-foreground">
-                  <MapPinIcon className="size-5" />
-                </span>
-                <div>
-                  <p className="text-base font-medium text-foreground">
-                    {grupo.nombre}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {grupo.piso} · {formatDisponibilidad(grupo.slots)}
-                  </p>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </section>
+      {puestos.length > 0 && (
+        <div className="mt-4 flex flex-wrap gap-2">
+          {puestos.map((a) => (
+            <span
+              key={a.asignacion_id}
+              className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-3 py-1 text-xs text-foreground"
+            >
+              <MapPinIcon className="size-3.5 text-muted-foreground" />
+              {a.area_nombre} · {slotLabelCorto(a.slot)}
+            </span>
+          ))}
+        </div>
       )}
 
       <nav className="mt-10 grid gap-3">
@@ -103,12 +88,6 @@ export default async function Page({
           icon={<CalendarCheckIcon className="size-5" />}
           title="Asistencia"
           description="Confirma las sesiones a las que vas a asistir."
-        />
-        <NavCard
-          href={`/acomodador/${access_token}/recepcion-local`}
-          icon={<ClipboardCheckIcon className="size-5" />}
-          title="Recepción del local"
-          description="Reporta cosas rotas o que falten al recibir el lugar."
         />
         <NavCard
           href={`/acomodador/${access_token}/incidencias`}
@@ -121,6 +100,12 @@ export default async function Page({
           icon={<MapIcon className="size-5" />}
           title="Mapa"
           description="Consulta los planos del recinto."
+        />
+        <NavCard
+          href={`/acomodador/${access_token}/recepcion-local`}
+          icon={<ClipboardCheckIcon className="size-5" />}
+          title="Recepción del local"
+          description="Reporta cosas rotas o que falten al recibir el lugar."
         />
         <NavCard
           href={`/acomodador/${access_token}/instrucciones`}

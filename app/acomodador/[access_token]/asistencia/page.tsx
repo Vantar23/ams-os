@@ -4,6 +4,8 @@ import { ArrowLeftIcon } from "lucide-react"
 import {
   DISPONIBILIDAD_DIAS,
   DISPONIBILIDAD_SESIONES,
+  momentoEnRecinto,
+  slotsVisibles,
 } from "@/lib/disponibilidad"
 
 import { BlockedView } from "../blocked-view"
@@ -43,7 +45,12 @@ export default async function Page({
     )
   }
 
-  const asignaciones = await loadAsignaciones(access_token)
+  const todas = await loadAsignaciones(access_token)
+  const visibles = slotsVisibles(
+    todas.map((a) => a.slot),
+    momentoEnRecinto(),
+  )
+  const asignaciones = todas.filter((a) => visibles.includes(a.slot))
 
   return (
     <main className="mx-auto w-full max-w-2xl px-4 py-6 sm:px-5 sm:py-14">
@@ -64,8 +71,9 @@ export default async function Page({
 
       {asignaciones.length === 0 ? (
         <p className="mt-6 rounded-xl border bg-surface p-6 text-center text-sm text-muted-foreground">
-          Aún no tienes área asignada. Cuando tu capitán te asigne, aparecerá
-          aquí.
+          {todas.length === 0
+            ? "Aún no tienes área asignada. Cuando tu capitán te asigne, aparecerá aquí."
+            : "No tienes puesto asignado en este turno."}
         </p>
       ) : (
         <ul className="mt-6 grid gap-3">

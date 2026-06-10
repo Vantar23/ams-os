@@ -1,14 +1,29 @@
 import Link from "next/link"
 import { cookies } from "next/headers"
-import { AlertTriangleIcon } from "lucide-react"
+import { AlertTriangleIcon, MapPinIcon } from "lucide-react"
 
 import { createClient } from "@/lib/supabase/server"
 import { RememberPersonal } from "@/components/remember-personal"
+import {
+  momentoEnRecinto,
+  slotLabelCorto,
+  slotsVisibles,
+} from "@/lib/disponibilidad"
 
 import { ClaimView } from "./claim-view"
 import { RebindButton } from "./rebind-button"
 
 const DEVICE_COOKIE = "hermana_apoyo_device_key"
+
+type Puesto = {
+  asignacion_id: string
+  slot: string
+  area_id: string
+  area_piso: string
+  area_nombre: string
+  area_filas: number
+  area_capacidad: number
+}
 
 type Hermana = {
   id: string
@@ -84,12 +99,30 @@ export default async function Page({
     )
   }
 
-  return (
-    <HermanaView hermana={hermana} />
+  const { data: asignaciones } = await supabase.rpc(
+    "hermana_get_asignaciones",
+    {
+      p_access_token: access_token,
+      p_device_key_hash: deviceKeyHash,
+    },
   )
+  const todas = (asignaciones ?? []) as Puesto[]
+  const visibles = slotsVisibles(
+    todas.map((p) => p.slot),
+    momentoEnRecinto(),
+  )
+  const puestos = todas.filter((p) => visibles.includes(p.slot))
+
+  return <HermanaView hermana={hermana} puestos={puestos} />
 }
 
-function HermanaView({ hermana }: { hermana: Hermana }) {
+function HermanaView({
+  hermana,
+  puestos,
+}: {
+  hermana: Hermana
+  puestos: Puesto[]
+}) {
   return (
     <main className="mx-auto w-full max-w-2xl px-5 py-10 sm:py-14">
       <RememberPersonal
@@ -109,6 +142,20 @@ function HermanaView({ hermana }: { hermana: Hermana }) {
       <p className="mt-3 inline-flex w-fit items-center rounded-full border border-primary/40 bg-primary/10 px-3 py-1 text-xs text-primary">
         Estás asignada como hermana de apoyo
       </p>
+
+      {puestos.length > 0 && (
+        <div className="mt-4 flex flex-wrap gap-2">
+          {puestos.map((p) => (
+            <span
+              key={p.asignacion_id}
+              className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-3 py-1 text-xs text-foreground"
+            >
+              <MapPinIcon className="size-3.5 text-muted-foreground" />
+              {p.area_nombre} · {slotLabelCorto(p.slot)}
+            </span>
+          ))}
+        </div>
+      )}
 
       <p className="mt-12 border-t border-border pt-6 text-center text-xs text-muted-foreground">
         Si pierdes este enlace, escríbele a tu capitán para que te genere uno
