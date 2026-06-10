@@ -98,16 +98,16 @@ export default async function Page({
 
       <nav className="mt-10 grid gap-3">
         <NavCard
-          href={`/hermana-apoyo/${access_token}/asistencia`}
-          icon={<CalendarCheckIcon className="size-5" />}
-          title="Asistencia"
-          description="Consulta tus puestos asignados por sesión."
-        />
-        <NavCard
           href={`/hermana-apoyo/${access_token}/mensajes`}
           icon={<MessageCircleIcon className="size-5" />}
           title="Mensajes"
           description="Escríbele al equipo de administración."
+        />
+        <NavCard
+          href={`/hermana-apoyo/${access_token}/asistencia`}
+          icon={<CalendarCheckIcon className="size-5" />}
+          title="Asistencia"
+          description="Consulta tus puestos asignados por sesión."
         />
         <NavCard
           href={`/hermana-apoyo/${access_token}/incidencias`}
