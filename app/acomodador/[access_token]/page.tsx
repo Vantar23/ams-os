@@ -5,13 +5,15 @@ import {
   CalendarCheckIcon,
   ClipboardCheckIcon,
   MapIcon,
+  MapPinIcon,
 } from "lucide-react"
 
 import { RememberPersonal } from "@/components/remember-personal"
+import { formatDisponibilidad } from "@/lib/export-csv"
 
 import { BlockedView } from "./blocked-view"
 import { ClaimView } from "./claim-view"
-import { loadAcomodadorByToken } from "./load"
+import { loadAcomodadorByToken, loadAsignaciones } from "./load"
 
 export default async function Page({
   params,
@@ -35,6 +37,21 @@ export default async function Page({
   }
 
   const { acomodador } = result
+  const asignaciones = await loadAsignaciones(access_token)
+  const porArea = new Map<
+    string,
+    { nombre: string; piso: string; slots: string[] }
+  >()
+  for (const a of asignaciones) {
+    const grupo = porArea.get(a.area_id) ?? {
+      nombre: a.area_nombre,
+      piso: a.area_piso,
+      slots: [],
+    }
+    grupo.slots.push(a.slot)
+    porArea.set(a.area_id, grupo)
+  }
+
   return (
     <main className="mx-auto w-full max-w-2xl px-5 py-10 sm:py-14">
       <RememberPersonal
@@ -54,6 +71,31 @@ export default async function Page({
       <p className="mt-3 inline-flex w-fit items-center rounded-full border border-primary/40 bg-primary/10 px-3 py-1 text-xs text-primary">
         Estás asignado como acomodador
       </p>
+
+      {porArea.size > 0 && (
+        <section className="mt-8 rounded-xl border bg-surface p-4">
+          <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
+            Tu puesto
+          </p>
+          <ul className="mt-3 grid gap-3">
+            {[...porArea.values()].map((grupo) => (
+              <li key={grupo.nombre} className="flex items-start gap-3">
+                <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-border bg-background text-foreground">
+                  <MapPinIcon className="size-5" />
+                </span>
+                <div>
+                  <p className="text-base font-medium text-foreground">
+                    {grupo.nombre}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {grupo.piso} · {formatDisponibilidad(grupo.slots)}
+                  </p>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <nav className="mt-10 grid gap-3">
         <NavCard
