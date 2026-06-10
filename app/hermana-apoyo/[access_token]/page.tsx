@@ -139,23 +139,20 @@ function HermanaView({
       <h1 className="mt-3 font-serif text-[2rem] leading-[1.1] text-foreground sm:text-4xl sm:leading-tight">
         Hola, {hermana.nombre} {hermana.apellido}
       </h1>
-      <p className="mt-3 inline-flex w-fit items-center rounded-full border border-primary/40 bg-primary/10 px-3 py-1 text-xs text-primary">
-        Estás asignada como hermana de apoyo
-      </p>
-
-      {puestos.length > 0 && (
-        <div className="mt-4 flex flex-wrap gap-2">
-          {puestos.map((p) => (
-            <span
-              key={p.asignacion_id}
-              className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-3 py-1 text-xs text-foreground"
-            >
-              <MapPinIcon className="size-3.5 text-muted-foreground" />
-              {p.area_nombre} · {slotLabelCorto(p.slot)}
-            </span>
-          ))}
-        </div>
-      )}
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <p className="inline-flex w-fit items-center rounded-full border border-primary/40 bg-primary/10 px-3 py-1 text-xs text-primary">
+          Estás asignada como hermana de apoyo
+        </p>
+        {puestos.map((p) => (
+          <span
+            key={p.asignacion_id}
+            className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-3 py-1 text-xs text-foreground"
+          >
+            <MapPinIcon className="size-3.5 text-muted-foreground" />
+            {p.area_nombre} · {slotLabelCorto(p.slot)}
+          </span>
+        ))}
+      </div>
 
       <p className="mt-12 border-t border-border pt-6 text-center text-xs text-muted-foreground">
         Si pierdes este enlace, escríbele a tu capitán para que te genere uno

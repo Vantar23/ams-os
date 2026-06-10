@@ -64,23 +64,20 @@ export default async function Page({
       <h1 className="mt-3 font-serif text-[2rem] leading-[1.1] text-foreground sm:text-4xl sm:leading-tight">
         Hola, {acomodador.nombre} {acomodador.apellido}
       </h1>
-      <p className="mt-3 inline-flex w-fit items-center rounded-full border border-primary/40 bg-primary/10 px-3 py-1 text-xs text-primary">
-        Estás asignado como acomodador
-      </p>
-
-      {puestos.length > 0 && (
-        <div className="mt-4 flex flex-wrap gap-2">
-          {puestos.map((a) => (
-            <span
-              key={a.asignacion_id}
-              className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-3 py-1 text-xs text-foreground"
-            >
-              <MapPinIcon className="size-3.5 text-muted-foreground" />
-              {a.area_nombre} · {slotLabelCorto(a.slot)}
-            </span>
-          ))}
-        </div>
-      )}
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <p className="inline-flex w-fit items-center rounded-full border border-primary/40 bg-primary/10 px-3 py-1 text-xs text-primary">
+          Estás asignado como acomodador
+        </p>
+        {puestos.map((a) => (
+          <span
+            key={a.asignacion_id}
+            className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-3 py-1 text-xs text-foreground"
+          >
+            <MapPinIcon className="size-3.5 text-muted-foreground" />
+            {a.area_nombre} · {slotLabelCorto(a.slot)}
+          </span>
+        ))}
+      </div>
 
       <nav className="mt-10 grid gap-3">
         <NavCard
