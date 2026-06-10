@@ -5,6 +5,7 @@ import * as React from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { normalizePhone } from "@/lib/phone"
 
 import { lookupPersonal } from "./[slot]/actions"
 
@@ -78,6 +79,7 @@ export function LoginRedirector({
   asambleaLabel: string
 }) {
   const [status, setStatus] = React.useState<Status>({ kind: "loading" })
+  const [telefono, setTelefono] = React.useState("")
 
   React.useEffect(() => {
     const stored = readStored(asambleaId)
@@ -115,14 +117,13 @@ export function LoginRedirector({
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
-    const fd = new FormData(e.currentTarget)
-    const telefono = String(fd.get("telefono") ?? "").trim()
-    if (!telefono) {
+    const digits = normalizePhone(telefono)
+    if (!digits) {
       setStatus({ kind: "error", message: "Ingresa tu teléfono." })
       return
     }
     setStatus({ kind: "submitting" })
-    const res = await lookupPersonal({ asambleaId, telefono })
+    const res = await lookupPersonal({ asambleaId, telefono: digits })
     if (!res.ok || !res.result) {
       setStatus({
         kind: "error",
@@ -180,9 +181,12 @@ export function LoginRedirector({
               inputMode="tel"
               autoComplete="tel"
               placeholder="5512345678"
-              onKeyDown={(e) => {
-                if (e.key === " ") e.preventDefault()
-              }}
+              value={telefono}
+              onChange={(e) =>
+                // Solo dígitos: bloquea espacios y símbolos también al pegar
+                // o autocompletar.
+                setTelefono(e.target.value.replace(/\D/g, ""))
+              }
               required
             />
             <p className="text-xs text-muted-foreground">
