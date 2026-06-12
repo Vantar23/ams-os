@@ -1,6 +1,7 @@
 import Link from "next/link"
 import { redirect } from "next/navigation"
 import {
+  CalendarCheckIcon,
   LayoutDashboardIcon,
   MapIcon,
   MapPinIcon,
@@ -84,6 +85,12 @@ export default async function Page() {
               ? `Tu equipo (${totalAcomodadores}): llámalos o escríbeles por WhatsApp.`
               : "Tu equipo: llámalos o escríbeles por WhatsApp."
           }
+        />
+        <NavCard
+          href="/capitan/asistencia"
+          icon={<CalendarCheckIcon className="size-5" />}
+          title="Asistencia"
+          description="Reporta el conteo de tus áreas por día y sesión."
         />
         <NavCard
           href="/capitan/mapa"

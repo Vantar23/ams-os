@@ -47,6 +47,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { reportarConteoCapitan } from "@/app/capitan/asistencia/actions"
 import { useLocalStorage } from "@/lib/use-local-storage"
 import { uid } from "@/lib/uid"
 
@@ -105,6 +106,10 @@ const SLOT_DIA: Record<string, string> = {
   sabado: "2026-10-03",
   domingo: "2026-10-04",
 }
+
+const DIA_A_SLOT: Record<string, string> = Object.fromEntries(
+  Object.entries(SLOT_DIA).map(([k, v]) => [v, k]),
+)
 
 function reporteToConteo(r: Reporte): Conteo | null {
   const [diaKey, sesionKey] = r.slot.split("-") as [string, Sesion]
@@ -183,10 +188,14 @@ export function AsistenciaClient({
   areas,
   reportes,
   historial,
+  capitanMode = false,
 }: {
   areas: Area[]
   reportes: Reporte[]
   historial: HistorialEntry[]
+  // Un capitán solo ve sus áreas y sus conteos se guardan en la base, para
+  // que administración los vea; el flujo local (localStorage) es del owner.
+  capitanMode?: boolean
 }) {
   const historialPorAsignacion = React.useMemo(() => {
     const map = new Map<string, HistorialEntry[]>()
@@ -228,6 +237,8 @@ export function AsistenciaClient({
   const [savedAt, setSavedAt] = React.useState<number | null>(null)
 
   const [editing, setEditing] = React.useState<Conteo | null>(null)
+  const [guardando, setGuardando] = React.useState(false)
+  const [saveError, setSaveError] = React.useState<string | null>(null)
 
   function pickArea(area: Area) {
     setSelected(area)
@@ -243,13 +254,34 @@ export function AsistenciaClient({
     setValor("")
   }
 
-  function save(e: React.FormEvent) {
+  async function save(e: React.FormEvent) {
     e.preventDefault()
-    if (!selected) return
+    if (!selected || guardando) return
     const n = Number.parseInt(valor, 10)
     if (Number.isNaN(n) || n < 0) return
     const modo = modoDeArea(selected)
     if (modo === "vacios" && n > selected.capacidad) return
+
+    if (capitanMode) {
+      const diaKey = DIA_A_SLOT[dia]
+      if (!diaKey) return
+      setGuardando(true)
+      setSaveError(null)
+      const { ok, error } = await reportarConteoCapitan({
+        areaId: selected.id,
+        slot: `${diaKey}-${sesion}`,
+        valor: n,
+      })
+      setGuardando(false)
+      if (!ok) {
+        setSaveError(error ?? "No se pudo guardar el conteo.")
+        return
+      }
+      setSavedAt(Date.now())
+      reset()
+      return
+    }
+
     const conteo: Conteo = {
       id: uid(),
       areaId: selected.id,
@@ -470,13 +502,17 @@ export function AsistenciaClient({
                 </p>
               )}
 
+              {saveError && (
+                <p className="mt-3 text-sm text-destructive">{saveError}</p>
+              )}
+
               <Button
                 type="submit"
                 size="lg"
                 className="mt-6 w-full"
-                disabled={valor === "" || excedeCapacidad}
+                disabled={valor === "" || excedeCapacidad || guardando}
               >
-                Guardar conteo
+                {guardando ? "Guardando…" : "Guardar conteo"}
               </Button>
             </form>
           )}
@@ -973,24 +1009,52 @@ function EditConteoDialog({
   onSave: (c: Conteo) => void
   onDelete: (id: string) => void
 }) {
-  const [areaId, setAreaId] = React.useState("")
-  const [dia, setDia] = React.useState<string>(DIAS[0].value)
-  const [sesion, setSesion] = React.useState<Sesion>("manana")
-  const [valor, setValor] = React.useState("")
+  return (
+    <Dialog
+      open={conteo !== null}
+      onOpenChange={(o) => {
+        if (!o) onClose()
+      }}
+    >
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Editar conteo</DialogTitle>
+          <DialogDescription>
+            Cambia el área, día, sesión o el conteo registrado.
+          </DialogDescription>
+        </DialogHeader>
+        {conteo && (
+          <EditConteoForm
+            key={conteo.id}
+            conteo={conteo}
+            areas={areas}
+            onSave={onSave}
+            onDelete={onDelete}
+          />
+        )}
+      </DialogContent>
+    </Dialog>
+  )
+}
 
-  React.useEffect(() => {
-    if (!conteo) return
-    setAreaId(conteo.areaId)
-    setDia(conteo.dia ?? DIAS[0].value)
-    setSesion(conteo.sesion ?? "manana")
-    setValor(String(conteo.valor))
-  }, [conteo])
-
-  const open = conteo !== null
+function EditConteoForm({
+  conteo,
+  areas,
+  onSave,
+  onDelete,
+}: {
+  conteo: Conteo
+  areas: Area[]
+  onSave: (c: Conteo) => void
+  onDelete: (id: string) => void
+}) {
+  const [areaId, setAreaId] = React.useState(conteo.areaId)
+  const [dia, setDia] = React.useState<string>(conteo.dia ?? DIAS[0].value)
+  const [sesion, setSesion] = React.useState<Sesion>(conteo.sesion ?? "manana")
+  const [valor, setValor] = React.useState(String(conteo.valor))
 
   // include the original area even if it's been deleted, so the select stays valid
   const options = React.useMemo<Area[]>(() => {
-    if (!conteo) return areas
     if (areas.some((a) => a.id === conteo.areaId)) return areas
     return [
       ...areas,
@@ -1004,9 +1068,7 @@ function EditConteoDialog({
   }, [areas, conteo])
 
   const currentArea = options.find((a) => a.id === areaId)
-  const modo: Modo = currentArea
-    ? modoDeArea(currentArea)
-    : conteo?.modo ?? "vacios"
+  const modo: Modo = currentArea ? modoDeArea(currentArea) : conteo.modo
   const valorNum = Number.parseInt(valor, 10)
   const valorValido = !Number.isNaN(valorNum) && valorNum >= 0
   const excedeCapacidad =
@@ -1017,7 +1079,7 @@ function EditConteoDialog({
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!conteo || !currentArea) return
+    if (!currentArea) return
     if (!valorValido || excedeCapacidad) return
     onSave({
       ...conteo,
@@ -1032,20 +1094,7 @@ function EditConteoDialog({
   }
 
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(o) => {
-        if (!o) onClose()
-      }}
-    >
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>Editar conteo</DialogTitle>
-          <DialogDescription>
-            Cambia el área, día, sesión o el conteo registrado.
-          </DialogDescription>
-        </DialogHeader>
-        <form onSubmit={handleSubmit} className="grid gap-4">
+    <form onSubmit={handleSubmit} className="grid gap-4">
           <div>
             <label
               htmlFor="edit-area"
@@ -1143,7 +1192,7 @@ function EditConteoDialog({
             <Button
               type="button"
               variant="ghost"
-              onClick={() => conteo && onDelete(conteo.id)}
+              onClick={() => onDelete(conteo.id)}
               className="text-destructive hover:bg-destructive/10 hover:text-destructive"
             >
               <Trash2Icon />
@@ -1157,9 +1206,7 @@ function EditConteoDialog({
               Guardar cambios
             </Button>
           </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+    </form>
   )
 }
 

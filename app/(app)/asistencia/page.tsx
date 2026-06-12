@@ -13,6 +13,9 @@ import {
 
 export default async function AsistenciaPage() {
   const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
 
   const { data: asambleas } = await supabase
     .from("asambleas")
@@ -41,12 +44,44 @@ export default async function AsistenciaPage() {
     )
   }
 
-  const { data: areas } = await supabase
+  // Si quien entra es un capitán, restringimos la vista a sus áreas
+  // asignadas y sus conteos se guardan en la base (no en este dispositivo).
+  let capitanAreaLabels: string[] | null = null
+  if (user) {
+    const [{ data: miembro }, { data: capitanRow }] = await Promise.all([
+      supabase
+        .from("asamblea_miembros")
+        .select("role")
+        .eq("asamblea_id", asamblea.id)
+        .eq("user_id", user.id)
+        .maybeSingle(),
+      supabase
+        .from("capitanes")
+        .select("area")
+        .eq("asamblea_id", asamblea.id)
+        .eq("user_id", user.id)
+        .maybeSingle(),
+    ])
+    if (miembro?.role === "capitan") {
+      capitanAreaLabels = ((capitanRow?.area as string[] | null) ?? []) as string[]
+    }
+  }
+
+  const { data: areasRaw } = await supabase
     .from("areas")
     .select("id, piso, nombre, capacidad")
     .eq("asamblea_id", asamblea.id)
     .order("piso", { ascending: true })
     .order("nombre", { ascending: true })
+
+  const areas = (
+    (areasRaw ?? []) as { id: string; piso: string; nombre: string; capacidad: number }[]
+  ).filter(
+    (a) =>
+      capitanAreaLabels === null ||
+      capitanAreaLabels.includes(`${a.piso} — ${a.nombre}`),
+  )
+  const areaIdsVisibles = new Set(areas.map((a) => a.id))
 
   const { data: reportesRaw } = await supabase
     .from("asignaciones")
@@ -77,8 +112,9 @@ export default async function AsistenciaPage() {
     if (Array.isArray(value)) return value[0] ?? null
     return value ?? null
   }
-  const reportes: Reporte[] = ((reportesRaw ?? []) as unknown as Row[]).map(
-    (r) => {
+  const reportes: Reporte[] = ((reportesRaw ?? []) as unknown as Row[])
+    .filter((r) => capitanAreaLabels === null || areaIdsVisibles.has(r.area_id))
+    .map((r) => {
       const area = first(r.areas)
       const ac = first(r.acomodadores)
       return {
@@ -91,8 +127,49 @@ export default async function AsistenciaPage() {
         areaCapacidad: area?.capacidad ?? 0,
         acomodadorNombre: ac ? `${ac.nombre} ${ac.apellido}`.trim() : "—",
       }
-    },
-  )
+    })
+
+  // Conteos reportados por capitanes (append-only): se toma el más reciente
+  // por capitán+área+slot y entra a la misma lista que los de acomodadores.
+  const { data: conteosCapRaw } = await supabase
+    .from("conteos_capitan")
+    .select(
+      "id, slot, valor, reportado_at, area_id, capitan_id, areas(nombre, capacidad), capitanes(nombre, apellido)",
+    )
+    .eq("asamblea_id", asamblea.id)
+    .order("reportado_at", { ascending: false })
+
+  type ConteoCapRow = {
+    id: string
+    slot: string
+    valor: number
+    reportado_at: string
+    area_id: string
+    capitan_id: string
+    areas: { nombre: string; capacidad: number } | { nombre: string; capacidad: number }[] | null
+    capitanes: { nombre: string; apellido: string } | { nombre: string; apellido: string }[] | null
+  }
+  const vistosCap = new Set<string>()
+  for (const c of (conteosCapRaw ?? []) as unknown as ConteoCapRow[]) {
+    if (capitanAreaLabels !== null && !areaIdsVisibles.has(c.area_id)) continue
+    const clave = `${c.capitan_id}|${c.area_id}|${c.slot}`
+    if (vistosCap.has(clave)) continue
+    vistosCap.add(clave)
+    const area = first(c.areas)
+    const cap = first(c.capitanes)
+    reportes.push({
+      id: c.id,
+      slot: c.slot,
+      valor: c.valor,
+      reportadoAt: c.reportado_at,
+      areaId: c.area_id,
+      areaNombre: area?.nombre ?? "—",
+      areaCapacidad: area?.capacidad ?? 0,
+      acomodadorNombre: cap
+        ? `${cap.nombre} ${cap.apellido} · Capitán`.trim()
+        : "Capitán",
+    })
+  }
 
   const { data: historialRaw } = await supabase
     .from("asistencia_historial")
@@ -143,9 +220,10 @@ export default async function AsistenciaPage() {
     <>
       <PageHeader parent="Reportes" title="Asistencia" />
       <AsistenciaClient
-        areas={(areas ?? []) as Area[]}
+        areas={areas as Area[]}
         reportes={reportes}
         historial={historial}
+        capitanMode={capitanAreaLabels !== null}
       />
     </>
   )

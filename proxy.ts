@@ -39,6 +39,8 @@ const CAPITAN_ALLOWED_PREFIXES = [
   // entrar (la página valida el rol por su cuenta).
   "/mapa",
   "/recepcion-local",
+  // Conteo de asistencia: el capitán ve solo sus áreas asignadas.
+  "/asistencia",
 ]
 const CAPITAN_LANDING = "/capitan"
 

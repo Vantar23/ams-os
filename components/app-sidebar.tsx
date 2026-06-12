@@ -115,12 +115,21 @@ export function AppSidebar({
                   items: g.items.filter((i) => allowed.includes(i.title)),
                 }
               }
+              if (g.title === "Reportes") {
+                // El capitán solo reporta asistencia de sus áreas asignadas.
+                return {
+                  ...g,
+                  items: g.items.filter((i) => i.title === "Asistencia"),
+                }
+              }
               return g
             })
             .filter(
               (g) =>
                 g.title === "Personal" ||
-                ((g.title === "Asignaciones" || g.title === "Lugar") &&
+                ((g.title === "Asignaciones" ||
+                  g.title === "Lugar" ||
+                  g.title === "Reportes") &&
                   g.items.length > 0),
             ),
         ]
