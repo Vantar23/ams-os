@@ -70,14 +70,28 @@ export type IncidenciaItem = {
 
 type Asamblea = { id: string; numero: string; edicion: string }
 
+export type ContactosIncidencias = {
+  primeros_auxilios: string | null
+  seguridad: string | null
+  limpieza: string | null
+}
+
+type DestinoKey = keyof ContactosIncidencias
+
+const DESTINO_LABEL: Record<DestinoKey, string> = {
+  primeros_auxilios: "Primeros auxilios",
+  seguridad: "Seguridad",
+  limpieza: "Limpieza",
+}
+
 export function IncidenciasClient({
   asamblea,
   items,
-  primerosAuxilios,
+  contactos,
 }: {
   asamblea: Asamblea
   items: IncidenciaItem[]
-  primerosAuxilios: string | null
+  contactos: ContactosIncidencias
 }) {
   const [addOpen, setAddOpen] = React.useState(false)
   const [filtro, setFiltro] = React.useState<EstadoIncidencia | "todos">(
@@ -111,7 +125,7 @@ export function IncidenciasClient({
           </p>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-          <PrimerosAuxiliosButton telefono={primerosAuxilios} />
+          <PrimerosAuxiliosButton telefono={contactos.primeros_auxilios} />
           <Select
             value={filtro}
             onValueChange={(v) => setFiltro(v as EstadoIncidencia | "todos")}
@@ -146,11 +160,7 @@ export function IncidenciasClient({
       ) : (
         <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {visibles.map((item) => (
-            <IncidenciaCard
-              key={item.id}
-              item={item}
-              primerosAuxilios={primerosAuxilios}
-            />
+            <IncidenciaCard key={item.id} item={item} contactos={contactos} />
           ))}
         </ul>
       )}
@@ -162,22 +172,24 @@ export function IncidenciasClient({
 
 function IncidenciaCard({
   item,
-  primerosAuxilios,
+  contactos,
 }: {
   item: IncidenciaItem
-  primerosAuxilios: string | null
+  contactos: ContactosIncidencias
 }) {
   const router = useRouter()
   const [updating, setUpdating] = React.useState(false)
   const [deleteOpen, setDeleteOpen] = React.useState(false)
   const [deleting, setDeleting] = React.useState(false)
   const [imageOpen, setImageOpen] = React.useState(false)
+  const [destino, setDestino] = React.useState<DestinoKey>("primeros_auxilios")
 
-  // Abre WhatsApp con la incidencia escrita: directo a primeros auxilios si
-  // la asamblea tiene su número configurado (Ajustes), o con el selector de
+  // Abre WhatsApp con la incidencia escrita: directo al equipo elegido si la
+  // asamblea tiene su número configurado (Ajustes), o con el selector de
   // contactos de WhatsApp si no. En vez de adjuntar la foto va un enlace a
   // la vista pública del reporte (solo muestra esta incidencia).
-  const paDigits = primerosAuxilios ? normalizePhone(primerosAuxilios) : ""
+  const telefono = contactos[destino]
+  const destinoDigits = telefono ? normalizePhone(telefono) : ""
   const waTexto = encodeURIComponent(
     [
       `🚨 Incidencia: ${item.tipo}`,
@@ -189,8 +201,8 @@ function IncidenciaCard({
       .filter(Boolean)
       .join("\n"),
   )
-  const waUrl = paDigits
-    ? `https://wa.me/52${paDigits}?text=${waTexto}`
+  const waUrl = destinoDigits
+    ? `https://wa.me/52${destinoDigits}?text=${waTexto}`
     : `https://wa.me/?text=${waTexto}`
 
   async function changeEstado(estado: EstadoIncidencia) {
@@ -251,15 +263,33 @@ function IncidenciaCard({
           {formatDate(item.created_at)} · {item.reporter_label}
         </p>
 
-        <a
-          href={waUrl}
-          target="_blank"
-          rel="noreferrer"
-          className="mt-1 inline-flex w-full items-center justify-center gap-2 rounded-lg border border-emerald-600/40 bg-emerald-600/10 px-3 py-2 text-xs font-medium text-emerald-700 transition-colors hover:bg-emerald-600/15 dark:text-emerald-400"
-        >
-          <WhatsappIcon className="size-3.5" />
-          Enviar a Primeros auxilios
-        </a>
+        <div className="mt-1 flex items-center gap-2">
+          <Select
+            value={destino}
+            onValueChange={(v) => setDestino(v as DestinoKey)}
+          >
+            <SelectTrigger className="flex-1" aria-label="Enviar a">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {(Object.keys(DESTINO_LABEL) as DestinoKey[]).map((k) => (
+                <SelectItem key={k} value={k}>
+                  {DESTINO_LABEL[k]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <a
+            href={waUrl}
+            target="_blank"
+            rel="noreferrer"
+            title={`Enviar a ${DESTINO_LABEL[destino]} por WhatsApp`}
+            className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg border border-emerald-600/40 bg-emerald-600/10 px-3 py-2 text-xs font-medium text-emerald-700 transition-colors hover:bg-emerald-600/15 dark:text-emerald-400"
+          >
+            <WhatsappIcon className="size-3.5" />
+            Enviar
+          </a>
+        </div>
 
         <div className="mt-3 flex items-center gap-2">
           <Select

@@ -21,7 +21,9 @@ export default async function IncidenciasPage() {
 
   const { data: asambleas } = await supabase
     .from("asambleas")
-    .select("id, numero, edicion, primeros_auxilios_telefono")
+    .select(
+      "id, numero, edicion, primeros_auxilios_telefono, seguridad_telefono, limpieza_telefono",
+    )
     .order("created_at", { ascending: false })
     .limit(1)
   const asamblea = asambleas?.[0]
@@ -192,7 +194,11 @@ export default async function IncidenciasPage() {
       <IncidenciasClient
         asamblea={asamblea}
         items={items}
-        primerosAuxilios={asamblea.primeros_auxilios_telefono ?? null}
+        contactos={{
+          primeros_auxilios: asamblea.primeros_auxilios_telefono ?? null,
+          seguridad: asamblea.seguridad_telefono ?? null,
+          limpieza: asamblea.limpieza_telefono ?? null,
+        }}
       />
     </>
   )
