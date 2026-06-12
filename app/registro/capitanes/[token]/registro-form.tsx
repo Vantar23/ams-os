@@ -35,7 +35,8 @@ const schema = z
       .string()
       .transform(normalizePhone)
       .refine(isValidPhone, TELEFONO_INVALIDO_MSG),
-    area: z.array(z.string()).min(1, "Selecciona al menos un área"),
+    // Opcional: administración puede asignarle su área más adelante.
+    area: z.array(z.string()),
     notas: z.string().optional(),
     email: z.email("Correo inválido"),
     password: z.string().min(8, "Mínimo 8 caracteres"),
@@ -315,11 +316,14 @@ export function CapitanRegistroForm({
                 name="area"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Áreas a cargo</FormLabel>
+                    <FormLabel>
+                      Áreas a cargo{" "}
+                      <span className="text-muted-foreground">(opcional)</span>
+                    </FormLabel>
                     {areas.length === 0 ? (
                       <p className="text-sm text-muted-foreground">
-                        Aún no hay áreas registradas. Pídele al organizador que
-                        las cree antes de continuar.
+                        Aún no hay áreas registradas; administración te
+                        asignará la tuya más adelante.
                       </p>
                     ) : (
                       <FormControl>
