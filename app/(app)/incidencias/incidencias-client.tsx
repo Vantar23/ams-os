@@ -40,6 +40,8 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 
+import { PrimerosAuxiliosButton } from "@/components/primeros-auxilios-button"
+
 import {
   TIPOS_INCIDENCIA,
   ESTADO_LABEL,
@@ -67,9 +69,11 @@ type Asamblea = { id: string; numero: string; edicion: string }
 export function IncidenciasClient({
   asamblea,
   items,
+  primerosAuxilios,
 }: {
   asamblea: Asamblea
   items: IncidenciaItem[]
+  primerosAuxilios: string | null
 }) {
   const [addOpen, setAddOpen] = React.useState(false)
   const [filtro, setFiltro] = React.useState<EstadoIncidencia | "todos">(
@@ -103,6 +107,7 @@ export function IncidenciasClient({
           </p>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <PrimerosAuxiliosButton telefono={primerosAuxilios} />
           <Select
             value={filtro}
             onValueChange={(v) => setFiltro(v as EstadoIncidencia | "todos")}
