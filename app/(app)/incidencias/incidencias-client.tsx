@@ -254,7 +254,7 @@ function IncidenciaCard({
           className="mt-1 inline-flex w-full items-center justify-center gap-2 rounded-lg border border-emerald-600/40 bg-emerald-600/10 px-3 py-2 text-xs font-medium text-emerald-700 transition-colors hover:bg-emerald-600/15 dark:text-emerald-400"
         >
           <WhatsappIcon className="size-3.5" />
-          {paDigits ? "Enviar a primeros auxilios" : "Enviar por WhatsApp"}
+          Enviar a Primeros auxilios
         </a>
 
         <div className="mt-3 flex items-center gap-2">
