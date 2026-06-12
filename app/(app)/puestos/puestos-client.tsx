@@ -152,6 +152,8 @@ export function PuestosClient({
   const [state, setState] = React.useState<LocalState>({ overrides: {} })
   const [quickAddOpen, setQuickAddOpen] = React.useState(false)
   const [search, setSearch] = React.useState("")
+  // En móvil las listas no caben lado a lado; esta pestaña elige cuál se ve.
+  const [vista, setVista] = React.useState<"sin" | "asignados">("sin")
   const isDesktop = useMediaQuery("(min-width: 768px)")
   const searchNorm = stripAccents(search.trim().toLowerCase())
   function matchesSearch(p: Persona): boolean {
@@ -394,7 +396,7 @@ export function PuestosClient({
       </div>
 
       {/* Filters: día, turno, área */}
-      <div className="flex flex-wrap items-end gap-4 rounded-xl border bg-surface p-4">
+      <div className="flex flex-wrap items-end gap-3 rounded-xl border bg-surface p-3 sm:gap-4 sm:p-4">
         <div className="grid gap-1.5">
           <Label className="text-xs uppercase tracking-[0.15em] text-muted-foreground">
             Día
@@ -482,7 +484,9 @@ export function PuestosClient({
               : `${totalFaltantes} ${totalFaltantes === 1 ? cfg.singular : cfg.plural} por asignar`}
           </p>
         </div>
-        <div className="mt-3 flex flex-wrap gap-2">
+        {/* En móvil los chips van en una fila deslizable para no comerse la
+            pantalla; en escritorio se acomodan en varias líneas. */}
+        <div className="-mx-4 mt-3 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-x-visible sm:px-0 sm:pb-0">
           {areaShortfalls.map(({ area: a, asignados, necesarios, faltan }) => {
             const active = a.id === areaId
             const short = faltan > 0
@@ -493,7 +497,7 @@ export function PuestosClient({
                 type="button"
                 onClick={() => setAreaId(a.id)}
                 className={cn(
-                  "flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs transition-colors",
+                  "flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full border px-3 py-1.5 text-xs transition-colors",
                   active
                     ? "border-primary bg-primary/10 text-foreground"
                     : "border-border bg-background hover:bg-muted",
@@ -537,6 +541,35 @@ export function PuestosClient({
       </section>
 
       {area && (
+        <>
+          {/* Pestañas solo en móvil: una lista a la vez, sin scroll eterno. */}
+          <div className="grid grid-cols-2 rounded-full border bg-background p-0.5 text-sm md:hidden">
+            <button
+              type="button"
+              onClick={() => setVista("sin")}
+              className={cn(
+                "rounded-full px-3 py-2 transition-colors",
+                vista === "sin"
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground",
+              )}
+            >
+              Sin asignar ({sinAsignar.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setVista("asignados")}
+              className={cn(
+                "rounded-full px-3 py-2 transition-colors",
+                vista === "asignados"
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground",
+              )}
+            >
+              Asignados ({asignadosAEsta.length}/{necesariosArea})
+            </button>
+          </div>
+
         <div
           className="grid items-start gap-4"
           style={{
@@ -544,6 +577,7 @@ export function PuestosClient({
           }}
         >
           {/* Asignados */}
+          {(isDesktop || vista === "asignados") && (
           <section className="rounded-xl border bg-surface p-4">
             <div className="mb-3 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 border-b pb-2">
               <h3 className="text-xs font-medium uppercase tracking-[0.15em] text-muted-foreground">
@@ -563,7 +597,7 @@ export function PuestosClient({
             </div>
             {asignadosAEsta.length === 0 ? (
               <p className="py-4 text-sm text-muted-foreground">
-                Nadie asignado todavía. Agrega del lado derecho.
+                Nadie asignado todavía. Asigna desde la lista de sin asignar.
               </p>
             ) : (
               <ul className="divide-y">
@@ -595,8 +629,10 @@ export function PuestosClient({
               </ul>
             )}
           </section>
+          )}
 
           {/* Sin asignar (+ otra area) */}
+          {(isDesktop || vista === "sin") && (
           <section className="rounded-xl border bg-surface p-4">
             <div className="mb-3 flex items-baseline justify-between gap-3 border-b pb-2">
               <h3 className="text-xs font-medium uppercase tracking-[0.15em] text-muted-foreground">
@@ -741,7 +777,9 @@ export function PuestosClient({
               </details>
             )}
           </section>
+          )}
         </div>
+        </>
       )}
 
       <QuickAddDialog
