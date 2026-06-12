@@ -32,24 +32,32 @@ export default async function MensajesPage() {
     )
   }
 
-  const [{ data: mensajes }, { data: acomodadores }, { data: hermanas }] =
-    await Promise.all([
-      supabase
-        .from("mensajes")
-        .select(
-          "id, persona_tipo, persona_id, remitente, cuerpo, leido, created_at",
-        )
-        .eq("asamblea_id", asamblea.id)
-        .order("created_at", { ascending: true }),
-      supabase
-        .from("acomodadores")
-        .select("id, nombre, apellido, congregacion, telefono")
-        .eq("asamblea_id", asamblea.id),
-      supabase
-        .from("hermanas_apoyo")
-        .select("id, nombre, apellido, congregacion, telefono")
-        .eq("asamblea_id", asamblea.id),
-    ])
+  const [
+    { data: mensajes },
+    { data: acomodadores },
+    { data: hermanas },
+    { data: capitanes },
+  ] = await Promise.all([
+    supabase
+      .from("mensajes")
+      .select(
+        "id, persona_tipo, persona_id, remitente, cuerpo, leido, created_at",
+      )
+      .eq("asamblea_id", asamblea.id)
+      .order("created_at", { ascending: true }),
+    supabase
+      .from("acomodadores")
+      .select("id, nombre, apellido, congregacion, telefono")
+      .eq("asamblea_id", asamblea.id),
+    supabase
+      .from("hermanas_apoyo")
+      .select("id, nombre, apellido, congregacion, telefono")
+      .eq("asamblea_id", asamblea.id),
+    supabase
+      .from("capitanes")
+      .select("id, nombre, apellido, congregacion, telefono")
+      .eq("asamblea_id", asamblea.id),
+  ])
 
   const personas: PersonaInfo[] = [
     ...((acomodadores ?? []) as Omit<PersonaInfo, "tipo">[]).map((p) => ({
@@ -59,6 +67,10 @@ export default async function MensajesPage() {
     ...((hermanas ?? []) as Omit<PersonaInfo, "tipo">[]).map((p) => ({
       ...p,
       tipo: "hermana" as const,
+    })),
+    ...((capitanes ?? []) as Omit<PersonaInfo, "tipo">[]).map((p) => ({
+      ...p,
+      tipo: "capitan" as const,
     })),
   ]
 

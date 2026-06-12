@@ -24,6 +24,28 @@ export function ChatPersonal({
   tipo: PersonalTipo
   accessToken: string
 }) {
+  const listar = React.useCallback(
+    () => listarMensajesPersonal(tipo, accessToken),
+    [tipo, accessToken],
+  )
+  const enviar = React.useCallback(
+    (texto: string) => enviarMensajePersonal(tipo, accessToken, texto),
+    [tipo, accessToken],
+  )
+  return <ChatBase listar={listar} enviar={enviar} />
+}
+
+/**
+ * UI del chat con administración, independiente de cómo se autentica quien
+ * escribe (token de personal o sesión de capitán).
+ */
+export function ChatBase({
+  listar,
+  enviar,
+}: {
+  listar: () => Promise<{ ok: boolean; mensajes: MensajePersonal[] }>
+  enviar: (texto: string) => Promise<{ ok: boolean; error: string | null }>
+}) {
   const [mensajes, setMensajes] = React.useState<MensajePersonal[] | null>(null)
   const [cuerpo, setCuerpo] = React.useState("")
   const [sending, setSending] = React.useState(false)
@@ -32,12 +54,9 @@ export function ChatPersonal({
   const countRef = React.useRef(0)
 
   const cargar = React.useCallback(async () => {
-    const { ok, mensajes: lista } = await listarMensajesPersonal(
-      tipo,
-      accessToken,
-    )
+    const { ok, mensajes: lista } = await listar()
     if (ok) setMensajes(lista)
-  }, [tipo, accessToken])
+  }, [listar])
 
   React.useEffect(() => {
     const inicial = setTimeout(() => void cargar(), 0)
@@ -65,11 +84,7 @@ export function ChatPersonal({
     if (!texto || sending) return
     setSending(true)
     setError(null)
-    const { ok, error: err } = await enviarMensajePersonal(
-      tipo,
-      accessToken,
-      texto,
-    )
+    const { ok, error: err } = await enviar(texto)
     setSending(false)
     if (!ok) {
       setError(err ?? "No se pudo enviar el mensaje.")

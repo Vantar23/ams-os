@@ -27,6 +27,9 @@ const HERMANA_APOYO_PREFIX = "/hermana-apoyo/"
 const DEVICE_COOKIE = "acomodador_device_key"
 const HERMANA_DEVICE_COOKIE = "hermana_apoyo_device_key"
 const CAPITAN_ALLOWED_PREFIXES = [
+  // Menú simple de capitán (landing); desde ahí un botón lleva al sistema
+  // administrativo completo (/acomodadores y demás).
+  "/capitan",
   "/acomodadores",
   "/capitanes",
   "/hermanas-de-apoyo",
@@ -37,7 +40,7 @@ const CAPITAN_ALLOWED_PREFIXES = [
   "/mapa",
   "/recepcion-local",
 ]
-const CAPITAN_LANDING = "/acomodadores"
+const CAPITAN_LANDING = "/capitan"
 
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request })

@@ -2,17 +2,47 @@
 
 import * as React from "react"
 import { useRouter } from "next/navigation"
-import { ArrowLeftIcon, SendIcon } from "lucide-react"
+import {
+  ArrowLeftIcon,
+  MegaphoneIcon,
+  MessageSquarePlusIcon,
+  SendIcon,
+} from "lucide-react"
 
+import {
+  BuscadorPersonal,
+  coincideBusqueda,
+} from "@/components/buscador-personal"
 import { Button } from "@/components/ui/button"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { Label } from "@/components/ui/label"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { createRealtimeClient } from "@/lib/supabase/realtime"
 import { cn } from "@/lib/utils"
 
-import { enviarRespuestaAdmin, marcarMensajesLeidos } from "./actions"
+import {
+  enviarMensajeMasivo,
+  enviarRespuestaAdmin,
+  marcarMensajesLeidos,
+} from "./actions"
+
+export type PersonaTipo = "acomodador" | "hermana" | "capitan"
 
 export type MensajeRow = {
   id: string
-  persona_tipo: "acomodador" | "hermana"
+  persona_tipo: PersonaTipo
   persona_id: string
   remitente: "persona" | "admin"
   cuerpo: string
@@ -22,7 +52,7 @@ export type MensajeRow = {
 
 export type PersonaInfo = {
   id: string
-  tipo: "acomodador" | "hermana"
+  tipo: PersonaTipo
   nombre: string
   apellido: string
   congregacion: string
@@ -33,13 +63,19 @@ type Asamblea = { id: string; numero: string; edicion: string }
 
 type Conversacion = {
   key: string
-  tipo: "acomodador" | "hermana"
+  tipo: PersonaTipo
   personaId: string
   nombre: string
   congregacion: string
-  ultimo: MensajeRow
+  ultimo: MensajeRow | null
   noLeidos: number
   mensajes: MensajeRow[]
+}
+
+const TIPO_LABEL: Record<PersonaTipo, string> = {
+  acomodador: "Acomodador",
+  hermana: "Hermana de apoyo",
+  capitan: "Capitán",
 }
 
 export function MensajesClient({
@@ -53,6 +89,8 @@ export function MensajesClient({
 }) {
   const router = useRouter()
   const [seleccionada, setSeleccionada] = React.useState<string | null>(null)
+  const [directorioAbierto, setDirectorioAbierto] = React.useState(false)
+  const [avisoAbierto, setAvisoAbierto] = React.useState(false)
 
   const personaByKey = React.useMemo(() => {
     const map = new Map<string, PersonaInfo>()
@@ -73,9 +111,7 @@ export function MensajesClient({
           personaId: m.persona_id,
           nombre: persona
             ? `${persona.nombre} ${persona.apellido}`.trim()
-            : m.persona_tipo === "acomodador"
-              ? "Acomodador"
-              : "Hermana de apoyo",
+            : TIPO_LABEL[m.persona_tipo],
           congregacion: persona?.congregacion ?? "",
           ultimo: m,
           noLeidos: 0,
@@ -88,12 +124,29 @@ export function MensajesClient({
       if (m.remitente === "persona" && !m.leido) conv.noLeidos += 1
     }
     return Array.from(byKey.values()).sort((a, b) =>
-      b.ultimo.created_at.localeCompare(a.ultimo.created_at),
+      (b.ultimo?.created_at ?? "").localeCompare(a.ultimo?.created_at ?? ""),
     )
   }, [mensajes, personaByKey])
 
-  const conversacion =
-    conversaciones.find((c) => c.key === seleccionada) ?? null
+  // La conversación abierta: la existente o, si se eligió a alguien desde el
+  // directorio sin mensajes previos, un hilo vacío para iniciar el DM.
+  const conversacion = React.useMemo<Conversacion | null>(() => {
+    if (!seleccionada) return null
+    const existente = conversaciones.find((c) => c.key === seleccionada)
+    if (existente) return existente
+    const persona = personaByKey.get(seleccionada)
+    if (!persona) return null
+    return {
+      key: seleccionada,
+      tipo: persona.tipo,
+      personaId: persona.id,
+      nombre: `${persona.nombre} ${persona.apellido}`.trim(),
+      congregacion: persona.congregacion,
+      ultimo: null,
+      noLeidos: 0,
+      mensajes: [],
+    }
+  }, [seleccionada, conversaciones, personaByKey])
 
   // Suscripción realtime (con el JWT del usuario — sin él, RLS no entrega
   // eventos) + sondeo de respaldo por si el socket falla.
@@ -146,22 +199,56 @@ export function MensajesClient({
 
   return (
     <div className="flex flex-1 flex-col gap-4 p-4">
-      <div>
-        <h2 className="text-lg font-semibold">Mensajes</h2>
-        <p className="text-sm text-muted-foreground">
-          {conversaciones.length} conversaci
-          {conversaciones.length === 1 ? "ón" : "ones"}
-          {totalNoLeidos > 0 && (
-            <>
-              {" · "}
-              <span className="text-amber-700 dark:text-amber-400">
-                {totalNoLeidos} sin leer
-              </span>
-            </>
-          )}{" "}
-          · Asamblea N° {asamblea.numero} — {asamblea.edicion}
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <h2 className="text-lg font-semibold">Mensajes</h2>
+          <p className="text-sm text-muted-foreground">
+            {conversaciones.length} conversaci
+            {conversaciones.length === 1 ? "ón" : "ones"}
+            {totalNoLeidos > 0 && (
+              <>
+                {" · "}
+                <span className="text-amber-700 dark:text-amber-400">
+                  {totalNoLeidos} sin leer
+                </span>
+              </>
+            )}{" "}
+            · Asamblea N° {asamblea.numero} — {asamblea.edicion}
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setAvisoAbierto(true)}
+          >
+            <MegaphoneIcon className="size-4" />
+            Aviso a todos
+          </Button>
+          <Button type="button" onClick={() => setDirectorioAbierto(true)}>
+            <MessageSquarePlusIcon className="size-4" />
+            Nuevo mensaje
+          </Button>
+        </div>
       </div>
+
+      <DirectorioDialog
+        open={directorioAbierto}
+        onOpenChange={setDirectorioAbierto}
+        personas={personas}
+        onSeleccionar={(key) => {
+          setSeleccionada(key)
+          setDirectorioAbierto(false)
+        }}
+      />
+
+      <AvisoDialog
+        open={avisoAbierto}
+        onOpenChange={setAvisoAbierto}
+        asambleaId={asamblea.id}
+        personas={personas}
+        onEnviado={() => router.refresh()}
+      />
 
       <div className="grid flex-1 gap-4 md:grid-cols-[280px_1fr]">
         {/* Lista de conversaciones */}
@@ -198,13 +285,15 @@ export function MensajesClient({
                   )}
                 </div>
                 <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                  {c.tipo === "acomodador" ? "Acomodador" : "Hermana de apoyo"}
+                  {TIPO_LABEL[c.tipo]}
                   {c.congregacion && ` · ${c.congregacion}`}
                 </p>
-                <p className="mt-1 truncate text-xs text-muted-foreground">
-                  {c.ultimo.remitente === "admin" ? "Tú: " : ""}
-                  {c.ultimo.cuerpo}
-                </p>
+                {c.ultimo && (
+                  <p className="mt-1 truncate text-xs text-muted-foreground">
+                    {c.ultimo.remitente === "admin" ? "Tú: " : ""}
+                    {c.ultimo.cuerpo}
+                  </p>
+                )}
               </button>
             ))
           )}
@@ -233,6 +322,214 @@ export function MensajesClient({
         </div>
       </div>
     </div>
+  )
+}
+
+/** Envía el mismo mensaje a todos los acomodadores, hermanas o ambos. */
+function AvisoDialog({
+  open,
+  onOpenChange,
+  asambleaId,
+  personas,
+  onEnviado,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  asambleaId: string
+  personas: PersonaInfo[]
+  onEnviado: () => void
+}) {
+  const [destinatarios, setDestinatarios] = React.useState<
+    "acomodadores" | "hermanas" | "capitanes" | "todos"
+  >("acomodadores")
+  const [cuerpo, setCuerpo] = React.useState("")
+  const [sending, setSending] = React.useState(false)
+  const [error, setError] = React.useState<string | null>(null)
+
+  const totales = React.useMemo(() => {
+    const acomodadores = personas.filter((p) => p.tipo === "acomodador").length
+    const hermanas = personas.filter((p) => p.tipo === "hermana").length
+    const capitanes = personas.filter((p) => p.tipo === "capitan").length
+    return { acomodadores, hermanas, capitanes, todos: personas.length }
+  }, [personas])
+  const total = totales[destinatarios]
+
+  function handleOpenChange(next: boolean) {
+    if (sending) return
+    if (!next) {
+      setCuerpo("")
+      setError(null)
+    }
+    onOpenChange(next)
+  }
+
+  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    const texto = cuerpo.trim()
+    if (!texto || sending) return
+    setSending(true)
+    setError(null)
+    const { ok, error: err } = await enviarMensajeMasivo({
+      asambleaId,
+      destinatarios,
+      cuerpo: texto,
+    })
+    setSending(false)
+    if (!ok) {
+      setError(err ?? "No se pudo enviar.")
+      return
+    }
+    setCuerpo("")
+    onOpenChange(false)
+    onEnviado()
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Aviso a todos</DialogTitle>
+          <DialogDescription>
+            Envía el mismo mensaje a todo un grupo. Cada persona lo recibirá en
+            su conversación.
+          </DialogDescription>
+        </DialogHeader>
+        <form onSubmit={onSubmit} className="grid gap-4">
+          <div className="grid gap-1.5">
+            <Label htmlFor="aviso_destinatarios">Destinatarios</Label>
+            <Select
+              value={destinatarios}
+              onValueChange={(v) =>
+                setDestinatarios(
+                  v as "acomodadores" | "hermanas" | "capitanes" | "todos",
+                )
+              }
+            >
+              <SelectTrigger id="aviso_destinatarios">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="acomodadores">
+                  Acomodadores ({totales.acomodadores})
+                </SelectItem>
+                <SelectItem value="hermanas">
+                  Hermanas de apoyo ({totales.hermanas})
+                </SelectItem>
+                <SelectItem value="capitanes">
+                  Capitanes ({totales.capitanes})
+                </SelectItem>
+                <SelectItem value="todos">
+                  Todo el personal ({totales.todos})
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="grid gap-1.5">
+            <Label htmlFor="aviso_cuerpo">Mensaje</Label>
+            <textarea
+              id="aviso_cuerpo"
+              value={cuerpo}
+              onChange={(e) => setCuerpo(e.target.value)}
+              rows={4}
+              maxLength={2000}
+              placeholder="Escribe el aviso…"
+              className="min-h-11 resize-none rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+            />
+          </div>
+          {error && <p className="text-sm text-destructive">{error}</p>}
+          <Button
+            type="submit"
+            disabled={sending || !cuerpo.trim() || total === 0}
+          >
+            <SendIcon className="size-4" />
+            {sending
+              ? "Enviando…"
+              : `Enviar a ${total} persona${total === 1 ? "" : "s"}`}
+          </Button>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+/** Directorio del personal con búsqueda para iniciar un mensaje directo. */
+function DirectorioDialog({
+  open,
+  onOpenChange,
+  personas,
+  onSeleccionar,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  personas: PersonaInfo[]
+  onSeleccionar: (key: string) => void
+}) {
+  const [busqueda, setBusqueda] = React.useState("")
+
+  function handleOpenChange(next: boolean) {
+    if (!next) setBusqueda("")
+    onOpenChange(next)
+  }
+
+  const visibles = React.useMemo(() => {
+    return personas
+      .filter((p) =>
+        coincideBusqueda(
+          busqueda,
+          p.nombre,
+          p.apellido,
+          p.congregacion,
+          p.telefono,
+        ),
+      )
+      .sort((a, b) =>
+        `${a.nombre} ${a.apellido}`.localeCompare(
+          `${b.nombre} ${b.apellido}`,
+          "es",
+        ),
+      )
+  }, [personas, busqueda])
+
+  return (
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Nuevo mensaje</DialogTitle>
+          <DialogDescription>
+            Elige a quién enviarle un mensaje directo.
+          </DialogDescription>
+        </DialogHeader>
+        <BuscadorPersonal value={busqueda} onChange={setBusqueda} />
+        <div className="flex max-h-[50svh] flex-col gap-1 overflow-y-auto">
+          {personas.length === 0 ? (
+            <p className="rounded-xl border p-6 text-center text-sm text-muted-foreground">
+              Aún no hay personal registrado en esta asamblea.
+            </p>
+          ) : visibles.length === 0 ? (
+            <p className="rounded-xl border p-6 text-center text-sm text-muted-foreground">
+              Nadie coincide con la búsqueda.
+            </p>
+          ) : (
+            visibles.map((p) => (
+              <button
+                key={`${p.tipo}:${p.id}`}
+                type="button"
+                onClick={() => onSeleccionar(`${p.tipo}:${p.id}`)}
+                className="rounded-xl border bg-surface p-3 text-left transition-colors hover:border-primary/50"
+              >
+                <span className="block truncate text-sm font-medium text-foreground">
+                  {`${p.nombre} ${p.apellido}`.trim()}
+                </span>
+                <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+                  {TIPO_LABEL[p.tipo]}
+                  {p.congregacion && ` · ${p.congregacion}`}
+                </span>
+              </button>
+            ))
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
   )
 }
 
@@ -297,15 +594,19 @@ function Hilo({
             {conversacion.nombre}
           </p>
           <p className="truncate text-xs text-muted-foreground">
-            {conversacion.tipo === "acomodador"
-              ? "Acomodador"
-              : "Hermana de apoyo"}
+            {TIPO_LABEL[conversacion.tipo]}
             {conversacion.congregacion && ` · ${conversacion.congregacion}`}
           </p>
         </div>
       </div>
 
       <div className="flex max-h-[55svh] flex-1 flex-col gap-2 overflow-y-auto p-4">
+        {conversacion.mensajes.length === 0 && (
+          <p className="m-auto max-w-xs text-center text-sm text-muted-foreground">
+            Aún no hay mensajes con {conversacion.nombre}. Escribe el primero
+            para iniciar la conversación.
+          </p>
+        )}
         {conversacion.mensajes.map((m) => (
           <div
             key={m.id}
@@ -332,7 +633,11 @@ function Hilo({
           onChange={(e) => setCuerpo(e.target.value)}
           rows={2}
           maxLength={2000}
-          placeholder="Escribe tu respuesta…"
+          placeholder={
+            conversacion.mensajes.length === 0
+              ? "Escribe un mensaje…"
+              : "Escribe tu respuesta…"
+          }
           className="min-h-11 flex-1 resize-none rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
           onKeyDown={(e) => {
             if (e.key === "Enter" && !e.shiftKey) {
