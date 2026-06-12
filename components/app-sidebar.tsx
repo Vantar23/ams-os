@@ -94,26 +94,36 @@ export function AppSidebar({
   // Only capitanes get the restricted navigation.
   const groups =
     role === "capitan"
-      ? visibleNav
-          .map((g) => {
-            if (g.title === "Asignaciones") {
-              return { ...g, items: g.items.filter((i) => i.title === "Puestos") }
-            }
-            if (g.title === "Lugar") {
-              const allowed = ["Mapa", "Recepción del local"]
-              return {
-                ...g,
-                items: g.items.filter((i) => allowed.includes(i.title)),
+      ? [
+          // Atajos del capitán: su menú simple y su chat con administración.
+          {
+            title: "Capitán",
+            items: [
+              { title: "Menú simplificado", url: "/capitan" },
+              { title: "Mensajes", url: "/capitan/mensajes" },
+            ],
+          },
+          ...visibleNav
+            .map((g) => {
+              if (g.title === "Asignaciones") {
+                return { ...g, items: g.items.filter((i) => i.title === "Puestos") }
               }
-            }
-            return g
-          })
-          .filter(
-            (g) =>
-              g.title === "Personal" ||
-              ((g.title === "Asignaciones" || g.title === "Lugar") &&
-                g.items.length > 0),
-          )
+              if (g.title === "Lugar") {
+                const allowed = ["Mapa", "Recepción del local"]
+                return {
+                  ...g,
+                  items: g.items.filter((i) => allowed.includes(i.title)),
+                }
+              }
+              return g
+            })
+            .filter(
+              (g) =>
+                g.title === "Personal" ||
+                ((g.title === "Asignaciones" || g.title === "Lugar") &&
+                  g.items.length > 0),
+            ),
+        ]
       : visibleNav
 
   async function handleSignOut() {
@@ -162,7 +172,7 @@ export function AppSidebar({
                         }}
                       >
                         <span>{item.title}</span>
-                        {item.title === "Mensajes" && <MensajesBadge />}
+                        {item.url === "/mensajes" && <MensajesBadge />}
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
