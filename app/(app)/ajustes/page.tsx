@@ -23,7 +23,7 @@ export default async function AjustesPage() {
   const { data: asambleas } = await supabase
     .from("asambleas")
     .select(
-      "id, numero, edicion, titulo, fechas, sede, estado, dias_count, dias_label, sesiones_count, sesiones_label, whatsapp_grupo_url, primeros_auxilios_telefono",
+      "id, numero, edicion, titulo, fechas, sede, estado, dias_count, dias_label, sesiones_count, sesiones_label, whatsapp_grupo_url, primeros_auxilios_telefono, seguridad_telefono, limpieza_telefono",
     )
     .order("created_at", { ascending: false })
     .limit(1)
@@ -92,6 +92,8 @@ export default async function AjustesPage() {
     sesionesLabel: asamblea.sesiones_label ?? "",
     whatsappGrupoUrl: asamblea.whatsapp_grupo_url ?? "",
     primerosAuxiliosTelefono: asamblea.primeros_auxilios_telefono ?? "",
+    seguridadTelefono: asamblea.seguridad_telefono ?? "",
+    limpiezaTelefono: asamblea.limpieza_telefono ?? "",
   }
 
   return (

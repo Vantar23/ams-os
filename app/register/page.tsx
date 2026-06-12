@@ -155,6 +155,8 @@ export default function RegisterPage() {
       whatsapp_grupo_url: asamblea.whatsappGrupoUrl.trim() || null,
       primeros_auxilios_telefono:
         asamblea.primerosAuxiliosTelefono.trim() || null,
+      seguridad_telefono: asamblea.seguridadTelefono.trim() || null,
+      limpieza_telefono: asamblea.limpiezaTelefono.trim() || null,
     })
     setCreatingAsamblea(false)
     if (error) {

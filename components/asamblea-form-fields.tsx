@@ -167,6 +167,34 @@ export function AsambleaFormFields({ values, onChange }: Props) {
               }
             />
           </Field>
+          <Field
+            label="Seguridad"
+            id="seguridadTelefono"
+            hint="Teléfono del equipo de seguridad (10 dígitos, sin +52)."
+          >
+            <Input
+              id="seguridadTelefono"
+              type="tel"
+              inputMode="tel"
+              placeholder="5512345678"
+              value={values.seguridadTelefono ?? ""}
+              onChange={(e) => onChange("seguridadTelefono", e.target.value)}
+            />
+          </Field>
+          <Field
+            label="Limpieza"
+            id="limpiezaTelefono"
+            hint="Teléfono del equipo de limpieza (10 dígitos, sin +52)."
+          >
+            <Input
+              id="limpiezaTelefono"
+              type="tel"
+              inputMode="tel"
+              placeholder="5512345678"
+              value={values.limpiezaTelefono ?? ""}
+              onChange={(e) => onChange("limpiezaTelefono", e.target.value)}
+            />
+          </Field>
         </div>
       </section>
 

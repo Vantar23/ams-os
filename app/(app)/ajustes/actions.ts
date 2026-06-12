@@ -73,6 +73,14 @@ export async function actualizarAsamblea(
   if (primerosAuxilios && !isValidPhone(primerosAuxilios)) {
     return { error: `Primeros auxilios: ${TELEFONO_INVALIDO_MSG}` }
   }
+  const seguridad = normalizePhone(values.seguridadTelefono)
+  if (seguridad && !isValidPhone(seguridad)) {
+    return { error: `Seguridad: ${TELEFONO_INVALIDO_MSG}` }
+  }
+  const limpieza = normalizePhone(values.limpiezaTelefono)
+  if (limpieza && !isValidPhone(limpieza)) {
+    return { error: `Limpieza: ${TELEFONO_INVALIDO_MSG}` }
+  }
 
   const { error } = await supabase
     .from("asambleas")
@@ -89,6 +97,8 @@ export async function actualizarAsamblea(
       sesiones_label: sesionesLabel,
       whatsapp_grupo_url: whatsappGrupoUrl || null,
       primeros_auxilios_telefono: primerosAuxilios || null,
+      seguridad_telefono: seguridad || null,
+      limpieza_telefono: limpieza || null,
     })
     .eq("id", asambleaId)
 
