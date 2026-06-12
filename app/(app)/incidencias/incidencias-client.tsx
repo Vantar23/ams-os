@@ -171,20 +171,23 @@ function IncidenciaCard({
   const [deleting, setDeleting] = React.useState(false)
   const [imageOpen, setImageOpen] = React.useState(false)
 
-  // Abre WhatsApp al número de primeros auxilios con la incidencia escrita.
+  // Abre WhatsApp con la incidencia escrita: directo a primeros auxilios si
+  // la asamblea tiene su número configurado (Ajustes), o con el selector de
+  // contactos de WhatsApp si no.
   const paDigits = primerosAuxilios ? normalizePhone(primerosAuxilios) : ""
+  const waTexto = encodeURIComponent(
+    [
+      `🚨 Incidencia: ${item.tipo}`,
+      item.ubicacion && `Ubicación: ${item.ubicacion}`,
+      item.descripcion,
+      `Reportado por ${item.reporter_label} · ${formatDate(item.created_at)}`,
+    ]
+      .filter(Boolean)
+      .join("\n"),
+  )
   const waUrl = paDigits
-    ? `https://wa.me/52${paDigits}?text=${encodeURIComponent(
-        [
-          `🚨 Incidencia: ${item.tipo}`,
-          item.ubicacion && `Ubicación: ${item.ubicacion}`,
-          item.descripcion,
-          `Reportado por ${item.reporter_label} · ${formatDate(item.created_at)}`,
-        ]
-          .filter(Boolean)
-          .join("\n"),
-      )}`
-    : null
+    ? `https://wa.me/52${paDigits}?text=${waTexto}`
+    : `https://wa.me/?text=${waTexto}`
 
   async function changeEstado(estado: EstadoIncidencia) {
     setUpdating(true)
@@ -244,17 +247,15 @@ function IncidenciaCard({
           {formatDate(item.created_at)} · {item.reporter_label}
         </p>
 
-        {waUrl && (
-          <a
-            href={waUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="mt-1 inline-flex w-full items-center justify-center gap-2 rounded-lg border border-emerald-600/40 bg-emerald-600/10 px-3 py-2 text-xs font-medium text-emerald-700 transition-colors hover:bg-emerald-600/15 dark:text-emerald-400"
-          >
-            <WhatsappIcon className="size-3.5" />
-            Enviar a primeros auxilios
-          </a>
-        )}
+        <a
+          href={waUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="mt-1 inline-flex w-full items-center justify-center gap-2 rounded-lg border border-emerald-600/40 bg-emerald-600/10 px-3 py-2 text-xs font-medium text-emerald-700 transition-colors hover:bg-emerald-600/15 dark:text-emerald-400"
+        >
+          <WhatsappIcon className="size-3.5" />
+          {paDigits ? "Enviar a primeros auxilios" : "Enviar por WhatsApp"}
+        </a>
 
         <div className="mt-3 flex items-center gap-2">
           <Select
