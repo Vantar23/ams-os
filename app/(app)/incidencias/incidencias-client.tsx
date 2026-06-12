@@ -41,6 +41,8 @@ import {
 } from "@/components/ui/alert-dialog"
 
 import { PrimerosAuxiliosButton } from "@/components/primeros-auxilios-button"
+import { WhatsappIcon } from "@/components/whatsapp-icon"
+import { normalizePhone } from "@/lib/phone"
 
 import {
   TIPOS_INCIDENCIA,
@@ -142,7 +144,11 @@ export function IncidenciasClient({
       ) : (
         <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {visibles.map((item) => (
-            <IncidenciaCard key={item.id} item={item} />
+            <IncidenciaCard
+              key={item.id}
+              item={item}
+              primerosAuxilios={primerosAuxilios}
+            />
           ))}
         </ul>
       )}
@@ -152,12 +158,33 @@ export function IncidenciasClient({
   )
 }
 
-function IncidenciaCard({ item }: { item: IncidenciaItem }) {
+function IncidenciaCard({
+  item,
+  primerosAuxilios,
+}: {
+  item: IncidenciaItem
+  primerosAuxilios: string | null
+}) {
   const router = useRouter()
   const [updating, setUpdating] = React.useState(false)
   const [deleteOpen, setDeleteOpen] = React.useState(false)
   const [deleting, setDeleting] = React.useState(false)
   const [imageOpen, setImageOpen] = React.useState(false)
+
+  // Abre WhatsApp al número de primeros auxilios con la incidencia escrita.
+  const paDigits = primerosAuxilios ? normalizePhone(primerosAuxilios) : ""
+  const waUrl = paDigits
+    ? `https://wa.me/52${paDigits}?text=${encodeURIComponent(
+        [
+          `🚨 Incidencia: ${item.tipo}`,
+          item.ubicacion && `Ubicación: ${item.ubicacion}`,
+          item.descripcion,
+          `Reportado por ${item.reporter_label} · ${formatDate(item.created_at)}`,
+        ]
+          .filter(Boolean)
+          .join("\n"),
+      )}`
+    : null
 
   async function changeEstado(estado: EstadoIncidencia) {
     setUpdating(true)
@@ -216,6 +243,18 @@ function IncidenciaCard({ item }: { item: IncidenciaItem }) {
         <p className="mt-auto text-xs text-muted-foreground">
           {formatDate(item.created_at)} · {item.reporter_label}
         </p>
+
+        {waUrl && (
+          <a
+            href={waUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="mt-1 inline-flex w-full items-center justify-center gap-2 rounded-lg border border-emerald-600/40 bg-emerald-600/10 px-3 py-2 text-xs font-medium text-emerald-700 transition-colors hover:bg-emerald-600/15 dark:text-emerald-400"
+          >
+            <WhatsappIcon className="size-3.5" />
+            Enviar a primeros auxilios
+          </a>
+        )}
 
         <div className="mt-3 flex items-center gap-2">
           <Select
