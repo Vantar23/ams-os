@@ -4,8 +4,13 @@ import { ArrowLeftIcon } from "lucide-react"
 
 import { createClient } from "@/lib/supabase/server"
 
-import { loadAreasDelCapitan, loadCapitanActual } from "../load"
+import {
+  loadAreasDelCapitan,
+  loadAsientosPorArea,
+  loadCapitanActual,
+} from "../load"
 
+import { AsientosDisponibles } from "./asientos-disponibles"
 import { ConteoAreaCard, type ConteoVigente } from "./conteo-area-card"
 
 export default async function Page() {
@@ -14,6 +19,7 @@ export default async function Page() {
   const { capitan, asamblea } = actual
 
   const areas = await loadAreasDelCapitan(asamblea.id, capitan.area)
+  const asientos = await loadAsientosPorArea(asamblea.id, areas)
 
   // Conteo vigente por área+slot: la fila más reciente de conteos_capitan.
   const vigentesPorArea = new Map<string, Record<string, ConteoVigente>>()
@@ -58,6 +64,8 @@ export default async function Page() {
         Reporta el conteo de tus áreas asignadas. Elige el día y la sesión, y
         administración lo verá en tiempo real.
       </p>
+
+      <AsientosDisponibles areas={asientos} />
 
       {areas.length === 0 ? (
         <p className="mt-6 rounded-xl border bg-surface p-6 text-center text-sm text-muted-foreground">
