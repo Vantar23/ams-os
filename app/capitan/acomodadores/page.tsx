@@ -2,7 +2,12 @@ import Link from "next/link"
 import { redirect } from "next/navigation"
 import { ArrowLeftIcon, MapPinIcon, PhoneIcon } from "lucide-react"
 
-import { slotLabelCorto } from "@/lib/disponibilidad"
+import {
+  DISPONIBILIDAD_SLOTS,
+  momentoEnRecinto,
+  slotLabelCorto,
+  slotsVisibles,
+} from "@/lib/disponibilidad"
 import { formatPhoneDisplay, normalizePhone } from "@/lib/phone"
 import { createClient } from "@/lib/supabase/server"
 
@@ -30,8 +35,15 @@ export default async function Page() {
         .in("area_id", areaIds)
     : { data: [] }
 
+  // Solo el turno vigente (la sesión en curso o, fuera de horario, la
+  // próxima), igual que el portal del acomodador.
+  const slotsVigentes = new Set(
+    slotsVisibles(DISPONIBILIDAD_SLOTS, momentoEnRecinto()),
+  )
+
   const puestosPorAcomodador = new Map<string, string[]>()
   for (const a of asignaciones ?? []) {
+    if (!slotsVigentes.has(a.slot as string)) continue
     const areaNombre = areaNombreById.get(a.area_id as string)
     if (!areaNombre) continue
     const list = puestosPorAcomodador.get(a.acomodador_id as string) ?? []
@@ -69,15 +81,15 @@ export default async function Page() {
         Mis acomodadores
       </h1>
       <p className="mt-3 text-sm text-muted-foreground">
-        Los acomodadores asignados a tu área. Tócales para llamarles o
-        escribirles por WhatsApp.
+        Los acomodadores con puesto en tu área para el turno vigente. Tócales
+        para llamarles o escribirles por WhatsApp.
       </p>
 
       {lista.length === 0 ? (
         <p className="mt-6 rounded-xl border bg-surface p-6 text-center text-sm text-muted-foreground">
           {capitan.area.length === 0
             ? "Tu ficha aún no tiene un área asignada; pídele a administración que te asigne una."
-            : "Aún no hay acomodadores con puesto asignado en tu área."}
+            : "Nadie tiene puesto asignado en tu área para el turno vigente."}
         </p>
       ) : (
         <ul className="mt-6 grid gap-3">

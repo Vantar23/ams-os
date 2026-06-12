@@ -9,6 +9,11 @@ import {
 } from "lucide-react"
 
 import { NavCard } from "@/components/nav-card"
+import {
+  DISPONIBILIDAD_SLOTS,
+  momentoEnRecinto,
+  slotsVisibles,
+} from "@/lib/disponibilidad"
 import { createClient } from "@/lib/supabase/server"
 
 import { loadAreasDelCapitan, loadCapitanActual } from "./load"
@@ -29,14 +34,20 @@ export default async function Page() {
     areaIds.length
       ? supabase
           .from("asignaciones")
-          .select("acomodador_id")
+          .select("acomodador_id, slot")
           .eq("asamblea_id", asamblea.id)
           .in("area_id", areaIds)
       : Promise.resolve({ data: [] }),
     supabase.rpc("mensajes_no_leidos_capitan"),
   ])
+  // Solo cuenta el turno vigente, igual que la lista de Mis acomodadores.
+  const slotsVigentes = new Set(
+    slotsVisibles(DISPONIBILIDAD_SLOTS, momentoEnRecinto()),
+  )
   const totalAcomodadores = new Set(
-    (asignaciones ?? []).map((a) => a.acomodador_id as string),
+    (asignaciones ?? [])
+      .filter((a) => slotsVigentes.has(a.slot as string))
+      .map((a) => a.acomodador_id as string),
   ).size
   const sinLeer = (noLeidos as number | null) ?? 0
 

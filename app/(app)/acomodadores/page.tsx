@@ -3,6 +3,11 @@ import Link from "next/link"
 import { PageHeader } from "@/components/page-header"
 import type { PuestosPorPersona } from "@/components/puestos-asignados"
 import { Button } from "@/components/ui/button"
+import {
+  DISPONIBILIDAD_SLOTS,
+  momentoEnRecinto,
+  slotsVisibles,
+} from "@/lib/disponibilidad"
 import { createClient } from "@/lib/supabase/server"
 
 import { AcomodadoresClient } from "./acomodadores-client"
@@ -63,14 +68,14 @@ export default async function AcomodadoresPage() {
     user
       ? supabase
           .from("capitanes")
-          .select("id")
+          .select("id, area")
           .eq("asamblea_id", asamblea.id)
           .eq("user_id", user.id)
           .maybeSingle()
       : Promise.resolve({ data: null }),
     supabase
       .from("areas")
-      .select("id, nombre")
+      .select("id, piso, nombre")
       .eq("asamblea_id", asamblea.id),
     supabase
       .from("asignaciones")
@@ -89,12 +94,38 @@ export default async function AcomodadoresPage() {
     list.push({ areaNombre, slot: a.slot as string })
   }
 
+  // Un capitán solo ve a los acomodadores con puesto asignado en sus áreas
+  // para el turno vigente (capitanes.area guarda etiquetas "piso — nombre");
+  // el owner ve a todos.
+  let visibles = acomodadores ?? []
+  if (myCapitan) {
+    const misLabels = (myCapitan.area as string[] | null) ?? []
+    const misAreaIds = new Set(
+      ((areas ?? []) as { id: string; piso: string; nombre: string }[])
+        .filter((a) => misLabels.includes(`${a.piso} — ${a.nombre}`))
+        .map((a) => a.id),
+    )
+    const slotsVigentes = new Set(
+      slotsVisibles(DISPONIBILIDAD_SLOTS, momentoEnRecinto()),
+    )
+    const enMisAreas = new Set(
+      (asignaciones ?? [])
+        .filter(
+          (a) =>
+            misAreaIds.has(a.area_id as string) &&
+            slotsVigentes.has(a.slot as string),
+        )
+        .map((a) => a.acomodador_id as string),
+    )
+    visibles = visibles.filter((a) => enMisAreas.has(a.id as string))
+  }
+
   return (
     <>
       <PageHeader parent="Personal" title="Acomodadores" />
       <AcomodadoresClient
         asamblea={asamblea}
-        acomodadores={acomodadores ?? []}
+        acomodadores={visibles}
         capitanes={capitanes ?? []}
         currentCapitanId={(myCapitan?.id as string | undefined) ?? null}
         puestos={puestosPorAcomodador}
