@@ -1,9 +1,6 @@
 import Link from "next/link"
 import { ArrowLeftIcon } from "lucide-react"
 
-import { PrimerosAuxiliosButton } from "@/components/primeros-auxilios-button"
-import { loadPrimerosAuxilios } from "@/lib/primeros-auxilios"
-
 import { BlockedView } from "../blocked-view"
 import { ClaimView } from "../claim-view"
 import { loadAcomodadorByToken } from "../load"
@@ -31,10 +28,6 @@ export default async function Page({
     )
   }
 
-  const primerosAuxilios = await loadPrimerosAuxilios(
-    result.acomodador.asamblea_id,
-  )
-
   return (
     <main className="mx-auto w-full max-w-2xl px-4 py-6 sm:px-5 sm:py-14">
       <Link
@@ -51,12 +44,6 @@ export default async function Page({
         Reporta lo que pase durante la asamblea para que tu capitán lo vea en
         tiempo real.
       </p>
-      {primerosAuxilios && (
-        <div className="mt-4">
-          <PrimerosAuxiliosButton telefono={primerosAuxilios} />
-        </div>
-      )}
-
       <IncidenciaForm accessToken={access_token} />
     </main>
   )
