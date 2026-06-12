@@ -63,12 +63,23 @@ export async function agregarIncidencia(formData: FormData): Promise<{
     })
   if (upErr) return { error: `No se pudo subir la foto: ${upErr.message}` }
 
+  // Si quien reporta es un capitán, se atribuye con su nombre; si no, queda
+  // como reporte del equipo (reportado_por_user_id).
+  const { data: capitanRow } = await supabase
+    .from("capitanes")
+    .select("id")
+    .eq("asamblea_id", asambleaId)
+    .eq("user_id", ctx.user!.id)
+    .maybeSingle()
+
   const { error } = await supabase.from("incidencias").insert({
     asamblea_id: asambleaId,
     tipo,
     ubicacion: ubicacion || null,
     descripcion: descripcion || null,
     foto_path: fotoPath,
+    reportado_por_capitan_id: capitanRow?.id ?? null,
+    reportado_por_user_id: capitanRow ? null : ctx.user!.id,
   })
   if (error) {
     await admin.storage.from(BUCKET).remove([fotoPath])

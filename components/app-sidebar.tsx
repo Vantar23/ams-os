@@ -116,10 +116,12 @@ export function AppSidebar({
                 }
               }
               if (g.title === "Reportes") {
-                // El capitán solo reporta asistencia de sus áreas asignadas.
+                // El capitán reporta asistencia de sus áreas e incidencias;
+                // los mensajes del admin no son suyos (usa /capitan/mensajes).
+                const allowed = ["Asistencia", "Incidencias"]
                 return {
                   ...g,
-                  items: g.items.filter((i) => i.title === "Asistencia"),
+                  items: g.items.filter((i) => allowed.includes(i.title)),
                 }
               }
               return g

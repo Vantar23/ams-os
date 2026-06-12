@@ -41,6 +41,8 @@ const CAPITAN_ALLOWED_PREFIXES = [
   "/recepcion-local",
   // Conteo de asistencia: el capitán ve solo sus áreas asignadas.
   "/asistencia",
+  // Incidencias: el capitán puede ver la lista y reportar desde el admin.
+  "/incidencias",
 ]
 const CAPITAN_LANDING = "/capitan"
 
