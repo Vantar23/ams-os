@@ -1,6 +1,7 @@
 import Link from "next/link"
-import { ArrowLeftIcon } from "lucide-react"
+import { ArmchairIcon, ArrowLeftIcon } from "lucide-react"
 
+import { asientosDeReporte } from "@/lib/asientos"
 import {
   DISPONIBILIDAD_DIAS,
   DISPONIBILIDAD_SESIONES,
@@ -68,6 +69,49 @@ export default async function Page({
         Reporta el conteo del área asignada por sesión. Tu capitán lo verá en
         tiempo real.
       </p>
+
+      {asignaciones.length > 0 && (
+        <section className="mt-6 rounded-xl border bg-surface p-4">
+          <p className="flex items-center gap-2 text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
+            <ArmchairIcon className="size-4" />
+            Asientos disponibles en tu sección
+          </p>
+          <ul className="mt-3 grid gap-2">
+            {asignaciones.map((a) => {
+              const { disponibles } = asientosDeReporte(
+                a.area_capacidad,
+                a.lugares_vacios,
+              )
+              return (
+                <li
+                  key={a.asignacion_id}
+                  className="flex items-center justify-between gap-3"
+                >
+                  <span className="min-w-0 truncate text-sm text-foreground">
+                    {a.area_nombre}
+                  </span>
+                  {a.area_capacidad === 0 ? (
+                    <span className="shrink-0 text-xs text-muted-foreground">
+                      Sin capacidad fija
+                    </span>
+                  ) : disponibles === null ? (
+                    <span className="shrink-0 text-xs text-muted-foreground">
+                      Sin reporte
+                    </span>
+                  ) : (
+                    <span className="shrink-0 text-lg font-semibold tabular-nums text-foreground">
+                      {disponibles}
+                      <span className="ml-1 text-xs font-normal text-muted-foreground">
+                        de {a.area_capacidad}
+                      </span>
+                    </span>
+                  )}
+                </li>
+              )
+            })}
+          </ul>
+        </section>
+      )}
 
       {asignaciones.length === 0 ? (
         <p className="mt-6 rounded-xl border bg-surface p-6 text-center text-sm text-muted-foreground">
