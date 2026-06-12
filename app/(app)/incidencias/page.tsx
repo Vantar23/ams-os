@@ -72,7 +72,7 @@ export default async function IncidenciasPage() {
   const { data: rows } = await supabase
     .from("incidencias")
     .select(
-      "id, tipo, ubicacion, descripcion, foto_path, estado, created_at, reportado_por_acomodador_id, reportado_por_hermana_id, reportado_por_user_id",
+      "id, tipo, ubicacion, descripcion, foto_path, estado, created_at, reportado_por_acomodador_id, reportado_por_hermana_id, reportado_por_capitan_id, reportado_por_user_id",
     )
     .eq("asamblea_id", asamblea.id)
     .order("created_at", { ascending: false })
@@ -82,6 +82,7 @@ export default async function IncidenciasPage() {
       foto_path: string | null
       reportado_por_acomodador_id: string | null
       reportado_por_hermana_id: string | null
+      reportado_por_capitan_id: string | null
       reportado_por_user_id: string | null
     }
   >
@@ -136,6 +137,24 @@ export default async function IncidenciasPage() {
     }
   }
 
+  const capitanIds = Array.from(
+    new Set(
+      baseItems
+        .map((r) => r.reportado_por_capitan_id)
+        .filter((v): v is string => Boolean(v)),
+    ),
+  )
+  const capitanMap = new Map<string, string>()
+  if (capitanIds.length > 0) {
+    const { data: caps } = await supabase
+      .from("capitanes")
+      .select("id, nombre, apellido")
+      .in("id", capitanIds)
+    for (const c of caps ?? []) {
+      capitanMap.set(c.id, `${c.nombre ?? ""} ${c.apellido ?? ""}`.trim())
+    }
+  }
+
   const items: IncidenciaItem[] = baseItems.map((r) => ({
     id: r.id,
     tipo: r.tipo,
@@ -148,9 +167,13 @@ export default async function IncidenciasPage() {
       ? acomodadorMap.get(r.reportado_por_acomodador_id) ?? "Acomodador"
       : r.reportado_por_hermana_id
         ? hermanaMap.get(r.reportado_por_hermana_id) ?? "Hermana de apoyo"
-        : r.reportado_por_user_id
-          ? "Equipo"
-          : "—",
+        : r.reportado_por_capitan_id
+          ? capitanMap.has(r.reportado_por_capitan_id)
+            ? `${capitanMap.get(r.reportado_por_capitan_id)} · Capitán`
+            : "Capitán"
+          : r.reportado_por_user_id
+            ? "Equipo"
+            : "—",
   }))
 
   return (

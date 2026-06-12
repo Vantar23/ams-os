@@ -1,6 +1,7 @@
 import Link from "next/link"
 import { redirect } from "next/navigation"
 import {
+  AlertOctagonIcon,
   CalendarCheckIcon,
   LayoutDashboardIcon,
   MapIcon,
@@ -91,6 +92,12 @@ export default async function Page() {
           icon={<CalendarCheckIcon className="size-5" />}
           title="Asistencia"
           description="Reporta el conteo de tus áreas por día y sesión."
+        />
+        <NavCard
+          href="/capitan/incidencias"
+          icon={<AlertOctagonIcon className="size-5" />}
+          title="Incidencias"
+          description="Reporta una incidencia durante la asamblea."
         />
         <NavCard
           href="/capitan/mapa"

@@ -370,7 +370,6 @@ function AddIncidenciaDialog({
   const [ubicacion, setUbicacion] = React.useState("")
   const [descripcion, setDescripcion] = React.useState("")
   const [foto, setFoto] = React.useState<File | null>(null)
-  const [preview, setPreview] = React.useState<string | null>(null)
   const [procesandoFoto, setProcesandoFoto] = React.useState(false)
 
   async function onPickFoto(f: File | null) {
@@ -390,26 +389,25 @@ function AddIncidenciaDialog({
     }
   }
 
-  React.useEffect(() => {
-    if (!open) {
+  function handleOpenChange(v: boolean) {
+    if (!v) {
       setTipo("")
       setUbicacion("")
       setDescripcion("")
       setFoto(null)
-      setPreview(null)
       setError(null)
     }
-  }, [open])
+    onOpenChange(v)
+  }
 
+  const preview = React.useMemo(
+    () => (foto ? URL.createObjectURL(foto) : null),
+    [foto],
+  )
   React.useEffect(() => {
-    if (!foto) {
-      setPreview(null)
-      return
-    }
-    const url = URL.createObjectURL(foto)
-    setPreview(url)
-    return () => URL.revokeObjectURL(url)
-  }, [foto])
+    if (!preview) return
+    return () => URL.revokeObjectURL(preview)
+  }, [preview])
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -436,11 +434,11 @@ function AddIncidenciaDialog({
       return
     }
     router.refresh()
-    onOpenChange(false)
+    handleOpenChange(false)
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Nueva incidencia</DialogTitle>

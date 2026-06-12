@@ -22,12 +22,32 @@ export function IncidenciaForm({
   accessToken: string
   tipoPersonal?: PersonalTipo
 }) {
+  const enviar = React.useCallback(
+    (fd: FormData) => {
+      fd.set("personalTipo", tipoPersonal)
+      fd.set("accessToken", accessToken)
+      return reportarIncidenciaPersonal(fd)
+    },
+    [tipoPersonal, accessToken],
+  )
+  return <IncidenciaFormBase enviar={enviar} />
+}
+
+/**
+ * Formulario de incidencia independiente de cómo se autentica quien reporta
+ * (token de personal o sesión de capitán). `enviar` recibe el FormData con
+ * tipo, ubicacion, descripcion y foto.
+ */
+export function IncidenciaFormBase({
+  enviar,
+}: {
+  enviar: (fd: FormData) => Promise<{ ok: boolean; error: string | null }>
+}) {
   const router = useRouter()
   const [tipo, setTipo] = React.useState("")
   const [ubicacion, setUbicacion] = React.useState("")
   const [descripcion, setDescripcion] = React.useState("")
   const [foto, setFoto] = React.useState<File | null>(null)
-  const [preview, setPreview] = React.useState<string | null>(null)
   const [procesandoFoto, setProcesandoFoto] = React.useState(false)
   const [submitting, setSubmitting] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
@@ -50,15 +70,14 @@ export function IncidenciaForm({
     }
   }
 
+  const preview = React.useMemo(
+    () => (foto ? URL.createObjectURL(foto) : null),
+    [foto],
+  )
   React.useEffect(() => {
-    if (!foto) {
-      setPreview(null)
-      return
-    }
-    const url = URL.createObjectURL(foto)
-    setPreview(url)
-    return () => URL.revokeObjectURL(url)
-  }, [foto])
+    if (!preview) return
+    return () => URL.revokeObjectURL(preview)
+  }, [preview])
 
   React.useEffect(() => {
     if (savedAt === null) return
@@ -81,8 +100,6 @@ export function IncidenciaForm({
       return
     }
     const fd = new FormData()
-    fd.set("personalTipo", tipoPersonal)
-    fd.set("accessToken", accessToken)
     fd.set("tipo", tipo.trim())
     fd.set("ubicacion", ubicacion.trim())
     fd.set("descripcion", descripcion.trim())
@@ -91,7 +108,7 @@ export function IncidenciaForm({
     setSubmitting(true)
     setError(null)
     try {
-      const { ok, error: err } = await reportarIncidenciaPersonal(fd)
+      const { ok, error: err } = await enviar(fd)
       setSubmitting(false)
       if (!ok) {
         setError(err)
