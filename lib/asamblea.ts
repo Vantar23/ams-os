@@ -18,6 +18,7 @@ export type AsambleaFormValues = {
   sesionesCount: string
   sesionesLabel: string
   whatsappGrupoUrl: string
+  primerosAuxiliosTelefono: string
 }
 
 export const INITIAL_ASAMBLEA: AsambleaFormValues = {
@@ -32,6 +33,7 @@ export const INITIAL_ASAMBLEA: AsambleaFormValues = {
   sesionesCount: "6",
   sesionesLabel: "Mañana y tarde",
   whatsappGrupoUrl: "",
+  primerosAuxiliosTelefono: "",
 }
 
 export const EMPTY_ASAMBLEA: AsambleaFormValues = {
@@ -46,6 +48,7 @@ export const EMPTY_ASAMBLEA: AsambleaFormValues = {
   sesionesCount: "",
   sesionesLabel: "",
   whatsappGrupoUrl: "",
+  primerosAuxiliosTelefono: "",
 }
 
 const MESES = [

@@ -151,6 +151,22 @@ export function AsambleaFormFields({ values, onChange }: Props) {
               onChange={(e) => onChange("whatsappGrupoUrl", e.target.value)}
             />
           </Field>
+          <Field
+            label="Primeros auxilios"
+            id="primerosAuxiliosTelefono"
+            hint="Teléfono al que llamar en una emergencia (10 dígitos, sin +52)."
+          >
+            <Input
+              id="primerosAuxiliosTelefono"
+              type="tel"
+              inputMode="tel"
+              placeholder="5512345678"
+              value={values.primerosAuxiliosTelefono ?? ""}
+              onChange={(e) =>
+                onChange("primerosAuxiliosTelefono", e.target.value)
+              }
+            />
+          </Field>
         </div>
       </section>
 

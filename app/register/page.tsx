@@ -153,6 +153,8 @@ export default function RegisterPage() {
       sesiones_count: Number(asamblea.sesionesCount),
       sesiones_label: asamblea.sesionesLabel,
       whatsapp_grupo_url: asamblea.whatsappGrupoUrl.trim() || null,
+      primeros_auxilios_telefono:
+        asamblea.primerosAuxiliosTelefono.trim() || null,
     })
     setCreatingAsamblea(false)
     if (error) {

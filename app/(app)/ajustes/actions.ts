@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache"
 
 import { createClient } from "@/lib/supabase/server"
 import { ESTADOS, type AsambleaFormValues } from "@/lib/asamblea"
+import { isValidPhone, normalizePhone, TELEFONO_INVALIDO_MSG } from "@/lib/phone"
 
 export async function actualizarAsamblea(
   values: AsambleaFormValues,
@@ -68,6 +69,11 @@ export async function actualizarAsamblea(
     }
   }
 
+  const primerosAuxilios = normalizePhone(values.primerosAuxiliosTelefono)
+  if (primerosAuxilios && !isValidPhone(primerosAuxilios)) {
+    return { error: `Primeros auxilios: ${TELEFONO_INVALIDO_MSG}` }
+  }
+
   const { error } = await supabase
     .from("asambleas")
     .update({
@@ -82,6 +88,7 @@ export async function actualizarAsamblea(
       sesiones_count: sesionesCount,
       sesiones_label: sesionesLabel,
       whatsapp_grupo_url: whatsappGrupoUrl || null,
+      primeros_auxilios_telefono: primerosAuxilios || null,
     })
     .eq("id", asambleaId)
 
