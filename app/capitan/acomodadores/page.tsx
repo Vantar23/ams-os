@@ -8,32 +8,28 @@ import { createClient } from "@/lib/supabase/server"
 
 import { WhatsappIcon } from "@/components/whatsapp-icon"
 
-import { loadCapitanActual } from "../load"
+import { loadAreasDelCapitan, loadCapitanActual } from "../load"
 
 export default async function Page() {
   const actual = await loadCapitanActual()
   if (!actual) redirect("/acomodadores")
   const { capitan, asamblea } = actual
 
+  // El equipo del capitán son los acomodadores con un puesto asignado en sus
+  // áreas (tabla asignaciones), no los que él haya registrado.
+  const areasDelCapitan = await loadAreasDelCapitan(asamblea.id, capitan.area)
+  const areaNombreById = new Map(areasDelCapitan.map((a) => [a.id, a.nombre]))
+  const areaIds = areasDelCapitan.map((a) => a.id)
+
   const supabase = await createClient()
-  const [{ data: acomodadores }, { data: areas }, { data: asignaciones }] =
-    await Promise.all([
-      supabase
-        .from("acomodadores")
-        .select("id, nombre, apellido, congregacion, telefono")
-        .eq("asamblea_id", asamblea.id)
-        .eq("capitan_id", capitan.id)
-        .order("nombre", { ascending: true }),
-      supabase.from("areas").select("id, nombre").eq("asamblea_id", asamblea.id),
-      supabase
+  const { data: asignaciones } = areaIds.length
+    ? await supabase
         .from("asignaciones")
         .select("acomodador_id, area_id, slot")
-        .eq("asamblea_id", asamblea.id),
-    ])
+        .eq("asamblea_id", asamblea.id)
+        .in("area_id", areaIds)
+    : { data: [] }
 
-  const areaNombreById = new Map(
-    (areas ?? []).map((a) => [a.id as string, a.nombre as string]),
-  )
   const puestosPorAcomodador = new Map<string, string[]>()
   for (const a of asignaciones ?? []) {
     const areaNombre = areaNombreById.get(a.area_id as string)
@@ -42,6 +38,15 @@ export default async function Page() {
     list.push(`${areaNombre} · ${slotLabelCorto(a.slot as string)}`)
     puestosPorAcomodador.set(a.acomodador_id as string, list)
   }
+
+  const acomodadorIds = Array.from(puestosPorAcomodador.keys())
+  const { data: acomodadores } = acomodadorIds.length
+    ? await supabase
+        .from("acomodadores")
+        .select("id, nombre, apellido, congregacion, telefono")
+        .in("id", acomodadorIds)
+        .order("nombre", { ascending: true })
+    : { data: [] }
 
   const lista = (acomodadores ?? []) as {
     id: string
@@ -70,7 +75,9 @@ export default async function Page() {
 
       {lista.length === 0 ? (
         <p className="mt-6 rounded-xl border bg-surface p-6 text-center text-sm text-muted-foreground">
-          Aún no tienes acomodadores asignados.
+          {capitan.area.length === 0
+            ? "Tu ficha aún no tiene un área asignada; pídele a administración que te asigne una."
+            : "Aún no hay acomodadores con puesto asignado en tu área."}
         </p>
       ) : (
         <ul className="mt-6 grid gap-3">

@@ -11,7 +11,7 @@ import {
 import { NavCard } from "@/components/nav-card"
 import { createClient } from "@/lib/supabase/server"
 
-import { loadCapitanActual } from "./load"
+import { loadAreasDelCapitan, loadCapitanActual } from "./load"
 
 export default async function Page() {
   const actual = await loadCapitanActual()
@@ -21,14 +21,23 @@ export default async function Page() {
   const { capitan, asamblea } = actual
 
   const supabase = await createClient()
-  const [{ count: totalAcomodadores }, { data: noLeidos }] = await Promise.all([
-    supabase
-      .from("acomodadores")
-      .select("id", { count: "exact", head: true })
-      .eq("asamblea_id", asamblea.id)
-      .eq("capitan_id", capitan.id),
+  // Su equipo: acomodadores con puesto asignado en sus áreas.
+  const areaIds = (
+    await loadAreasDelCapitan(asamblea.id, capitan.area)
+  ).map((a) => a.id)
+  const [{ data: asignaciones }, { data: noLeidos }] = await Promise.all([
+    areaIds.length
+      ? supabase
+          .from("asignaciones")
+          .select("acomodador_id")
+          .eq("asamblea_id", asamblea.id)
+          .in("area_id", areaIds)
+      : Promise.resolve({ data: [] }),
     supabase.rpc("mensajes_no_leidos_capitan"),
   ])
+  const totalAcomodadores = new Set(
+    (asignaciones ?? []).map((a) => a.acomodador_id as string),
+  ).size
   const sinLeer = (noLeidos as number | null) ?? 0
 
   return (

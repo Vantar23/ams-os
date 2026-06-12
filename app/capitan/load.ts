@@ -50,3 +50,22 @@ export async function loadCapitanActual(): Promise<CapitanActual | null> {
     asamblea,
   } as CapitanActual
 }
+
+/**
+ * Áreas de la asamblea que pertenecen al capitán. capitanes.area guarda
+ * etiquetas "piso — nombre", así que se cruzan contra la tabla areas.
+ */
+export async function loadAreasDelCapitan(
+  asambleaId: string,
+  areaLabels: string[],
+): Promise<{ id: string; nombre: string }[]> {
+  if (areaLabels.length === 0) return []
+  const supabase = await createClient()
+  const { data: areas } = await supabase
+    .from("areas")
+    .select("id, piso, nombre")
+    .eq("asamblea_id", asambleaId)
+  return ((areas ?? []) as { id: string; piso: string; nombre: string }[])
+    .filter((a) => areaLabels.includes(`${a.piso} — ${a.nombre}`))
+    .map((a) => ({ id: a.id, nombre: a.nombre }))
+}
