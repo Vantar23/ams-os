@@ -64,6 +64,8 @@ export type IncidenciaItem = {
   created_at: string
   foto_url: string | null
   reporter_label: string
+  // Enlace público que muestra solo este reporte (con su foto).
+  share_url: string
 }
 
 type Asamblea = { id: string; numero: string; edicion: string }
@@ -173,7 +175,8 @@ function IncidenciaCard({
 
   // Abre WhatsApp con la incidencia escrita: directo a primeros auxilios si
   // la asamblea tiene su número configurado (Ajustes), o con el selector de
-  // contactos de WhatsApp si no.
+  // contactos de WhatsApp si no. En vez de adjuntar la foto va un enlace a
+  // la vista pública del reporte (solo muestra esta incidencia).
   const paDigits = primerosAuxilios ? normalizePhone(primerosAuxilios) : ""
   const waTexto = encodeURIComponent(
     [
@@ -181,6 +184,7 @@ function IncidenciaCard({
       item.ubicacion && `Ubicación: ${item.ubicacion}`,
       item.descripcion,
       `Reportado por ${item.reporter_label} · ${formatDate(item.created_at)}`,
+      `Ver reporte y foto: ${item.share_url}`,
     ]
       .filter(Boolean)
       .join("\n"),

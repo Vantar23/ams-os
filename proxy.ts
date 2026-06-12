@@ -16,6 +16,8 @@ const PUBLIC_PREFIXES = [
   "/acomodador/",
   "/hermana-apoyo/",
   "/asistencia/",
+  // Vista pública de una incidencia compartida por WhatsApp (token uuid).
+  "/incidencia/",
 ]
 // /register no entra aquí: un usuario con sesión pero sin asamblea necesita
 // poder llegar a /register para crear su primera asamblea (la propia página

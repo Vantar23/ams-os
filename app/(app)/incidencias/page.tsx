@@ -1,3 +1,4 @@
+import { headers } from "next/headers"
 import Link from "next/link"
 import { redirect } from "next/navigation"
 
@@ -72,14 +73,15 @@ export default async function IncidenciasPage() {
   const { data: rows } = await supabase
     .from("incidencias")
     .select(
-      "id, tipo, ubicacion, descripcion, foto_path, estado, created_at, reportado_por_acomodador_id, reportado_por_hermana_id, reportado_por_capitan_id, reportado_por_user_id",
+      "id, tipo, ubicacion, descripcion, foto_path, estado, created_at, share_token, reportado_por_acomodador_id, reportado_por_hermana_id, reportado_por_capitan_id, reportado_por_user_id",
     )
     .eq("asamblea_id", asamblea.id)
     .order("created_at", { ascending: false })
 
   const baseItems = (rows ?? []) as Array<
-    Omit<IncidenciaItem, "foto_url" | "reporter_label"> & {
+    Omit<IncidenciaItem, "foto_url" | "reporter_label" | "share_url"> & {
       foto_path: string | null
+      share_token: string
       reportado_por_acomodador_id: string | null
       reportado_por_hermana_id: string | null
       reportado_por_capitan_id: string | null
@@ -155,6 +157,13 @@ export default async function IncidenciasPage() {
     }
   }
 
+  // Origen público para los enlaces compartibles (detrás del proxy de Vercel
+  // el host real viaja en x-forwarded-host).
+  const h = await headers()
+  const host = h.get("x-forwarded-host") ?? h.get("host") ?? "localhost:3000"
+  const proto = h.get("x-forwarded-proto") ?? "https"
+  const origin = `${proto}://${host}`
+
   const items: IncidenciaItem[] = baseItems.map((r) => ({
     id: r.id,
     tipo: r.tipo,
@@ -163,6 +172,7 @@ export default async function IncidenciasPage() {
     estado: r.estado as IncidenciaItem["estado"],
     created_at: r.created_at,
     foto_url: r.foto_path ? urlByPath.get(r.foto_path) ?? null : null,
+    share_url: `${origin}/incidencia/${r.share_token}`,
     reporter_label: r.reportado_por_acomodador_id
       ? acomodadorMap.get(r.reportado_por_acomodador_id) ?? "Acomodador"
       : r.reportado_por_hermana_id
