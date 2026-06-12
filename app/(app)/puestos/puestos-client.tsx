@@ -64,6 +64,15 @@ type Persona = {
   congregacion: string
   telefono: string
   disponibilidad: string[]
+  capitan_id: string | null
+}
+
+type Capitan = {
+  id: string
+  nombre: string
+  apellido: string
+  // Etiquetas "piso — nombre" de las áreas del capitán (capitanes.area).
+  area: string[]
 }
 
 type Asignacion = {
@@ -125,6 +134,7 @@ export function PuestosClient({
   asignaciones,
   hermanas,
   asignacionesHermanas,
+  capitanes,
 }: {
   asamblea: Asamblea
   areas: Area[]
@@ -132,6 +142,7 @@ export function PuestosClient({
   asignaciones: Asignacion[]
   hermanas: Persona[]
   asignacionesHermanas: AsignacionHermana[]
+  capitanes: Capitan[]
 }) {
   const router = useRouter()
   const [rol, setRol] = React.useState<Rol>("acomodadores")
@@ -282,6 +293,38 @@ export function PuestosClient({
   }
 
   const areaById = new Map(areas.map((a) => [a.id, a]))
+
+  // Capitán de cada persona y si su área coincide con la seleccionada.
+  // Solo orientativo para asignar de un vistazo; nunca bloquea nada.
+  const capitanById = new Map(capitanes.map((c) => [c.id, c]))
+  const areaLabelActual = area ? `${area.piso} — ${area.nombre}` : null
+  const capitanesDeArea = areaLabelActual
+    ? capitanes.filter((c) => c.area.includes(areaLabelActual))
+    : []
+  function capitanDe(p: Persona) {
+    const cap = p.capitan_id ? capitanById.get(p.capitan_id) : null
+    if (!cap) return null
+    return {
+      cap,
+      enEstaArea:
+        areaLabelActual !== null && cap.area.includes(areaLabelActual),
+    }
+  }
+  function capitanLinea(p: Persona) {
+    const info = capitanDe(p)
+    if (!info) return null
+    return (
+      <span
+        className={cn(
+          "truncate text-xs",
+          info.enEstaArea ? "text-primary" : "text-muted-foreground",
+        )}
+      >
+        Cap. {info.cap.nombre} {info.cap.apellido}
+        {info.cap.area.length > 0 && ` · ${info.cap.area.join(", ")}`}
+      </span>
+    )
+  }
 
   // Per-area headcount for current slot.
   const headcountByArea = new Map<string, number>()
@@ -502,11 +545,21 @@ export function PuestosClient({
         >
           {/* Asignados */}
           <section className="rounded-xl border bg-surface p-4">
-            <div className="mb-3 flex items-baseline justify-between gap-3 border-b pb-2">
+            <div className="mb-3 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 border-b pb-2">
               <h3 className="text-xs font-medium uppercase tracking-[0.15em] text-muted-foreground">
                 Asignados a {area.nombre} ({asignadosAEsta.length} /{" "}
                 {necesariosArea})
               </h3>
+              {capitanesDeArea.length > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  {capitanesDeArea.length === 1 ? "Capitán" : "Capitanes"}:{" "}
+                  <span className="text-foreground">
+                    {capitanesDeArea
+                      .map((c) => `${c.nombre} ${c.apellido}`)
+                      .join(", ")}
+                  </span>
+                </p>
+              )}
             </div>
             {asignadosAEsta.length === 0 ? (
               <p className="py-4 text-sm text-muted-foreground">
@@ -526,6 +579,7 @@ export function PuestosClient({
                       <span className="truncate text-xs text-muted-foreground">
                         {p.congregacion}
                       </span>
+                      {capitanLinea(p)}
                     </span>
                     <Button
                       type="button"
@@ -577,9 +631,15 @@ export function PuestosClient({
                 const filtered = sinAsignar
                   .filter(matchesSearch)
                   .sort((a, b) => a.nombre.localeCompare(b.nombre))
-                const disponibles = filtered.filter((p) =>
-                  p.disponibilidad.includes(slot),
-                )
+                // Primero los del capitán de esta área (sigue alfabético
+                // dentro de cada grupo); es solo orden, no restricción.
+                const disponibles = filtered
+                  .filter((p) => p.disponibilidad.includes(slot))
+                  .sort(
+                    (a, b) =>
+                      Number(capitanDe(b)?.enEstaArea ?? false) -
+                      Number(capitanDe(a)?.enEstaArea ?? false),
+                  )
                 const noDisponibles = filtered.filter(
                   (p) => !p.disponibilidad.includes(slot),
                 )
@@ -595,6 +655,7 @@ export function PuestosClient({
                       <span className="truncate text-xs text-muted-foreground">
                         {p.congregacion}
                       </span>
+                      {capitanLinea(p)}
                     </span>
                     <Button
                       type="button"
@@ -662,6 +723,7 @@ export function PuestosClient({
                               ? `Asignado en ${otherArea.nombre}`
                               : "Asignado en otra área"}
                           </span>
+                          {capitanLinea(p)}
                         </span>
                         <Button
                           type="button"

@@ -42,6 +42,7 @@ export default async function PuestosPage() {
     { data: asignaciones },
     { data: hermanas },
     { data: asignacionesHermanas },
+    { data: capitanes },
   ] = await Promise.all([
     supabase
       .from("areas")
@@ -53,7 +54,9 @@ export default async function PuestosPage() {
       .order("nombre", { ascending: true }),
     supabase
       .from("acomodadores")
-      .select("id, nombre, apellido, congregacion, telefono, disponibilidad")
+      .select(
+        "id, nombre, apellido, congregacion, telefono, disponibilidad, capitan_id",
+      )
       .eq("asamblea_id", asamblea.id)
       .order("nombre", { ascending: true }),
     supabase
@@ -62,13 +65,20 @@ export default async function PuestosPage() {
       .eq("asamblea_id", asamblea.id),
     supabase
       .from("hermanas_apoyo")
-      .select("id, nombre, apellido, congregacion, telefono, disponibilidad")
+      .select(
+        "id, nombre, apellido, congregacion, telefono, disponibilidad, capitan_id",
+      )
       .eq("asamblea_id", asamblea.id)
       .order("nombre", { ascending: true }),
     supabase
       .from("asignaciones_hermanas")
       .select("hermana_apoyo_id, area_id, slot")
       .eq("asamblea_id", asamblea.id),
+    supabase
+      .from("capitanes")
+      .select("id, nombre, apellido, area")
+      .eq("asamblea_id", asamblea.id)
+      .order("nombre", { ascending: true }),
   ])
 
   return (
@@ -81,6 +91,7 @@ export default async function PuestosPage() {
         asignaciones={asignaciones ?? []}
         hermanas={hermanas ?? []}
         asignacionesHermanas={asignacionesHermanas ?? []}
+        capitanes={capitanes ?? []}
       />
     </>
   )
