@@ -60,14 +60,22 @@ export type Area = {
 export function AreasClient({
   asamblea,
   areas,
+  capitanesPorArea,
 }: {
   asamblea: Asamblea
   areas: Area[]
+  capitanesPorArea: Record<string, string[]>
 }) {
   const [addOpen, setAddOpen] = React.useState(false)
   const [mobileCardsContainer, setMobileCardsContainer] =
     React.useState<HTMLDivElement | null>(null)
   const isDesktop = useMediaQuery("(min-width: 768px)")
+
+  const capitanesDeArea = React.useCallback(
+    (area: Area) => capitanesPorArea[`${area.piso} — ${area.nombre}`] ?? [],
+    [capitanesPorArea],
+  )
+  const sinCapitan = areas.filter((a) => capitanesDeArea(a).length === 0).length
 
   return (
     <div className="flex flex-1 flex-col gap-4 p-4">
@@ -76,7 +84,16 @@ export function AreasClient({
           <h2 className="text-lg font-semibold">Áreas</h2>
           <p className="text-sm text-muted-foreground">
             {areas.length} área{areas.length === 1 ? "" : "s"} registrada
-            {areas.length === 1 ? "" : "s"} ·{" "}
+            {areas.length === 1 ? "" : "s"}
+            {sinCapitan > 0 && (
+              <>
+                {" · "}
+                <span className="text-amber-600 dark:text-amber-500">
+                  {sinCapitan} sin capitán
+                </span>
+              </>
+            )}{" "}
+            ·{" "}
             <span className="text-foreground/70">
               Asamblea N° {asamblea.numero} — {asamblea.edicion}
             </span>
@@ -106,6 +123,7 @@ export function AreasClient({
                 <TableHead>Acomodadores necesarios</TableHead>
                 <TableHead>Hermanas necesarias</TableHead>
                 <TableHead>Capacidad</TableHead>
+                <TableHead>Capitán</TableHead>
                 <TableHead className="w-[1%]"></TableHead>
               </TableRow>
             </TableHeader>
@@ -113,7 +131,7 @@ export function AreasClient({
               {areas.length === 0 ? (
                 <TableRow>
                   <TableCell
-                    colSpan={7}
+                    colSpan={8}
                     className="h-24 text-center text-muted-foreground"
                   >
                     Sin áreas. Agrega la primera para comenzar.
@@ -124,6 +142,7 @@ export function AreasClient({
                   <AreaRow
                     key={a.id}
                     area={a}
+                    capitanes={capitanesDeArea(a)}
                     mobileCardsContainer={mobileCardsContainer}
                   />
                 ))
@@ -154,11 +173,24 @@ export function AreasClient({
   )
 }
 
+function CapitanCell({ capitanes }: { capitanes: string[] }) {
+  if (capitanes.length === 0) {
+    return (
+      <span className="inline-flex items-center rounded-full border border-amber-500/40 px-2 py-0.5 text-xs text-amber-600 dark:text-amber-500">
+        Sin capitán
+      </span>
+    )
+  }
+  return <span>{capitanes.join(", ")}</span>
+}
+
 function AreaRow({
   area,
+  capitanes,
   mobileCardsContainer,
 }: {
   area: Area
+  capitanes: string[]
   mobileCardsContainer: HTMLElement | null
 }) {
   const router = useRouter()
@@ -207,6 +239,9 @@ function AreaRow({
             <TableCell>{area.acomodadores_necesarios}</TableCell>
             <TableCell>{area.hermanas_necesarias}</TableCell>
             <TableCell>{area.capacidad}</TableCell>
+            <TableCell className="text-muted-foreground">
+              <CapitanCell capitanes={capitanes} />
+            </TableCell>
             <TableCell>
               <Button
                 type="button"
@@ -256,6 +291,12 @@ function AreaRow({
                   <div className="flex justify-between gap-3">
                     <dt className="text-muted-foreground">Capacidad</dt>
                     <dd>{area.capacidad}</dd>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <dt className="text-muted-foreground">Capitán</dt>
+                    <dd className="text-right">
+                      <CapitanCell capitanes={capitanes} />
+                    </dd>
                   </div>
                 </dl>
               </article>
