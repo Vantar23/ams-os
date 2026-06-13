@@ -747,6 +747,7 @@ function CapitanFormDialog(props: FormProps) {
 
   React.useEffect(() => {
     if (!props.open) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- reset intencional al cerrar el diálogo
       setStep("datos")
       setError(null)
       setAreas(initialAreas)

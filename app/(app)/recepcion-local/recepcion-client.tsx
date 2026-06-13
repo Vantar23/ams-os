@@ -383,6 +383,7 @@ function AddRecepcionDialog({
 
   React.useEffect(() => {
     if (!open) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- reset intencional al cerrar el diálogo
       setDesperfecto("")
       setDescripcion("")
       setNivel("")
@@ -397,6 +398,7 @@ function AddRecepcionDialog({
 
   React.useEffect(() => {
     if (!foto) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- sincroniza el preview con la foto seleccionada
       setPreview(null)
       return
     }

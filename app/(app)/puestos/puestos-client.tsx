@@ -240,6 +240,7 @@ export function PuestosClient({
 
   // Reset overrides when slot or rol changes (assignments live per slot+rol).
   React.useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reinicia los cambios locales al cambiar de turno/rol
     setState({ overrides: {} })
   }, [slot, rol])
 
@@ -819,6 +820,7 @@ function QuickAddDialog({
 
   React.useEffect(() => {
     if (!open) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- reset intencional al cerrar el diálogo
       setError(null)
       setIncludeCurrentSlot(true)
     }

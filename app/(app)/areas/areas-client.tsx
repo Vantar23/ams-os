@@ -324,6 +324,7 @@ function AreaFormDialog(props: FormProps) {
   const area = props.mode === "edit" ? props.area : null
 
   React.useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reset intencional al cerrar el diálogo
     if (!props.open) setError(null)
   }, [props.open])
 
