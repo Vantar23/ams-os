@@ -86,12 +86,27 @@ export default async function AcomodadoresPage() {
   const areaNombreById = new Map(
     (areas ?? []).map((a) => [a.id as string, a.nombre as string]),
   )
+  // Etiqueta "piso — nombre": mismo formato que guarda capitanes.area, para poder
+  // cruzar el área asignada al acomodador con las áreas que cubre cada capitán.
+  const areaLabelById = new Map(
+    ((areas ?? []) as { id: string; piso: string; nombre: string }[]).map(
+      (a) => [a.id, `${a.piso} — ${a.nombre}`],
+    ),
+  )
   const puestosPorAcomodador: PuestosPorPersona = {}
+  const areasPorAcomodador: Record<string, string[]> = {}
   for (const a of asignaciones ?? []) {
+    const acomodadorId = a.acomodador_id as string
     const areaNombre = areaNombreById.get(a.area_id as string)
-    if (!areaNombre) continue
-    const list = (puestosPorAcomodador[a.acomodador_id as string] ??= [])
-    list.push({ areaNombre, slot: a.slot as string })
+    if (areaNombre) {
+      const list = (puestosPorAcomodador[acomodadorId] ??= [])
+      list.push({ areaNombre, slot: a.slot as string })
+    }
+    const label = areaLabelById.get(a.area_id as string)
+    if (label) {
+      const labels = (areasPorAcomodador[acomodadorId] ??= [])
+      if (!labels.includes(label)) labels.push(label)
+    }
   }
 
   // Un capitán solo ve a los acomodadores con puesto asignado en sus áreas
@@ -129,6 +144,7 @@ export default async function AcomodadoresPage() {
         capitanes={capitanes ?? []}
         currentCapitanId={(myCapitan?.id as string | undefined) ?? null}
         puestos={puestosPorAcomodador}
+        areasPorAcomodador={areasPorAcomodador}
       />
     </>
   )
