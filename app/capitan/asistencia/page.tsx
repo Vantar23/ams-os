@@ -83,7 +83,7 @@ export default async function Page() {
   }
 
   return (
-    <main className="mx-auto w-full max-w-2xl px-4 py-6 sm:px-5 sm:py-14">
+    <main className="mx-auto w-full max-w-2xl overflow-x-clip px-4 py-6 sm:px-5 sm:py-14">
       <Link
         href="/capitan"
         className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
