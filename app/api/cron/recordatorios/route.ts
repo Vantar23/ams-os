@@ -204,7 +204,7 @@ async function avisarCapitanes(
   )
   if (objetivo.length === 0) return 0
 
-  const cuerpo = `Ya inició el turno ${SESION_LABEL[sesion]}. Por favor pasa lista de tus acomodadores en “Pase de lista”: marca quién llegó y quién necesita reemplazo.`
+  const cuerpo = `Ya inició el turno ${SESION_LABEL[sesion]}. Por favor pasa lista de tus acomodadores en “Asistencias y Remplazos”: marca quién llegó y quién necesita reemplazo.`
   const { error } = await admin.from("mensajes").insert(
     objetivo.map((c) => ({
       asamblea_id: asambleaId,
