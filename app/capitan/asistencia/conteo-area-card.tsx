@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { useRouter } from "next/navigation"
-import { CheckIcon, MinusIcon, PlusIcon } from "lucide-react"
+import { AlertTriangleIcon, CheckIcon, MinusIcon, PlusIcon } from "lucide-react"
 
 import {
   AlertDialog,
@@ -26,7 +26,12 @@ import type { ReporteAcomodador } from "../load"
 
 import { reportarConteoCapitan } from "./actions"
 
-export type ConteoVigente = { valor: number; reportadoAt: string }
+export type ConteoVigente = {
+  valor: number
+  reportadoAt: string
+  /** Nombre del capitán que mandó el reporte vigente, si no fuiste tú. */
+  reportadoPorOtro: string | null
+}
 
 function defaultDia(): DisponibilidadDia {
   const weekday = new Date().getDay()
@@ -133,6 +138,7 @@ export function ConteoAreaCard({
         areaCapacidad={area.capacidad}
         initialValor={vigente?.valor ?? null}
         reportadoAt={vigente?.reportadoAt ?? null}
+        reportadoPorOtro={vigente?.reportadoPorOtro ?? null}
         reportes={reportes}
       />
     </div>
@@ -146,6 +152,7 @@ function ContadorForm({
   areaCapacidad,
   initialValor,
   reportadoAt,
+  reportadoPorOtro,
   reportes,
 }: {
   areaId: string
@@ -153,6 +160,7 @@ function ContadorForm({
   areaCapacidad: number
   initialValor: number | null
   reportadoAt: string | null
+  reportadoPorOtro: string | null
   reportes: ReporteAcomodador[]
 }) {
   const router = useRouter()
@@ -229,6 +237,18 @@ function ContadorForm({
 
   return (
     <form onSubmit={onSubmit} className="mt-4 grid gap-4">
+      {reportadoPorOtro && (
+        <div className="flex items-start gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-700 dark:text-amber-400">
+          <AlertTriangleIcon className="mt-0.5 size-4 shrink-0" />
+          <p>
+            <span className="font-medium">{reportadoPorOtro}</span> ya reportó la
+            asistencia de esta sesión
+            {lastReportado ? ` (${formatReportado(lastReportado)})` : ""}. Si
+            reportas, sobrescribirás su conteo.
+          </p>
+        </div>
+      )}
+
       <div className="rounded-lg border bg-muted/30 p-3">
         <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
           Lo que anotaron tus acomodadores
@@ -385,6 +405,12 @@ function ContadorForm({
             </AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div className="space-y-3">
+                {reportadoPorOtro && (
+                  <p className="rounded-md border border-amber-500/40 bg-amber-500/10 p-2 text-amber-700 dark:text-amber-400">
+                    <span className="font-medium">{reportadoPorOtro}</span> ya
+                    reportó esta sesión. Vas a sobrescribir su conteo.
+                  </p>
+                )}
                 <p>
                   {valorCambia
                     ? "Vas a sobrescribir el último reporte de esta sesión. Revisa los números antes de confirmar."

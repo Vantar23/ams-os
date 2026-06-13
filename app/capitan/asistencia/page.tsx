@@ -27,27 +27,48 @@ export default async function Page() {
   )
 
   // Conteo vigente por área+slot: la fila más reciente de conteos_capitan.
+  // Si el reporte vigente lo mandó OTRO capitán que comparte el área, guardamos
+  // su nombre para avisar y evitar reportes duplicados.
   const vigentesPorArea = new Map<string, Record<string, ConteoVigente>>()
   if (areas.length > 0) {
     const supabase = await createClient()
-    const { data: conteos } = await supabase
-      .from("conteos_capitan")
-      .select("area_id, slot, valor, reportado_at")
-      .eq("asamblea_id", asamblea.id)
-      .in(
-        "area_id",
-        areas.map((a) => a.id),
-      )
-      .order("reportado_at", { ascending: false })
+    const [{ data: conteos }, { data: capitanes }] = await Promise.all([
+      supabase
+        .from("conteos_capitan")
+        .select("area_id, slot, valor, reportado_at, capitan_id")
+        .eq("asamblea_id", asamblea.id)
+        .in(
+          "area_id",
+          areas.map((a) => a.id),
+        )
+        .order("reportado_at", { ascending: false }),
+      supabase
+        .from("capitanes")
+        .select("id, nombre, apellido")
+        .eq("asamblea_id", asamblea.id),
+    ])
+    const nombreCapitanById = new Map(
+      ((capitanes ?? []) as { id: string; nombre: string; apellido: string }[]).map(
+        (c) => [c.id, `${c.nombre} ${c.apellido}`],
+      ),
+    )
     for (const c of (conteos ?? []) as {
       area_id: string
       slot: string
       valor: number
       reportado_at: string
+      capitan_id: string
     }[]) {
       const porSlot = vigentesPorArea.get(c.area_id) ?? {}
       if (!(c.slot in porSlot)) {
-        porSlot[c.slot] = { valor: c.valor, reportadoAt: c.reportado_at }
+        porSlot[c.slot] = {
+          valor: c.valor,
+          reportadoAt: c.reportado_at,
+          reportadoPorOtro:
+            c.capitan_id !== capitan.id
+              ? nombreCapitanById.get(c.capitan_id) ?? "Otro capitán"
+              : null,
+        }
         vigentesPorArea.set(c.area_id, porSlot)
       }
     }
