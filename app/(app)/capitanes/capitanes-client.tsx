@@ -20,6 +20,7 @@ import {
   coincideBusqueda,
 } from "@/components/buscador-personal"
 import { DisponibilidadSelector } from "@/components/disponibilidad-selector"
+import { TurnoEnCursoCard } from "@/components/turno-en-curso-card"
 import type { DisponibilidadSlot } from "@/lib/disponibilidad"
 import {
   downloadCsv,
@@ -153,11 +154,12 @@ export function CapitanesClient({
   return (
     <div className="flex flex-1 flex-col gap-4 p-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
+        <div className="flex flex-col gap-2">
           <p className="text-sm text-muted-foreground">
             {capitanes.length} capit{capitanes.length === 1 ? "án" : "anes"}{" "}
             registrado{capitanes.length === 1 ? "" : "s"}
           </p>
+          <TurnoEnCursoCard />
         </div>
         <div className="flex flex-col gap-2 sm:flex-row">
           <ExportarExcelButton capitanes={capitanes} asamblea={asamblea} />

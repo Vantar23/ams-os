@@ -21,6 +21,7 @@ import {
   coincideBusqueda,
 } from "@/components/buscador-personal"
 import { DisponibilidadSelector } from "@/components/disponibilidad-selector"
+import { TurnoEnCursoCard } from "@/components/turno-en-curso-card"
 import {
   formatPuestosAsignados,
   PuestosAsignadosCell,
@@ -185,12 +186,13 @@ export function AcomodadoresClient({
   return (
     <div className="flex flex-1 flex-col gap-4 p-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
+        <div className="flex flex-col gap-2">
           <p className="text-sm text-muted-foreground">
             {acomodadores.length} hermano
             {acomodadores.length === 1 ? "" : "s"} registrado
             {acomodadores.length === 1 ? "" : "s"}
           </p>
+          <TurnoEnCursoCard />
         </div>
         <div className="flex flex-col gap-2 sm:flex-row">
           <CopyAccesoLinkButton asambleaId={asamblea.id} />
