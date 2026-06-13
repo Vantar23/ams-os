@@ -3,6 +3,7 @@ import { redirect } from "next/navigation"
 import {
   AlertOctagonIcon,
   CalendarCheckIcon,
+  ClipboardCheckIcon,
   LayoutDashboardIcon,
   MapIcon,
   MapPinIcon,
@@ -86,6 +87,12 @@ export default async function Page() {
               ? `Tu equipo (${totalAcomodadores}): llámalos o escríbeles por WhatsApp.`
               : "Tu equipo: llámalos o escríbeles por WhatsApp."
           }
+        />
+        <NavCard
+          href="/capitan/pase-de-lista"
+          icon={<ClipboardCheckIcon className="size-5" />}
+          title="Pase de lista"
+          description="Marca qué acomodadores se presentaron o necesitan reemplazo."
         />
         <NavCard
           href="/capitan/asistencia"

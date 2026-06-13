@@ -48,6 +48,7 @@ const data = {
       title: "Asignaciones",
       items: [
         { title: "Puestos", url: "/puestos" },
+        { title: "Remplazos", url: "/remplazos" },
         { title: "Turnos", url: "#" },
         { title: "Tablero", url: "#" },
       ],

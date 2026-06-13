@@ -82,6 +82,16 @@ export async function actualizarAsamblea(
     return { error: `Limpieza: ${TELEFONO_INVALIDO_MSG}` }
   }
 
+  const HORA_RE = /^([01]\d|2[0-3]):[0-5]\d$/
+  const horaManana = values.horaInicioManana.trim()
+  const horaTarde = values.horaInicioTarde.trim()
+  if (horaManana && !HORA_RE.test(horaManana)) {
+    return { error: "Hora de inicio (mañana) inválida." }
+  }
+  if (horaTarde && !HORA_RE.test(horaTarde)) {
+    return { error: "Hora de inicio (tarde) inválida." }
+  }
+
   const { error } = await supabase
     .from("asambleas")
     .update({
@@ -99,6 +109,8 @@ export async function actualizarAsamblea(
       primeros_auxilios_telefono: primerosAuxilios || null,
       seguridad_telefono: seguridad || null,
       limpieza_telefono: limpieza || null,
+      hora_inicio_manana: horaManana || null,
+      hora_inicio_tarde: horaTarde || null,
     })
     .eq("id", asambleaId)
 

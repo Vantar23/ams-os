@@ -200,6 +200,44 @@ export function AsambleaFormFields({ values, onChange }: Props) {
 
       <section className="border-t border-border pt-10">
         <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+          Recordatorios de turno
+        </p>
+        <h2 className="mt-2 font-serif text-xl">Inicio del programa</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          A quienes ya tienen puesto asignado les llega un recordatorio 20
+          minutos antes de cada sesión. Déjalas en blanco para no enviar
+          recordatorios.
+        </p>
+        <div className="mt-5 grid gap-3 sm:grid-cols-2">
+          <Field
+            label="Inicio mañana"
+            id="horaInicioManana"
+            hint="Hora local del recinto (México)."
+          >
+            <Input
+              id="horaInicioManana"
+              type="time"
+              value={values.horaInicioManana ?? ""}
+              onChange={(e) => onChange("horaInicioManana", e.target.value)}
+            />
+          </Field>
+          <Field
+            label="Inicio tarde"
+            id="horaInicioTarde"
+            hint="Hora local del recinto (México)."
+          >
+            <Input
+              id="horaInicioTarde"
+              type="time"
+              value={values.horaInicioTarde ?? ""}
+              onChange={(e) => onChange("horaInicioTarde", e.target.value)}
+            />
+          </Field>
+        </div>
+      </section>
+
+      <section className="border-t border-border pt-10">
+        <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
           Estructura
         </p>
         <h2 className="mt-2 font-serif text-xl">Días y sesiones</h2>
