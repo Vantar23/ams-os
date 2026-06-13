@@ -30,19 +30,19 @@ function FilaPase({ item }: { item: ItemPase }) {
   const router = useRouter()
   const [estado, setEstado] = React.useState(item.asistencia)
   const [pending, setPending] = React.useState<
-    "presente" | "necesita_remplazo" | null
+    "presente" | "necesita_remplazo" | "cancelar" | null
   >(null)
   const [error, setError] = React.useState<string | null>(null)
 
-  async function marcar(nuevo: "presente" | "necesita_remplazo") {
+  async function marcar(accion: "presente" | "necesita_remplazo" | "cancelar") {
     if (pending) return
     const previo = estado
-    setEstado(nuevo)
-    setPending(nuevo)
+    setEstado(accion === "cancelar" ? null : accion)
+    setPending(accion)
     setError(null)
     const { ok, error: err } = await marcarAsistencia({
       asignacionId: item.asignacionId,
-      estado: nuevo,
+      estado: accion,
     })
     setPending(null)
     if (!ok) {
@@ -92,6 +92,19 @@ function FilaPase({ item }: { item: ItemPase }) {
           {pending === "necesita_remplazo" ? "Guardando…" : "Necesita reemplazo"}
         </button>
       </div>
+
+      {estado === "necesita_remplazo" && (
+        <button
+          type="button"
+          onClick={() => marcar("cancelar")}
+          disabled={pending !== null}
+          className="mt-2 w-full text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline disabled:opacity-60"
+        >
+          {pending === "cancelar"
+            ? "Cancelando…"
+            : "Cancelar reemplazo (ya no lo necesito)"}
+        </button>
+      )}
 
       {error && <p className="mt-2 text-xs text-destructive">{error}</p>}
     </li>
