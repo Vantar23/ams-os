@@ -91,7 +91,7 @@ export default async function Page() {
         <NavCard
           href="/capitan/pase-de-lista"
           icon={<ClipboardCheckIcon className="size-5" />}
-          title="Pase de lista"
+          title="Asistencias y Remplazos"
           description="Marca qué acomodadores se presentaron o necesitan reemplazo."
         />
         <NavCard

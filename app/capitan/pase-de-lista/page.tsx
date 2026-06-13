@@ -79,7 +79,7 @@ export default async function Page() {
         Volver
       </Link>
       <h1 className="mt-4 font-serif text-[2rem] leading-[1.1] text-foreground sm:text-4xl sm:leading-tight">
-        Pase de lista
+        Asistencias y Remplazos
       </h1>
       <p className="mt-3 text-sm text-muted-foreground">
         Marca quién se presentó en el turno vigente. Si alguien no llegó, márcalo
