@@ -103,6 +103,23 @@ export function IncidenciasClient({
   )
   const pendientes = items.filter((i) => i.estado === "pendiente").length
 
+  // Agrupa las incidencias visibles por día (conservando el orden de llegada,
+  // que viene de más reciente a más antigua).
+  const grupos = React.useMemo(() => {
+    const porDia = new Map<string, IncidenciaItem[]>()
+    for (const i of visibles) {
+      const key = dayKey(i.created_at)
+      const lista = porDia.get(key)
+      if (lista) lista.push(i)
+      else porDia.set(key, [i])
+    }
+    return Array.from(porDia, ([key, items]) => ({
+      key,
+      label: dayLabel(items[0].created_at),
+      items,
+    }))
+  }, [visibles])
+
   return (
     <div className="flex flex-1 flex-col gap-4 p-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -158,11 +175,30 @@ export function IncidenciasClient({
             : "Ninguna incidencia coincide con este filtro."}
         </div>
       ) : (
-        <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {visibles.map((item) => (
-            <IncidenciaCard key={item.id} item={item} contactos={contactos} />
+        <div className="flex flex-col gap-6">
+          {grupos.map((grupo) => (
+            <section key={grupo.key}>
+              <div className="mb-3 flex items-baseline gap-2 border-b pb-1.5">
+                <h3 className="text-sm font-semibold capitalize text-foreground">
+                  {grupo.label}
+                </h3>
+                <span className="text-xs text-muted-foreground">
+                  {grupo.items.length} reporte
+                  {grupo.items.length === 1 ? "" : "s"}
+                </span>
+              </div>
+              <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                {grupo.items.map((item) => (
+                  <IncidenciaCard
+                    key={item.id}
+                    item={item}
+                    contactos={contactos}
+                  />
+                ))}
+              </ul>
+            </section>
           ))}
-        </ul>
+        </div>
       )}
 
       <AddIncidenciaDialog open={addOpen} onOpenChange={setAddOpen} />
@@ -605,6 +641,26 @@ function formatDate(iso: string): string {
       month: "short",
       hour: "2-digit",
       minute: "2-digit",
+    })
+  } catch {
+    return iso
+  }
+}
+
+/** Clave estable por día (año-mes-día local) para agrupar. */
+function dayKey(iso: string): string {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return iso
+  return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`
+}
+
+/** Etiqueta del día para el encabezado, ej. "viernes, 3 de octubre". */
+function dayLabel(iso: string): string {
+  try {
+    return new Date(iso).toLocaleDateString("es-MX", {
+      weekday: "long",
+      day: "numeric",
+      month: "long",
     })
   } catch {
     return iso
