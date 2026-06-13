@@ -396,10 +396,10 @@ function avisoMensaje(
   const proposito = DEPARTAMENTO_PROPOSITO[departamento]
 
   const saludo = edicion
-    ? `Hola, les saluda la organización de la ${edicion}${
+    ? `Hola, les saluda el Departamento de Acomodadores de la ${edicion}${
         titulo ? ` ("${titulo}")` : ""
       }.`
-    : "Hola, les saluda la organización de la asamblea."
+    : "Hola, les saluda el Departamento de Acomodadores de la asamblea."
   const cuerpo = `Durante la asamblea${
     fechas ? ` (${fechas})` : ""
   } les estaremos contactando por este medio ${proposito}. Por favor mantengan este número atento a los mensajes del equipo. ¡Gracias por su apoyo!`
