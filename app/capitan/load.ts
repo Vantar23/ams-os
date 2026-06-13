@@ -92,10 +92,10 @@ export type AsientosArea = {
 }
 
 /**
- * Asientos disponibles por área del capitán, según el reporte más reciente de
- * cada área —sea de un acomodador (asignaciones.lugares_vacios) o del propio
- * capitán (conteos_capitan.valor)—. Devuelve una fila por área asignada,
- * ordenadas por piso y nombre.
+ * Asientos disponibles por área del capitán, según su conteo oficial más
+ * reciente (conteos_capitan.valor). Solo cuenta el conteo del capitán: los
+ * reportes de acomodadores son insumo de validación, no el número oficial.
+ * Devuelve una fila por área asignada, ordenadas por piso y nombre.
  */
 export async function loadAsientosPorArea(
   asambleaId: string,
@@ -105,8 +105,7 @@ export async function loadAsientosPorArea(
   const supabase = await createClient()
   const areaIds = areas.map((a) => a.id)
 
-  // Reporte más reciente por área: el mayor reportado_at entre los lugares
-  // vacíos de acomodadores y los conteos del capitán.
+  // Conteo oficial más reciente por área (el mayor reportado_at).
   const ultimoPorArea = new Map<
     string,
     { valor: number; slot: string; reportadoAt: string }
@@ -123,30 +122,13 @@ export async function loadAsientosPorArea(
     }
   }
 
-  const [{ data: asigns }, { data: conteos }] = await Promise.all([
-    supabase
-      .from("asignaciones")
-      .select("area_id, slot, lugares_vacios, reportado_at")
-      .eq("asamblea_id", asambleaId)
-      .in("area_id", areaIds)
-      .not("lugares_vacios", "is", null)
-      .order("reportado_at", { ascending: false }),
-    supabase
-      .from("conteos_capitan")
-      .select("area_id, slot, valor, reportado_at")
-      .eq("asamblea_id", asambleaId)
-      .in("area_id", areaIds)
-      .order("reportado_at", { ascending: false }),
-  ])
+  const { data: conteos } = await supabase
+    .from("conteos_capitan")
+    .select("area_id, slot, valor, reportado_at")
+    .eq("asamblea_id", asambleaId)
+    .in("area_id", areaIds)
+    .order("reportado_at", { ascending: false })
 
-  for (const r of (asigns ?? []) as {
-    area_id: string
-    slot: string
-    lugares_vacios: number
-    reportado_at: string
-  }[]) {
-    considerar(r.area_id, r.lugares_vacios, r.slot, r.reportado_at)
-  }
   for (const c of (conteos ?? []) as {
     area_id: string
     slot: string
@@ -178,4 +160,70 @@ export async function loadAsientosPorArea(
       (x, y) =>
         x.piso.localeCompare(y.piso) || x.nombre.localeCompare(y.nombre),
     )
+}
+
+export type ReporteAcomodador = {
+  acomodadorNombre: string
+  // Valor crudo que reportó el acomodador (lugares vacíos si el área tiene
+  // capacidad fija, o asistentes contados si no la tiene).
+  valor: number
+  asistencia: number | null
+  reportadoAt: string
+}
+
+/**
+ * Reportes de asistencia de los acomodadores en las áreas del capitán, para que
+ * el capitán vea quién anotó qué antes de emitir su conteo oficial. Indexado por
+ * area_id y luego por slot. Cada lista va de más reciente a más antigua.
+ */
+export async function loadReportesAcomodadoresPorArea(
+  asambleaId: string,
+  areas: AreaDelCapitan[],
+): Promise<Record<string, Record<string, ReporteAcomodador[]>>> {
+  if (areas.length === 0) return {}
+  const supabase = await createClient()
+  const capacidadPorArea = new Map(areas.map((a) => [a.id, a.capacidad]))
+
+  const { data } = await supabase
+    .from("asignaciones")
+    .select(
+      "area_id, slot, lugares_vacios, reportado_at, acomodadores(nombre, apellido)",
+    )
+    .eq("asamblea_id", asambleaId)
+    .in(
+      "area_id",
+      areas.map((a) => a.id),
+    )
+    .not("lugares_vacios", "is", null)
+    .order("reportado_at", { ascending: false })
+
+  type Row = {
+    area_id: string
+    slot: string
+    lugares_vacios: number
+    reportado_at: string
+    acomodadores:
+      | { nombre: string; apellido: string }
+      | { nombre: string; apellido: string }[]
+      | null
+  }
+  const first = <T,>(v: T | T[] | null | undefined): T | null =>
+    Array.isArray(v) ? (v[0] ?? null) : (v ?? null)
+
+  const out: Record<string, Record<string, ReporteAcomodador[]>> = {}
+  for (const r of (data ?? []) as unknown as Row[]) {
+    const ac = first(r.acomodadores)
+    const { asistencia } = asientosDeReporte(
+      capacidadPorArea.get(r.area_id) ?? 0,
+      r.lugares_vacios,
+    )
+    const porSlot = (out[r.area_id] ??= {})
+    ;(porSlot[r.slot] ??= []).push({
+      acomodadorNombre: ac ? `${ac.nombre} ${ac.apellido}`.trim() : "—",
+      valor: r.lugares_vacios,
+      asistencia,
+      reportadoAt: r.reportado_at,
+    })
+  }
+  return out
 }

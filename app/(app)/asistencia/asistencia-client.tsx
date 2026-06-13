@@ -69,6 +69,8 @@ export type Reporte = {
   areaNombre: string
   areaCapacidad: number
   acomodadorNombre: string
+  // "acomodador" es solo referencia (no cuenta); "capitan" es el conteo oficial.
+  fuente: "acomodador" | "capitan"
 }
 
 export type HistorialEntry = {
@@ -95,7 +97,8 @@ type Conteo = {
   dia: string
   sesion: Sesion
   timestamp: string
-  origen: "manual" | "acomodador"
+  // "acomodador" es referencia y no cuenta; "capitan" y "manual" (admin) cuentan.
+  origen: "manual" | "acomodador" | "capitan"
   reportadoPor?: string
   // legacy field, kept for backward-compat reads
   vacios?: number
@@ -126,7 +129,7 @@ function reporteToConteo(r: Reporte): Conteo | null {
     dia,
     sesion: sesionKey,
     timestamp: r.reportadoAt,
-    origen: "acomodador",
+    origen: r.fuente,
     reportadoPor: r.acomodadorNombre,
   }
 }
@@ -569,9 +572,14 @@ export function AsistenciaClient({
                       </TableCell>
                       <TableCell className="font-medium">
                         <span>{c.areaNombre}</span>
-                        {c.origen === "acomodador" && (
+                        {c.reportadoPor && c.origen !== "manual" && (
                           <span className="ml-2 inline-flex items-center rounded-full border border-primary/30 bg-primary/5 px-2 py-0.5 text-[10px] text-primary">
-                            {c.reportadoPor ?? "Acomodador"}
+                            {c.reportadoPor}
+                          </span>
+                        )}
+                        {c.origen === "acomodador" && (
+                          <span className="ml-2 inline-flex items-center rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10px] text-amber-600 dark:text-amber-400">
+                            Sin validar
                           </span>
                         )}
                       </TableCell>
@@ -886,6 +894,8 @@ function ResumenAsistencia({
   const filas = React.useMemo<Row[]>(() => {
     const byKey = new Map<Key, Conteo[]>()
     for (const c of conteos) {
+      // El conteo del acomodador es solo referencia: no entra al total oficial.
+      if (c.origen === "acomodador") continue
       const k = `${c.dia}|${c.sesion}|${c.areaId}`
       const list = byKey.get(k) ?? []
       list.push(c)
@@ -939,7 +949,8 @@ function ResumenAsistencia({
     <section>
       <h2 className="text-lg font-semibold">Resumen de asistencia</h2>
       <p className="text-sm text-muted-foreground">
-        Calculado por área y sesión a partir de los conteos.
+        Calculado por área y sesión a partir de los conteos validados por
+        capitanes. Los reportes de acomodadores son solo de referencia.
       </p>
       <div className="mt-4 overflow-x-auto rounded-xl border">
         <Table>

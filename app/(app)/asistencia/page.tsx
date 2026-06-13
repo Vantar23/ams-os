@@ -126,6 +126,7 @@ export default async function AsistenciaPage() {
         areaNombre: area?.nombre ?? "—",
         areaCapacidad: area?.capacidad ?? 0,
         acomodadorNombre: ac ? `${ac.nombre} ${ac.apellido}`.trim() : "—",
+        fuente: "acomodador",
       }
     })
 
@@ -168,6 +169,7 @@ export default async function AsistenciaPage() {
       acomodadorNombre: cap
         ? `${cap.nombre} ${cap.apellido} · Capitán`.trim()
         : "Capitán",
+      fuente: "capitan",
     })
   }
 

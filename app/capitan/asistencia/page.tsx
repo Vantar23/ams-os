@@ -8,6 +8,7 @@ import {
   loadAreasDelCapitan,
   loadAsientosPorArea,
   loadCapitanActual,
+  loadReportesAcomodadoresPorArea,
 } from "../load"
 
 import { AsientosDisponibles } from "./asientos-disponibles"
@@ -20,6 +21,10 @@ export default async function Page() {
 
   const areas = await loadAreasDelCapitan(asamblea.id, capitan.area)
   const asientos = await loadAsientosPorArea(asamblea.id, areas)
+  const reportesAcomodadores = await loadReportesAcomodadoresPorArea(
+    asamblea.id,
+    areas,
+  )
 
   // Conteo vigente por área+slot: la fila más reciente de conteos_capitan.
   const vigentesPorArea = new Map<string, Record<string, ConteoVigente>>()
@@ -79,6 +84,7 @@ export default async function Page() {
               key={a.id}
               area={a}
               vigentes={vigentesPorArea.get(a.id) ?? {}}
+              reportesPorSlot={reportesAcomodadores[a.id] ?? {}}
             />
           ))}
         </div>

@@ -22,6 +22,8 @@ import {
   type DisponibilidadSesion,
 } from "@/lib/disponibilidad"
 
+import type { ReporteAcomodador } from "../load"
+
 import { reportarConteoCapitan } from "./actions"
 
 export type ConteoVigente = { valor: number; reportadoAt: string }
@@ -58,6 +60,7 @@ function formatReportado(reportadoAt: string | null): string {
 export function ConteoAreaCard({
   area,
   vigentes,
+  reportesPorSlot,
 }: {
   area: {
     id: string
@@ -67,6 +70,7 @@ export function ConteoAreaCard({
     filas: number
   }
   vigentes: Record<string, ConteoVigente>
+  reportesPorSlot: Record<string, ReporteAcomodador[]>
 }) {
   const [dia, setDia] = React.useState<DisponibilidadDia>(() => defaultDia())
   const [sesion, setSesion] = React.useState<DisponibilidadSesion>(() =>
@@ -74,6 +78,7 @@ export function ConteoAreaCard({
   )
   const slot = `${dia}-${sesion}`
   const vigente = vigentes[slot] ?? null
+  const reportes = reportesPorSlot[slot] ?? []
 
   return (
     <div className="rounded-xl border bg-surface p-4">
@@ -128,6 +133,7 @@ export function ConteoAreaCard({
         areaCapacidad={area.capacidad}
         initialValor={vigente?.valor ?? null}
         reportadoAt={vigente?.reportadoAt ?? null}
+        reportes={reportes}
       />
     </div>
   )
@@ -140,12 +146,14 @@ function ContadorForm({
   areaCapacidad,
   initialValor,
   reportadoAt,
+  reportes,
 }: {
   areaId: string
   slot: string
   areaCapacidad: number
   initialValor: number | null
   reportadoAt: string | null
+  reportes: ReporteAcomodador[]
 }) {
   const router = useRouter()
   const modo: "vacios" | "asistentes" =
@@ -178,6 +186,12 @@ function ContadorForm({
       setValor(areaCapacidad)
       return
     }
+    setValor(n)
+  }
+
+  function usarValor(n: number) {
+    if (!Number.isFinite(n) || n < 0) return setValor(0)
+    if (modo === "vacios" && n > areaCapacidad) return setValor(areaCapacidad)
     setValor(n)
   }
 
@@ -215,6 +229,48 @@ function ContadorForm({
 
   return (
     <form onSubmit={onSubmit} className="mt-4 grid gap-4">
+      <div className="rounded-lg border bg-muted/30 p-3">
+        <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
+          Lo que anotaron tus acomodadores
+        </p>
+        {reportes.length === 0 ? (
+          <p className="mt-2 text-xs text-muted-foreground">
+            Aún sin reportes para esta sesión.
+          </p>
+        ) : (
+          <ul className="mt-2 grid gap-1.5">
+            {reportes.map((r, i) => (
+              <li
+                key={`${r.acomodadorNombre}-${r.reportadoAt}-${i}`}
+                className="flex items-center justify-between gap-2 text-sm"
+              >
+                <span className="min-w-0 flex-1 truncate text-foreground">
+                  {r.acomodadorNombre}
+                  <span className="ml-2 text-xs text-muted-foreground">
+                    {formatReportado(r.reportadoAt)}
+                  </span>
+                </span>
+                <span className="shrink-0 tabular-nums text-muted-foreground">
+                  {modo === "vacios"
+                    ? `${r.valor} vacíos`
+                    : `${r.valor} asist.`}
+                </span>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={submitting}
+                  onClick={() => usarValor(r.valor)}
+                  className="h-7 shrink-0 px-2 text-xs"
+                >
+                  Usar
+                </Button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
       <div>
         <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
           {modo === "vacios" ? "Lugares vacíos" : "Asistentes contados"}
