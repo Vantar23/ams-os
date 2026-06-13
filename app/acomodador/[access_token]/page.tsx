@@ -3,6 +3,7 @@ import {
   BookOpenIcon,
   CalendarCheckIcon,
   ClipboardCheckIcon,
+  HeartIcon,
   MapIcon,
   MapPinIcon,
   MessageCircleIcon,
@@ -55,6 +56,10 @@ export default async function Page({
 
   const { acomodador } = result
   const capitan = await loadCapitanAsignado(acomodador.id)
+  const avisoReemplazo = await loadAvisoReemplazo(
+    acomodador.id,
+    acomodador.asamblea_id,
+  )
   const asignaciones = await loadAsignaciones(access_token)
   const visibles = slotsVisibles(
     asignaciones.map((a) => a.slot),
@@ -92,6 +97,23 @@ export default async function Page({
           </span>
         ))}
       </div>
+
+      {avisoReemplazo && (
+        <div className="mt-6 rounded-xl border border-amber-500/40 bg-amber-500/10 p-4">
+          <p className="flex items-center gap-2 text-sm font-medium text-amber-700 dark:text-amber-300">
+            <HeartIcon className="size-4 shrink-0" />
+            Gracias por tu servicio
+          </p>
+          <p className="mt-1.5 text-sm text-foreground">
+            Notamos que no pudiste estar en tu puesto
+            {avisoReemplazo.areaNombre ? ` de ${avisoReemplazo.areaNombre}` : ""}{" "}
+            ({slotLabelCorto(avisoReemplazo.slot)}), así que otro hermano lo
+            cubrió para no dejar el área sola. ¡No te preocupes! Agradecemos de
+            corazón tu disposición y nos encantará contar contigo en tu próximo
+            turno. 🤍
+          </p>
+        </div>
+      )}
 
       {capitan && (
         <CapitanCard
@@ -177,4 +199,34 @@ async function loadCapitanAsignado(acomodadorId: string) {
     apellido: string
     telefono: string | null
   } | null
+}
+
+/**
+ * Si al acomodador lo reemplazaron en algún puesto de esta asamblea, devuelve el
+ * más reciente para mostrarle un aviso cordial en su inicio. Usa el cliente
+ * admin porque el portal es por token (sin sesión), y reemplazos tiene RLS de
+ * miembros.
+ */
+async function loadAvisoReemplazo(acomodadorId: string, asambleaId: string) {
+  const admin = createAdminClient()
+  const { data } = await admin
+    .from("reemplazos")
+    .select("slot, area_id, created_at")
+    .eq("asamblea_id", asambleaId)
+    .eq("saliente_id", acomodadorId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+  const reemplazo = data?.[0] as
+    | { slot: string; area_id: string; created_at: string }
+    | undefined
+  if (!reemplazo) return null
+  const { data: area } = await admin
+    .from("areas")
+    .select("nombre")
+    .eq("id", reemplazo.area_id)
+    .maybeSingle()
+  return {
+    slot: reemplazo.slot,
+    areaNombre: (area?.nombre as string | undefined) ?? null,
+  }
 }
