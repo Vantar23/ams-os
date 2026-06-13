@@ -3,7 +3,13 @@
 import * as React from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { AlertOctagonIcon, BellIcon, MessageCircleIcon, XIcon } from "lucide-react"
+import {
+  AlertOctagonIcon,
+  BellIcon,
+  MessageCircleIcon,
+  UserRoundXIcon,
+  XIcon,
+} from "lucide-react"
 
 import { suscribirPushAdmin } from "@/lib/actions/push-admin"
 import { obtenerVapidKeyPublica } from "@/lib/actions/portal-personal"
@@ -27,7 +33,7 @@ type Alerta = {
   href: string
   titulo: string
   detalle: string
-  icono: "incidencia" | "mensaje"
+  icono: "incidencia" | "mensaje" | "remplazo"
 }
 
 type IncidenciaEvento = {
@@ -43,6 +49,12 @@ type MensajeEvento = {
   persona_tipo?: string
   cuerpo?: string
   created_at?: string
+}
+
+type RemplazoEvento = {
+  id?: string
+  asistencia?: string | null
+  asistencia_at?: string | null
 }
 
 /**
@@ -215,6 +227,30 @@ export function RealtimeAlerts({ asambleaId }: { asambleaId: string }) {
     [push, notificarNavegador],
   )
 
+  const notificarRemplazo = React.useCallback(
+    (fila: RemplazoEvento) => {
+      if (!fila.id || fila.asistencia !== "necesita_remplazo") return
+      // La clave incluye el momento del marcado: si el mismo puesto vuelve a
+      // necesitar reemplazo más tarde, se avisa de nuevo.
+      const key = `rmp:${fila.id}:${fila.asistencia_at ?? ""}`
+      if (vistos.current.has(key)) return
+      vistos.current.add(key)
+      const titulo = "Puesto necesita reemplazo"
+      const detalle = "Un acomodador necesita reemplazo. Toca para asignar."
+      push({
+        href: "/remplazos",
+        titulo,
+        detalle,
+        icono: "remplazo",
+      })
+      notificarNavegador(titulo, detalle, "/remplazos", key)
+      if (pathnameRef.current.startsWith("/remplazos")) {
+        router.refresh()
+      }
+    },
+    [push, notificarNavegador, router],
+  )
+
   // Realtime con el JWT del usuario.
   React.useEffect(() => {
     let cancelado = false
@@ -243,6 +279,16 @@ export function RealtimeAlerts({ asambleaId }: { asambleaId: string }) {
           },
           (payload) => notificarMensaje(payload.new as MensajeEvento),
         )
+        .on(
+          "postgres_changes",
+          {
+            event: "UPDATE",
+            schema: "public",
+            table: "asignaciones",
+            filter: `asamblea_id=eq.${asambleaId}`,
+          },
+          (payload) => notificarRemplazo(payload.new as RemplazoEvento),
+        )
         .subscribe()
       cleanup = () => {
         supabase.removeChannel(channel)
@@ -252,7 +298,7 @@ export function RealtimeAlerts({ asambleaId }: { asambleaId: string }) {
       cancelado = true
       cleanup?.()
     }
-  }, [asambleaId, notificarIncidencia, notificarMensaje])
+  }, [asambleaId, notificarIncidencia, notificarMensaje, notificarRemplazo])
 
   // Sondeo de respaldo: cubre sockets bloqueados o eventos perdidos.
   React.useEffect(() => {
@@ -261,23 +307,32 @@ export function RealtimeAlerts({ asambleaId }: { asambleaId: string }) {
 
     async function sondear() {
       const desde = desdeRef.current
-      const [{ data: incs }, { data: msgs }] = await Promise.all([
-        supabase
-          .from("incidencias")
-          .select("id, tipo, ubicacion, created_at")
-          .eq("asamblea_id", asambleaId)
-          .gt("created_at", desde)
-          .order("created_at", { ascending: true })
-          .limit(10),
-        supabase
-          .from("mensajes")
-          .select("id, remitente, persona_tipo, cuerpo, created_at")
-          .eq("asamblea_id", asambleaId)
-          .eq("remitente", "persona")
-          .gt("created_at", desde)
-          .order("created_at", { ascending: true })
-          .limit(10),
-      ])
+      const [{ data: incs }, { data: msgs }, { data: rmps }] =
+        await Promise.all([
+          supabase
+            .from("incidencias")
+            .select("id, tipo, ubicacion, created_at")
+            .eq("asamblea_id", asambleaId)
+            .gt("created_at", desde)
+            .order("created_at", { ascending: true })
+            .limit(10),
+          supabase
+            .from("mensajes")
+            .select("id, remitente, persona_tipo, cuerpo, created_at")
+            .eq("asamblea_id", asambleaId)
+            .eq("remitente", "persona")
+            .gt("created_at", desde)
+            .order("created_at", { ascending: true })
+            .limit(10),
+          supabase
+            .from("asignaciones")
+            .select("id, asistencia, asistencia_at")
+            .eq("asamblea_id", asambleaId)
+            .eq("asistencia", "necesita_remplazo")
+            .gt("asistencia_at", desde)
+            .order("asistencia_at", { ascending: true })
+            .limit(10),
+        ])
       if (!activo) return
       let max = desde
       for (const fila of (incs ?? []) as IncidenciaEvento[]) {
@@ -288,6 +343,11 @@ export function RealtimeAlerts({ asambleaId }: { asambleaId: string }) {
         notificarMensaje(fila)
         if (fila.created_at && fila.created_at > max) max = fila.created_at
       }
+      for (const fila of (rmps ?? []) as RemplazoEvento[]) {
+        notificarRemplazo(fila)
+        if (fila.asistencia_at && fila.asistencia_at > max)
+          max = fila.asistencia_at
+      }
       desdeRef.current = max
     }
 
@@ -296,7 +356,7 @@ export function RealtimeAlerts({ asambleaId }: { asambleaId: string }) {
       activo = false
       clearInterval(interval)
     }
-  }, [asambleaId, notificarIncidencia, notificarMensaje])
+  }, [asambleaId, notificarIncidencia, notificarMensaje, notificarRemplazo])
 
   if (alertas.length === 0 && !pedirPermiso && !hintIos) return null
 
@@ -359,6 +419,8 @@ export function RealtimeAlerts({ asambleaId }: { asambleaId: string }) {
           <span className="mt-0.5 inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
             {a.icono === "incidencia" ? (
               <AlertOctagonIcon className="size-4" />
+            ) : a.icono === "remplazo" ? (
+              <UserRoundXIcon className="size-4" />
             ) : (
               <MessageCircleIcon className="size-4" />
             )}

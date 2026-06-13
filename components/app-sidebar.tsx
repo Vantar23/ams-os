@@ -20,6 +20,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar"
 import { MensajesBadge } from "@/components/mensajes-badge"
+import { RemplazosBadge } from "@/components/remplazos-badge"
 import { createClient } from "@/lib/supabase/client"
 
 const data = {
@@ -185,6 +186,7 @@ export function AppSidebar({
                       >
                         <span>{item.title}</span>
                         {item.url === "/mensajes" && <MensajesBadge />}
+                        {item.url === "/remplazos" && <RemplazosBadge />}
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
