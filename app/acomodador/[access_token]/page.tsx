@@ -13,6 +13,7 @@ import { CapitanCard } from "@/components/capitan-card"
 import { NavCard } from "@/components/nav-card"
 import { PersonalMensajesBadge } from "@/components/personal-mensajes-badge"
 import { RememberPersonal } from "@/components/remember-personal"
+import { TurnoEnCursoCard } from "@/components/turno-en-curso-card"
 import {
   momentoEnRecinto,
   slotLabelCorto,
@@ -96,6 +97,10 @@ export default async function Page({
             {a.area_nombre} · {slotLabelCorto(a.slot)}
           </span>
         ))}
+      </div>
+
+      <div className="mt-4">
+        <TurnoEnCursoCard />
       </div>
 
       {avisoReemplazo && (

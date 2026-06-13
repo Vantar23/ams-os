@@ -12,6 +12,7 @@ import {
 } from "lucide-react"
 
 import { NavCard } from "@/components/nav-card"
+import { TurnoEnCursoCard } from "@/components/turno-en-curso-card"
 import {
   DISPONIBILIDAD_SLOTS,
   momentoEnRecinto,
@@ -75,6 +76,10 @@ export default async function Page() {
             {area}
           </span>
         ))}
+      </div>
+
+      <div className="mt-4">
+        <TurnoEnCursoCard />
       </div>
 
       <nav className="mt-10 grid gap-3">
