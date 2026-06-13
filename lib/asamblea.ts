@@ -21,6 +21,8 @@ export type AsambleaFormValues = {
   primerosAuxiliosTelefono: string
   seguridadTelefono: string
   limpiezaTelefono: string
+  horaInicioManana: string
+  horaInicioTarde: string
 }
 
 export const INITIAL_ASAMBLEA: AsambleaFormValues = {
@@ -38,6 +40,8 @@ export const INITIAL_ASAMBLEA: AsambleaFormValues = {
   primerosAuxiliosTelefono: "",
   seguridadTelefono: "",
   limpiezaTelefono: "",
+  horaInicioManana: "",
+  horaInicioTarde: "",
 }
 
 export const EMPTY_ASAMBLEA: AsambleaFormValues = {
@@ -55,6 +59,8 @@ export const EMPTY_ASAMBLEA: AsambleaFormValues = {
   primerosAuxiliosTelefono: "",
   seguridadTelefono: "",
   limpiezaTelefono: "",
+  horaInicioManana: "",
+  horaInicioTarde: "",
 }
 
 const MESES = [
