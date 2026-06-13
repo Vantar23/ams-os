@@ -61,7 +61,11 @@ export function AjustesClient({ initial }: Props) {
 
   return (
     <form onSubmit={onSubmit} className="mt-10">
-      <AsambleaFormFields values={values} onChange={update} />
+      <AsambleaFormFields
+        values={values}
+        onChange={update}
+        showAvisosDepartamentos
+      />
 
       {error && <p className="mt-6 text-sm text-destructive">{error}</p>}
 

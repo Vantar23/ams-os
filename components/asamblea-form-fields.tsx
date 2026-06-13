@@ -3,10 +3,12 @@
 import * as React from "react"
 import { CalendarIcon } from "lucide-react"
 
+import { WhatsappIcon } from "@/components/whatsapp-icon"
 import { Button } from "@/components/ui/button"
 import { Calendar } from "@/components/ui/calendar"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { isValidPhone, normalizePhone } from "@/lib/phone"
 import {
   Popover,
   PopoverContent,
@@ -42,9 +44,19 @@ type Props = {
     key: K,
     value: AsambleaFormValues[K],
   ) => void
+  /**
+   * Muestra, junto a cada teléfono de departamento, un botón para avisarles
+   * por WhatsApp que recibirán comunicación durante la asamblea. Solo aplica
+   * a una asamblea ya creada (Ajustes), no al alta inicial.
+   */
+  showAvisosDepartamentos?: boolean
 }
 
-export function AsambleaFormFields({ values, onChange }: Props) {
+export function AsambleaFormFields({
+  values,
+  onChange,
+  showAvisosDepartamentos = false,
+}: Props) {
   React.useEffect(() => {
     const range = parseFechas(values.fechas ?? "")
     if (!range) return
@@ -166,6 +178,13 @@ export function AsambleaFormFields({ values, onChange }: Props) {
                 onChange("primerosAuxiliosTelefono", e.target.value)
               }
             />
+            {showAvisosDepartamentos && (
+              <AvisoDepartamento
+                values={values}
+                telefono={values.primerosAuxiliosTelefono}
+                departamento="primerosAuxilios"
+              />
+            )}
           </Field>
           <Field
             label="Seguridad"
@@ -180,6 +199,13 @@ export function AsambleaFormFields({ values, onChange }: Props) {
               value={values.seguridadTelefono ?? ""}
               onChange={(e) => onChange("seguridadTelefono", e.target.value)}
             />
+            {showAvisosDepartamentos && (
+              <AvisoDepartamento
+                values={values}
+                telefono={values.seguridadTelefono}
+                departamento="seguridad"
+              />
+            )}
           </Field>
           <Field
             label="Limpieza"
@@ -194,6 +220,13 @@ export function AsambleaFormFields({ values, onChange }: Props) {
               value={values.limpiezaTelefono ?? ""}
               onChange={(e) => onChange("limpiezaTelefono", e.target.value)}
             />
+            {showAvisosDepartamentos && (
+              <AvisoDepartamento
+                values={values}
+                telefono={values.limpiezaTelefono}
+                departamento="limpieza"
+              />
+            )}
           </Field>
         </div>
       </section>
@@ -341,6 +374,68 @@ function FechasPicker({
         onChange={() => {}}
       />
     </div>
+  )
+}
+
+type DepartamentoKey = "primerosAuxilios" | "seguridad" | "limpieza"
+
+const DEPARTAMENTO_PROPOSITO: Record<DepartamentoKey, string> = {
+  primerosAuxilios: "para atender cualquier emergencia médica",
+  seguridad: "para reportar incidentes de seguridad",
+  limpieza: "para solicitar atención o limpieza de áreas",
+}
+
+/** Mensaje del sistema que avisa al departamento que recibirá comunicación. */
+function avisoMensaje(
+  values: AsambleaFormValues,
+  departamento: DepartamentoKey,
+): string {
+  const edicion = (values.edicion ?? "").trim()
+  const titulo = (values.titulo ?? "").trim()
+  const fechas = (values.fechas ?? "").trim()
+  const proposito = DEPARTAMENTO_PROPOSITO[departamento]
+
+  const saludo = edicion
+    ? `Hola, les saluda la organización de la ${edicion}${
+        titulo ? ` ("${titulo}")` : ""
+      }.`
+    : "Hola, les saluda la organización de la asamblea."
+  const cuerpo = `Durante la asamblea${
+    fechas ? ` (${fechas})` : ""
+  } les estaremos contactando por este medio ${proposito}. Por favor mantengan este número atento a los mensajes del equipo. ¡Gracias por su apoyo!`
+
+  return `${saludo}\n\n${cuerpo}`
+}
+
+/**
+ * Botón que abre WhatsApp con un mensaje del sistema ya escrito para avisar al
+ * departamento que recibirá comunicación durante la asamblea. Solo aparece si
+ * el teléfono capturado es válido (10 dígitos).
+ */
+function AvisoDepartamento({
+  values,
+  telefono,
+  departamento,
+}: {
+  values: AsambleaFormValues
+  telefono: string | null | undefined
+  departamento: DepartamentoKey
+}) {
+  const digits = telefono ? normalizePhone(telefono) : ""
+  if (!isValidPhone(digits)) return null
+  const url = `https://wa.me/52${digits}?text=${encodeURIComponent(
+    avisoMensaje(values, departamento),
+  )}`
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noreferrer"
+      className="inline-flex w-fit items-center gap-2 rounded-lg border border-emerald-600/40 bg-emerald-600/10 px-3 py-1.5 text-xs font-medium text-emerald-700 transition-colors hover:bg-emerald-600/15 dark:text-emerald-400"
+    >
+      <WhatsappIcon className="size-3.5" />
+      Avisar que habrá comunicación
+    </a>
   )
 }
 
