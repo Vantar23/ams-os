@@ -17,6 +17,38 @@ export type MensajeCapitan = {
   created_at: string
 }
 
+export type AvisoPendiente = {
+  id: string
+  tipo: "aviso" | "pregunta"
+  titulo: string
+  cuerpo: string | null
+  opcion_a: string | null
+  opcion_b: string | null
+  created_at: string
+}
+
+/** Avisos/preguntas activos que el capitán aún no ha visto/respondido. */
+export async function avisosPendientesCapitan(): Promise<AvisoPendiente[]> {
+  const supabase = await createClient()
+  const { data, error } = await supabase.rpc("avisos_pendientes_capitan")
+  if (error) return []
+  return (data ?? []) as AvisoPendiente[]
+}
+
+/** Marca un aviso como visto, o registra la opción A/B de una pregunta. */
+export async function responderAvisoCapitan(
+  avisoId: string,
+  opcion?: "a" | "b",
+): Promise<{ ok: boolean; error: string | null }> {
+  const supabase = await createClient()
+  const { error } = await supabase.rpc("avisos_responder_capitan", {
+    p_aviso_id: avisoId,
+    p_opcion: opcion ?? null,
+  })
+  if (error) return { ok: false, error: error.message }
+  return { ok: true, error: null }
+}
+
 export async function listarMensajesCapitan(): Promise<{
   ok: boolean
   error: string | null

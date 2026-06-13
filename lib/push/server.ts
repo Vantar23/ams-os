@@ -20,6 +20,9 @@ type Suscripcion = {
   endpoint: string
   p256dh: string
   auth: string
+  // URL propia de este destinatario (p. ej. el portal con su token). Si no se
+  // indica, se usa la del payload.
+  url?: string
 }
 
 export async function obtenerVapidPublicKey(): Promise<string | null> {
@@ -105,19 +108,57 @@ export async function pushParaAdmins(
   await enviar((data ?? []) as Suscripcion[], payload)
 }
 
-/** Push a todos los dispositivos de un tipo de personal del portal. */
-export async function pushParaTipoPortal(
+/**
+ * Push de un aviso a todo el personal de un tipo. Cada dispositivo recibe la
+ * URL de su propio portal (con su token), porque el service worker navega la
+ * ventana abierta a esa URL al tocar la notificación.
+ */
+export async function pushAvisoPersonal(
   asambleaId: string,
   tipo: "acomodador" | "hermana",
   payload: PushPayload,
 ): Promise<void> {
   const admin = createAdminClient()
-  const { data } = await admin
+  const { data: subs } = await admin
     .from("push_suscripciones")
-    .select("id, endpoint, p256dh, auth")
+    .select("id, endpoint, p256dh, auth, persona_id")
     .eq("asamblea_id", asambleaId)
     .eq("destinatario", tipo)
-  await enviar((data ?? []) as Suscripcion[], payload)
+  if (!subs || subs.length === 0) return
+
+  const base = tipo === "acomodador" ? "/acomodador" : "/hermana-apoyo"
+  const tabla = tipo === "acomodador" ? "acomodadores" : "hermanas_apoyo"
+  const personaIds = Array.from(
+    new Set(
+      subs
+        .map((s) => s.persona_id as string | null)
+        .filter((id): id is string => Boolean(id)),
+    ),
+  )
+  const tokenPorPersona = new Map<string, string>()
+  if (personaIds.length > 0) {
+    const { data: personas } = await admin
+      .from(tabla)
+      .select("id, access_token")
+      .in("id", personaIds)
+    for (const p of personas ?? []) {
+      tokenPorPersona.set(p.id as string, p.access_token as string)
+    }
+  }
+
+  const conUrl = subs.map((s) => {
+    const token = s.persona_id
+      ? tokenPorPersona.get(s.persona_id as string)
+      : undefined
+    return {
+      id: s.id,
+      endpoint: s.endpoint,
+      p256dh: s.p256dh,
+      auth: s.auth,
+      url: token ? `${base}/${token}` : payload.url,
+    } as Suscripcion
+  })
+  await enviar(conUrl, payload)
 }
 
 /**
@@ -174,10 +215,13 @@ async function enviar(
   if (!config) return
   webpush.setVapidDetails(VAPID_SUBJECT, config.publicKey, config.privateKey)
 
-  const cuerpo = JSON.stringify(payload)
   const caducadas: string[] = []
   await Promise.all(
     subs.map(async (s) => {
+      // Cada destinatario puede llevar su propia URL (su portal con token).
+      const cuerpo = JSON.stringify(
+        s.url ? { ...payload, url: s.url } : payload,
+      )
       try {
         await webpush.sendNotification(
           {

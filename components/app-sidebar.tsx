@@ -33,6 +33,7 @@ const data = {
         { title: "Programa", url: "#" },
         { title: "Sesiones", url: "#" },
         { title: "Pautas", url: "/pautas" },
+        { title: "Avisos", url: "/avisos" },
       ],
     },
     {

@@ -1,3 +1,4 @@
+import { AvisosOverlay } from "@/components/avisos-overlay"
 import { PortalNotificaciones } from "@/components/portal-notificaciones"
 
 export default async function Layout({
@@ -12,6 +13,7 @@ export default async function Layout({
     <>
       {children}
       <PortalNotificaciones tipo="hermana" accessToken={access_token} />
+      <AvisosOverlay origen="personal" tipo="hermana" accessToken={access_token} />
     </>
   )
 }

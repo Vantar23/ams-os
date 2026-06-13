@@ -99,6 +99,56 @@ export async function enviarMensajePersonal(
   return { ok: true, error: null }
 }
 
+export type AvisoPendiente = {
+  id: string
+  tipo: "aviso" | "pregunta"
+  titulo: string
+  cuerpo: string | null
+  opcion_a: string | null
+  opcion_b: string | null
+  created_at: string
+}
+
+/** Avisos/preguntas activos que esta persona aún no ha visto/respondido. */
+export async function avisosPendientesPersonal(
+  tipo: PersonalTipo,
+  accessToken: string,
+): Promise<AvisoPendiente[]> {
+  const deviceKeyHash = await deviceHash(tipo)
+  if (!deviceKeyHash) return []
+
+  const supabase = await createClient()
+  const { data, error } = await supabase.rpc("avisos_pendientes_personal", {
+    p_tipo: tipo,
+    p_access_token: accessToken,
+    p_device_key_hash: deviceKeyHash,
+  })
+  if (error) return []
+  return (data ?? []) as AvisoPendiente[]
+}
+
+/** Marca un aviso como visto, o registra la opción A/B de una pregunta. */
+export async function responderAvisoPersonal(
+  tipo: PersonalTipo,
+  accessToken: string,
+  avisoId: string,
+  opcion?: "a" | "b",
+): Promise<{ ok: boolean; error: string | null }> {
+  const deviceKeyHash = await deviceHash(tipo)
+  if (!deviceKeyHash) return { ok: false, error: "no_cookie" }
+
+  const supabase = await createClient()
+  const { error } = await supabase.rpc("avisos_responder_personal", {
+    p_tipo: tipo,
+    p_access_token: accessToken,
+    p_device_key_hash: deviceKeyHash,
+    p_aviso_id: avisoId,
+    p_opcion: opcion ?? null,
+  })
+  if (error) return { ok: false, error: error.message }
+  return { ok: true, error: null }
+}
+
 export async function obtenerVapidKeyPublica(): Promise<string | null> {
   return obtenerVapidPublicKey()
 }

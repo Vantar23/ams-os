@@ -1,5 +1,6 @@
 import { AppSidebar } from "@/components/app-sidebar"
 import { AsambleaProvider, type AsambleaInfo } from "@/components/asamblea-context"
+import { AvisosOverlay } from "@/components/avisos-overlay"
 import { RealtimeAlerts } from "@/components/realtime-alerts"
 import { RoleProvider, type Role } from "@/components/role-context"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
@@ -56,6 +57,10 @@ export default async function AppLayout({
             <AppSidebar role={role ?? undefined} />
             <SidebarInset>{children}</SidebarInset>
             {asambleaId && <RealtimeAlerts asambleaId={asambleaId} />}
+            {/* Los capitanes también ven los avisos cuando navegan el panel. */}
+            {asambleaId && role === "capitan" && (
+              <AvisosOverlay origen="capitan" asambleaId={asambleaId} />
+            )}
           </SidebarProvider>
         </AsambleaProvider>
       </RoleProvider>
