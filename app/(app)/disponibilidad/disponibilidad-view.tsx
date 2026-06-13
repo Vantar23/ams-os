@@ -14,8 +14,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import {
+  BuscadorPersonal,
+  coincideBusqueda,
+} from "@/components/buscador-personal"
 import { Checkbox } from "@/components/ui/checkbox"
 import {
+  currentDiaSesion,
   DISPONIBILIDAD_DIAS,
   DISPONIBILIDAD_SESIONES,
   type DisponibilidadSlot,
@@ -51,6 +56,9 @@ type Acomodador = {
 
 type Hermana = Acomodador
 
+type Area = { id: string; piso: string; nombre: string }
+type Asignacion = { acomodador_id: string; area_id: string; slot: string }
+
 const ALL_SLOTS: { slot: DisponibilidadSlot; dia: string; sesion: string }[] =
   DISPONIBILIDAD_DIAS.flatMap((d) =>
     DISPONIBILIDAD_SESIONES.map((s) => ({
@@ -82,11 +90,15 @@ export function DisponibilidadView({
   capitanes,
   acomodadores,
   hermanas,
+  areas,
+  asignaciones,
 }: {
   asamblea: Asamblea
   capitanes: Capitan[]
   acomodadores: Acomodador[]
   hermanas: Hermana[]
+  areas: Area[]
+  asignaciones: Asignacion[]
 }) {
   const router = useRouter()
   const [origin, setOrigin] = React.useState("")
@@ -104,6 +116,8 @@ export function DisponibilidadView({
     "todos",
   )
   const [filtro, setFiltro] = React.useState<Filtro>("todos")
+  const [busqueda, setBusqueda] = React.useState("")
+  const [areaFiltro, setAreaFiltro] = React.useState<string>("todas")
   const showCapitanes = filtro === "todos" || filtro === "capitanes"
   const showAcomodadores = filtro === "todos" || filtro === "acomodadores"
   const showHermanas = filtro === "todos" || filtro === "hermanas"
@@ -177,6 +191,101 @@ export function DisponibilidadView({
     return m
   }, [capitanes])
 
+  // Puesto asignado por acomodador y turno: clave `${acomodadorId}:${slot}`.
+  const areaLabelById = React.useMemo(() => {
+    const m = new Map<string, string>()
+    areas.forEach((a) => m.set(a.id, `${a.piso} · ${a.nombre}`))
+    return m
+  }, [areas])
+  const puestoPorAcoSlot = React.useMemo(() => {
+    const m = new Map<string, string>()
+    asignaciones.forEach((a) => {
+      const label = areaLabelById.get(a.area_id)
+      if (label) m.set(`${a.acomodador_id}:${a.slot}`, label)
+    })
+    return m
+  }, [asignaciones, areaLabelById])
+  // Turno actual (según fecha/hora del cliente) para el puesto en vista "Todos".
+  const [currentSlot, setCurrentSlot] = React.useState<string | null>(null)
+  React.useEffect(() => {
+    const { dia, sesion } = currentDiaSesion()
+    setCurrentSlot(`${dia}-${sesion}`)
+  }, [])
+  const puestoActual = (acoId: string) =>
+    currentSlot ? puestoPorAcoSlot.get(`${acoId}:${currentSlot}`) : undefined
+
+  // Filtro por área. Áreas ordenadas para las tarjetas.
+  const areasOrdenadas = React.useMemo(
+    () =>
+      [...areas].sort(
+        (a, b) => a.piso.localeCompare(b.piso) || a.nombre.localeCompare(b.nombre),
+      ),
+    [areas],
+  )
+  const areaObjById = React.useMemo(() => {
+    const m = new Map<string, Area>()
+    areas.forEach((a) => m.set(a.id, a))
+    return m
+  }, [areas])
+  // area_id asignado por acomodador y turno (para filtrar por el puesto real).
+  const areaIdPorAcoSlot = React.useMemo(() => {
+    const m = new Map<string, string>()
+    asignaciones.forEach((a) =>
+      m.set(`${a.acomodador_id}:${a.slot}`, a.area_id),
+    )
+    return m
+  }, [asignaciones])
+  // Turno relevante para el puesto: el seleccionado, o el actual en "Todos".
+  const slotRelevante = selected === "todos" ? currentSlot : selected
+  const areaSel = areaFiltro === "todas" ? null : areaObjById.get(areaFiltro)
+  // Las áreas de los capitanes se guardan como "Piso — Nombre".
+  const areaSelCapLabel = areaSel ? `${areaSel.piso} — ${areaSel.nombre}` : null
+  const matchAreaCapitan = (c: Capitan) =>
+    areaFiltro === "todas" ||
+    (areaSelCapLabel != null && c.area.includes(areaSelCapLabel))
+  const matchAreaAco = (a: Acomodador) => {
+    if (areaFiltro === "todas") return true
+    if (
+      slotRelevante &&
+      areaIdPorAcoSlot.get(`${a.id}:${slotRelevante}`) === areaFiltro
+    )
+      return true
+    const cap = a.capitan_id ? capitanById.get(a.capitan_id) : null
+    return !!(cap && areaSelCapLabel != null && cap.area.includes(areaSelCapLabel))
+  }
+  const matchAreaHer = (h: Hermana) => {
+    if (areaFiltro === "todas") return true
+    const cap = h.capitan_id ? capitanById.get(h.capitan_id) : null
+    return !!(cap && areaSelCapLabel != null && cap.area.includes(areaSelCapLabel))
+  }
+
+  // Búsqueda por nombre, número o área (la propia del capitán, o la de su
+  // capitán para acomodadores/hermanas).
+  const matchCapitan = (c: Capitan) =>
+    coincideBusqueda(busqueda, c.nombre, c.apellido, c.telefono, c.area.join(" "))
+  const matchAcoHer = (p: Acomodador) => {
+    const cap = p.capitan_id ? capitanById.get(p.capitan_id) : null
+    return coincideBusqueda(
+      busqueda,
+      p.nombre,
+      p.apellido,
+      p.telefono,
+      p.congregacion,
+      cap ? `${cap.nombre} ${cap.apellido}` : null,
+      cap ? cap.area.join(" ") : null,
+    )
+  }
+  const fCapitanes = capitanes.filter(matchCapitan).filter(matchAreaCapitan)
+  const fAcomodadores = acomodadores.filter(matchAcoHer).filter(matchAreaAco)
+  const fHermanas = hermanas.filter(matchAcoHer).filter(matchAreaHer)
+  const fSelCapitanes = selectedCapitanes
+    .filter(matchCapitan)
+    .filter(matchAreaCapitan)
+  const fSelAcomodadores = selectedAcomodadores
+    .filter(matchAcoHer)
+    .filter(matchAreaAco)
+  const fSelHermanas = selectedHermanas.filter(matchAcoHer).filter(matchAreaHer)
+
   const selectedLabel = ALL_SLOTS.find((s) => s.slot === selected)
   const totalSelected =
     selectedCapitanes.length +
@@ -187,17 +296,10 @@ export function DisponibilidadView({
 
   return (
     <div className="flex flex-1 flex-col gap-4 p-3 sm:p-4">
-      <div>
-        <h2 className="text-lg font-semibold">Disponibilidad</h2>
-        <p className="text-sm text-muted-foreground">
-          Asamblea N° {asamblea.numero} — {asamblea.edicion}
-        </p>
-      </div>
-
       {/* Mobile slot picker — horizontal scrolling chips */}
       {!isDesktopSm && (
         <nav className="-mx-3">
-          <div className="flex gap-2 overflow-x-auto px-3 pb-1">
+          <div className="no-scrollbar flex gap-2 overflow-x-auto px-3 pb-1">
             <SlotChip
               label="Todos"
               count={totalAll}
@@ -317,8 +419,8 @@ export function DisponibilidadView({
             </p>
           </div>
 
-          <div className="mt-4 flex flex-wrap items-center gap-2">
-            <div className="inline-flex flex-wrap rounded-full border bg-background p-0.5 text-xs">
+          <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center">
+            <div className="inline-flex flex-wrap self-start rounded-full border bg-background p-0.5 text-xs sm:self-auto">
               {(
                 [
                   { key: "todos", label: "Todos" },
@@ -342,12 +444,38 @@ export function DisponibilidadView({
                 </button>
               ))}
             </div>
+            <div className="flex-1">
+              <BuscadorPersonal
+                value={busqueda}
+                onChange={setBusqueda}
+                placeholder="Buscar por nombre, número o área…"
+              />
+            </div>
             {selected !== "todos" && origin && (
               <CopyAsistenciaLinkButton
                 url={`${origin}/asistencia/${asamblea.id}/${selected}`}
               />
             )}
           </div>
+
+          {areasOrdenadas.length > 0 && (
+            <div className="no-scrollbar -mx-4 mt-3 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-x-visible sm:px-0 sm:pb-0">
+              <AreaFiltroChip
+                label="Todas"
+                active={areaFiltro === "todas"}
+                onClick={() => setAreaFiltro("todas")}
+              />
+              {areasOrdenadas.map((a) => (
+                <AreaFiltroChip
+                  key={a.id}
+                  label={a.nombre}
+                  piso={a.piso}
+                  active={areaFiltro === a.id}
+                  onClick={() => setAreaFiltro(a.id)}
+                />
+              ))}
+            </div>
+          )}
 
           {selected === "todos" ? (
             <div
@@ -357,9 +485,9 @@ export function DisponibilidadView({
                 <Group
                   title="Capitanes"
                   empty="Ningún capitán registrado."
-                  count={capitanes.length}
+                  count={fCapitanes.length}
                 >
-                  {capitanes.map((c) => (
+                  {fCapitanes.map((c) => (
                     <MatrixRow
                       key={c.id}
                       title={`${c.nombre} ${c.apellido}`}
@@ -376,9 +504,9 @@ export function DisponibilidadView({
                 <Group
                   title="Acomodadores"
                   empty="Ningún acomodador registrado."
-                  count={acomodadores.length}
+                  count={fAcomodadores.length}
                 >
-                  {acomodadores.map((a) => {
+                  {fAcomodadores.map((a) => {
                     const capitan = a.capitan_id
                       ? capitanById.get(a.capitan_id)
                       : null
@@ -392,6 +520,7 @@ export function DisponibilidadView({
                             : a.congregacion
                         }
                         telefono={a.telefono}
+                        puesto={puestoActual(a.id)}
                         disponibilidad={a.disponibilidad}
                         confirmadas={a.asistencia_confirmada}
                       />
@@ -404,9 +533,9 @@ export function DisponibilidadView({
                 <Group
                   title="Hermanas de Apoyo"
                   empty="Ninguna hermana registrada."
-                  count={hermanas.length}
+                  count={fHermanas.length}
                 >
-                  {hermanas.map((h) => {
+                  {fHermanas.map((h) => {
                     const capitan = h.capitan_id
                       ? capitanById.get(h.capitan_id)
                       : null
@@ -436,10 +565,10 @@ export function DisponibilidadView({
                 <Group
                   title="Capitanes"
                   empty="Ningún capitán disponible."
-                  count={selectedCapitanes.length}
+                  count={fSelCapitanes.length}
                   rightLabel="Confirmación de asistencia"
                 >
-                  {selectedCapitanes.map((c) => {
+                  {fSelCapitanes.map((c) => {
                     const confirmed = isConfirmed(
                       "capitan",
                       c.id,
@@ -466,10 +595,10 @@ export function DisponibilidadView({
                 <Group
                   title="Acomodadores"
                   empty="Ningún acomodador disponible."
-                  count={selectedAcomodadores.length}
+                  count={fSelAcomodadores.length}
                   rightLabel="Confirmación de asistencia"
                 >
-                  {selectedAcomodadores.map((a) => {
+                  {fSelAcomodadores.map((a) => {
                     const capitan = a.capitan_id
                       ? capitanById.get(a.capitan_id)
                       : null
@@ -491,6 +620,7 @@ export function DisponibilidadView({
                             : a.congregacion
                         }
                         telefono={a.telefono}
+                        puesto={puestoPorAcoSlot.get(`${a.id}:${selected}`)}
                         whatsappUrl={buildDisponibilidadShareUrl(
                           origin,
                           "/acomodador/",
@@ -513,10 +643,10 @@ export function DisponibilidadView({
                 <Group
                   title="Hermanas de Apoyo"
                   empty="Ninguna hermana disponible."
-                  count={selectedHermanas.length}
+                  count={fSelHermanas.length}
                   rightLabel="Confirmación de asistencia"
                 >
-                  {selectedHermanas.map((h) => {
+                  {fSelHermanas.map((h) => {
                     const capitan = h.capitan_id
                       ? capitanById.get(h.capitan_id)
                       : null
@@ -591,6 +721,42 @@ function CopyAsistenciaLinkButton({ url }: { url: string }) {
   )
 }
 
+function AreaFiltroChip({
+  label,
+  piso,
+  active,
+  onClick,
+}: {
+  label: string
+  piso?: string
+  active: boolean
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 text-xs transition-colors",
+        active
+          ? "border-primary bg-primary text-primary-foreground"
+          : "border-border bg-background hover:bg-muted",
+      )}
+    >
+      <span className="font-medium">{label}</span>
+      {piso && (
+        <span
+          className={cn(
+            active ? "text-primary-foreground/70" : "text-muted-foreground",
+          )}
+        >
+          {piso}
+        </span>
+      )}
+    </button>
+  )
+}
+
 function SlotChip({
   label,
   count,
@@ -632,6 +798,7 @@ function PersonRow({
   title,
   subtitle,
   telefono,
+  puesto,
   whatsappUrl,
   confirmed,
   selfConfirmed,
@@ -640,6 +807,7 @@ function PersonRow({
   title: string
   subtitle: string
   telefono: string
+  puesto?: string
   whatsappUrl?: string
   confirmed: boolean
   selfConfirmed?: boolean
@@ -655,25 +823,25 @@ function PersonRow({
           confirmed && "bg-primary/5",
         )}
       >
-        <a
-          href={`tel:${telefono.replace(/\D/g, "")}`}
-          className="flex min-w-0 flex-1 flex-col rounded-md hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
+        <div className="flex min-w-0 flex-1 flex-col">
           <span className="truncate text-sm font-medium text-foreground">
             {title}
           </span>
           <span className="truncate text-xs text-muted-foreground">
             {subtitle}
           </span>
-          <span className="truncate text-xs text-muted-foreground">
-            {telefono}
-          </span>
+          <TelefonoButton telefono={telefono} />
+          {puesto && (
+            <span className="truncate text-xs text-primary">
+              Puesto: {puesto}
+            </span>
+          )}
           {selfConfirmed && (
             <span className="mt-1 inline-flex w-fit items-center rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 text-[10px] uppercase tracking-[0.1em] text-primary">
               Confirmado por el acomodador
             </span>
           )}
-        </a>
+        </div>
         {whatsappUrl && (
           <a
             href={whatsappUrl}
@@ -730,16 +898,70 @@ function PersonRow({
   )
 }
 
+/** Número que, al tocarlo, pregunta si marcar o abrir WhatsApp. */
+function TelefonoButton({ telefono }: { telefono: string }) {
+  const [open, setOpen] = React.useState(false)
+  const tel = telefono.replace(/\D/g, "")
+  return (
+    <>
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation()
+          e.preventDefault()
+          setOpen(true)
+        }}
+        className="w-fit max-w-full truncate text-left text-xs text-muted-foreground hover:text-foreground hover:underline"
+      >
+        {telefono}
+      </button>
+      <AlertDialog open={open} onOpenChange={setOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{telefono}</AlertDialogTitle>
+            <AlertDialogDescription>
+              ¿Cómo quieres contactar a este número?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2">
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() =>
+                window.open(
+                  `https://wa.me/${tel}`,
+                  "_blank",
+                  "noopener,noreferrer",
+                )
+              }
+            >
+              WhatsApp
+            </AlertDialogAction>
+            <AlertDialogAction
+              onClick={() => {
+                window.location.href = `tel:${tel}`
+              }}
+            >
+              Marcar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
+  )
+}
+
 function MatrixRow({
   title,
   subtitle,
   telefono,
+  puesto,
   disponibilidad,
   confirmadas,
 }: {
   title: string
   subtitle: string
   telefono: string
+  puesto?: string
   disponibilidad: string[]
   confirmadas: string[]
 }) {
@@ -762,12 +984,12 @@ function MatrixRow({
           <span className="truncate text-xs text-muted-foreground">
             {subtitle}
           </span>
-          <a
-            href={`tel:${telefono.replace(/\D/g, "")}`}
-            className="truncate text-xs text-muted-foreground hover:text-foreground hover:underline"
-          >
-            {telefono}
-          </a>
+          <TelefonoButton telefono={telefono} />
+          {puesto && (
+            <span className="truncate text-xs text-primary">
+              Puesto: {puesto}
+            </span>
+          )}
         </div>
         {visible.length === 0 ? (
           <span className="text-xs text-muted-foreground">

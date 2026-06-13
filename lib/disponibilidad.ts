@@ -13,6 +13,21 @@ export type DisponibilidadDia = (typeof DISPONIBILIDAD_DIAS)[number]["key"]
 export type DisponibilidadSesion = (typeof DISPONIBILIDAD_SESIONES)[number]["key"]
 export type DisponibilidadSlot = `${DisponibilidadDia}-${DisponibilidadSesion}`
 
+/**
+ * Día y turno sugeridos según la fecha/hora actuales. Sáb→sabado, Dom→domingo,
+ * cualquier otro día→viernes (inicio de la asamblea). Antes de las 12 h→mañana.
+ */
+export function currentDiaSesion(now: Date = new Date()): {
+  dia: DisponibilidadDia
+  sesion: DisponibilidadSesion
+} {
+  const day = now.getDay() // 0=Dom, 5=Vie, 6=Sáb
+  const dia: DisponibilidadDia =
+    day === 6 ? "sabado" : day === 0 ? "domingo" : "viernes"
+  const sesion: DisponibilidadSesion = now.getHours() < 12 ? "manana" : "tarde"
+  return { dia, sesion }
+}
+
 export const DISPONIBILIDAD_SLOTS: readonly DisponibilidadSlot[] =
   DISPONIBILIDAD_DIAS.flatMap((d) =>
     DISPONIBILIDAD_SESIONES.map((s) => `${d.key}-${s.key}` as DisponibilidadSlot),

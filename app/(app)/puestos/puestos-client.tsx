@@ -2,7 +2,13 @@
 
 import * as React from "react"
 import { useRouter } from "next/navigation"
-import { MinusIcon, PlusIcon, UserPlusIcon } from "lucide-react"
+import {
+  ArrowLeftIcon,
+  ArrowRightIcon,
+  MinusIcon,
+  PlusIcon,
+  UserPlusIcon,
+} from "lucide-react"
 
 import { agregarAcomodadorManual } from "@/app/(app)/acomodadores/actions"
 import { agregarHermanaManual } from "@/app/(app)/hermanas-de-apoyo/actions"
@@ -18,13 +24,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import {
+  currentDiaSesion,
   DISPONIBILIDAD_DIAS,
   DISPONIBILIDAD_SESIONES,
   type DisponibilidadDia,
@@ -148,6 +148,13 @@ export function PuestosClient({
   const [rol, setRol] = React.useState<Rol>("acomodadores")
   const [dia, setDia] = React.useState<DisponibilidadDia>("viernes")
   const [sesion, setSesion] = React.useState<DisponibilidadSesion>("manana")
+  // Preselecciona día y turno según la fecha/hora del cliente (al montar, para
+  // no provocar mismatch de hidratación si el servidor está en otra zona).
+  React.useEffect(() => {
+    const { dia, sesion } = currentDiaSesion()
+    setDia(dia)
+    setSesion(sesion)
+  }, [])
   const [areaId, setAreaId] = React.useState<string>(areas[0]?.id ?? "")
   const [state, setState] = React.useState<LocalState>({ overrides: {} })
   const [quickAddOpen, setQuickAddOpen] = React.useState(false)
@@ -155,6 +162,8 @@ export function PuestosClient({
   // En móvil las listas no caben lado a lado; esta pestaña elige cuál se ve.
   const [vista, setVista] = React.useState<"sin" | "asignados">("sin")
   const isDesktop = useMediaQuery("(min-width: 768px)")
+  // Wizard de 3 pasos solo en móvil: 1) día/turno/rol 2) asignar 3) faltantes.
+  const [paso, setPaso] = React.useState<1 | 2 | 3>(1)
   const searchNorm = stripAccents(search.trim().toLowerCase())
   function matchesSearch(p: Persona): boolean {
     if (!searchNorm) return true
@@ -166,6 +175,10 @@ export function PuestosClient({
 
   const slot = `${dia}-${sesion}` as DisponibilidadSlot
   const area = areas.find((a) => a.id === areaId) ?? null
+  const diaLabel = DISPONIBILIDAD_DIAS.find((d) => d.key === dia)?.label ?? ""
+  const sesionLabel =
+    DISPONIBILIDAD_SESIONES.find((s) => s.key === sesion)?.label ?? ""
+  const rolLabel = rol === "hermanas" ? "Hermanas de apoyo" : "Acomodadores"
 
   const cfg: RolConfig = React.useMemo(() => {
     if (rol === "hermanas") {
@@ -368,15 +381,81 @@ export function PuestosClient({
     </div>
   )
 
+  // Chips de áreas (con su nivel y faltante). "scroll" = fila deslizable
+  // compacta (selector del paso 2); "wrap" = envuelven y llenan la pantalla
+  // (faltantes en móvil) y se acomodan en varias líneas en escritorio.
+  function areaChips(variant: "scroll" | "wrap", onPick?: () => void) {
+    const items = areaShortfalls.map(
+      ({ area: a, asignados, necesarios, faltan }) => {
+        const active = a.id === areaId
+        const short = faltan > 0
+        const complete = !short && necesarios > 0
+        return (
+          <button
+            key={a.id}
+            type="button"
+            onClick={() => {
+              setAreaId(a.id)
+              onPick?.()
+            }}
+            className={cn(
+              "flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full border px-3 py-1.5 text-xs transition-colors",
+              active
+                ? "border-primary bg-primary/10 text-foreground"
+                : "border-border bg-background hover:bg-muted",
+              short &&
+                !active &&
+                "border-destructive/40 bg-destructive/5 text-destructive",
+              short && active && "border-destructive",
+              complete && !active && "border-primary/50 bg-primary/10 text-primary",
+              complete && active && "border-primary",
+            )}
+          >
+            <span className="font-medium">{a.nombre}</span>
+            <span className="text-muted-foreground">{a.piso}</span>
+            <span
+              className={cn(
+                "tabular-nums",
+                short
+                  ? "text-destructive"
+                  : complete
+                    ? "text-primary"
+                    : "text-muted-foreground",
+              )}
+            >
+              {asignados}/{necesarios}
+            </span>
+            {short && (
+              <span className="rounded-full bg-destructive px-1.5 py-0.5 text-[10px] font-medium text-destructive-foreground">
+                -{faltan}
+              </span>
+            )}
+            {complete && (
+              <span className="rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-medium text-primary-foreground">
+                OK
+              </span>
+            )}
+          </button>
+        )
+      },
+    )
+    return (
+      <div
+        className={cn(
+          "mt-3 flex gap-2",
+          variant === "scroll"
+            ? "-mx-4 overflow-x-auto px-4 pb-1 sm:mx-0 sm:px-0 sm:pb-0"
+            : "flex-wrap",
+        )}
+      >
+        {items}
+      </div>
+    )
+  }
+
   if (areas.length === 0) {
     return (
       <div className="flex flex-1 flex-col gap-4 p-4">
-        <div>
-          <h2 className="text-lg font-semibold">Puestos</h2>
-          <p className="text-sm text-muted-foreground">
-            Asamblea N° {asamblea.numero} — {asamblea.edicion}
-          </p>
-        </div>
         <div className="rounded-xl border p-6 text-center text-sm text-muted-foreground">
           Aún no hay áreas. Agrega un área primero para poder asignar puestos.
         </div>
@@ -386,30 +465,25 @@ export function PuestosClient({
 
   return (
     <div className="flex flex-1 flex-col gap-4 p-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h2 className="text-lg font-semibold">Puestos</h2>
-          <p className="text-sm text-muted-foreground">
-            Asamblea N° {asamblea.numero} — {asamblea.edicion}
-          </p>
-        </div>
-        {rolSwitcher}
-      </div>
-
-      {/* Filters: día, turno, área */}
-      <div className="flex flex-wrap items-end gap-3 rounded-xl border bg-surface p-3 sm:gap-4 sm:p-4">
+      {/* Filters: día, turno, rol (paso 1 en móvil) */}
+      <div
+        className={cn(
+          "flex flex-wrap items-end gap-3 rounded-xl border bg-surface p-3 sm:gap-4 sm:p-4",
+          !isDesktop && paso !== 1 && "hidden",
+        )}
+      >
         <div className="grid gap-1.5">
           <Label className="text-xs uppercase tracking-[0.15em] text-muted-foreground">
             Día
           </Label>
-          <div className="inline-flex rounded-full border bg-background p-0.5 text-xs">
+          <div className="inline-flex rounded-full border bg-background p-0.5 text-sm">
             {DISPONIBILIDAD_DIAS.map((d) => (
               <button
                 key={d.key}
                 type="button"
                 onClick={() => setDia(d.key)}
                 className={cn(
-                  "rounded-full px-3 py-1 transition-colors",
+                  "rounded-full px-4 py-1.5 transition-colors",
                   dia === d.key
                     ? "bg-primary text-primary-foreground"
                     : "text-muted-foreground hover:text-foreground",
@@ -425,14 +499,14 @@ export function PuestosClient({
           <Label className="text-xs uppercase tracking-[0.15em] text-muted-foreground">
             Turno
           </Label>
-          <div className="inline-flex rounded-full border bg-background p-0.5 text-xs">
+          <div className="inline-flex rounded-full border bg-background p-0.5 text-sm">
             {DISPONIBILIDAD_SESIONES.map((s) => (
               <button
                 key={s.key}
                 type="button"
                 onClick={() => setSesion(s.key)}
                 className={cn(
-                  "rounded-full px-3 py-1 transition-colors",
+                  "rounded-full px-4 py-1.5 transition-colors",
                   sesion === s.key
                     ? "bg-primary text-primary-foreground"
                     : "text-muted-foreground hover:text-foreground",
@@ -444,30 +518,40 @@ export function PuestosClient({
           </div>
         </div>
 
-        <div className="grid min-w-[200px] flex-1 gap-1.5">
-          <Label
-            htmlFor="area"
-            className="text-xs uppercase tracking-[0.15em] text-muted-foreground"
-          >
-            Área
+        <div className="grid gap-1.5 sm:ml-auto">
+          <Label className="text-xs uppercase tracking-[0.15em] text-muted-foreground">
+            Rol
           </Label>
-          <Select value={areaId} onValueChange={setAreaId}>
-            <SelectTrigger id="area" className="w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {areas.map((a) => (
-                <SelectItem key={a.id} value={a.id}>
-                  {a.piso} · {a.nombre}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          {rolSwitcher}
         </div>
       </div>
 
-      {/* Faltantes resumen */}
-      <section className="rounded-xl border bg-surface p-4">
+      {!isDesktop && paso === 1 && (
+        <Button size="lg" className="w-full" onClick={() => setPaso(2)}>
+          Siguiente
+          <ArrowRightIcon />
+        </Button>
+      )}
+
+      {!isDesktop && paso === 3 && (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="-mb-2 self-start"
+          onClick={() => setPaso(2)}
+        >
+          <ArrowLeftIcon />
+          Atrás
+        </Button>
+      )}
+
+      {/* Faltantes resumen (paso 3 en móvil) */}
+      <section
+        className={cn(
+          "rounded-xl border bg-surface p-4",
+          !isDesktop && paso !== 3 && "hidden",
+        )}
+      >
         <div className="flex flex-wrap items-baseline justify-between gap-3">
           <h3 className="text-xs font-medium uppercase tracking-[0.15em] text-muted-foreground">
             Faltantes en este turno
@@ -485,64 +569,45 @@ export function PuestosClient({
               : `${totalFaltantes} ${totalFaltantes === 1 ? cfg.singular : cfg.plural} por asignar`}
           </p>
         </div>
-        {/* En móvil los chips van en una fila deslizable para no comerse la
-            pantalla; en escritorio se acomodan en varias líneas. */}
-        <div className="-mx-4 mt-3 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-x-visible sm:px-0 sm:pb-0">
-          {areaShortfalls.map(({ area: a, asignados, necesarios, faltan }) => {
-            const active = a.id === areaId
-            const short = faltan > 0
-            const complete = !short && necesarios > 0
-            return (
-              <button
-                key={a.id}
-                type="button"
-                onClick={() => setAreaId(a.id)}
-                className={cn(
-                  "flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full border px-3 py-1.5 text-xs transition-colors",
-                  active
-                    ? "border-primary bg-primary/10 text-foreground"
-                    : "border-border bg-background hover:bg-muted",
-                  short &&
-                    !active &&
-                    "border-destructive/40 bg-destructive/5 text-destructive",
-                  short && active && "border-destructive",
-                  complete &&
-                    !active &&
-                    "border-primary/50 bg-primary/10 text-primary",
-                  complete && active && "border-primary",
-                )}
-              >
-                <span className="font-medium">{a.nombre}</span>
-                <span
-                  className={cn(
-                    "tabular-nums",
-                    short
-                      ? "text-destructive"
-                      : complete
-                        ? "text-primary"
-                        : "text-muted-foreground",
-                  )}
-                >
-                  {asignados}/{necesarios}
-                </span>
-                {short && (
-                  <span className="rounded-full bg-destructive px-1.5 py-0.5 text-[10px] font-medium text-destructive-foreground">
-                    -{faltan}
-                  </span>
-                )}
-                {complete && (
-                  <span className="rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-medium text-primary-foreground">
-                    OK
-                  </span>
-                )}
-              </button>
-            )
-          })}
-        </div>
+        {/* Chips que envuelven y llenan la pantalla; tocar = ir a asignar. */}
+        {areaChips("wrap", () => {
+          if (!isDesktop) setPaso(2)
+        })}
       </section>
 
-      {area && (
+      {area && (isDesktop || paso === 2) && (
         <>
+          {!isDesktop && (
+            <>
+              <div className="flex items-center justify-between gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setPaso(1)}
+                >
+                  <ArrowLeftIcon />
+                  Atrás
+                </Button>
+                <span className="truncate text-xs text-muted-foreground">
+                  {diaLabel} · {sesionLabel} · {rolLabel}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPaso(3)}
+                >
+                  Faltantes
+                  <ArrowRightIcon />
+                </Button>
+              </div>
+              <div>
+                <Label className="text-xs uppercase tracking-[0.15em] text-muted-foreground">
+                  Área
+                </Label>
+                {areaChips("scroll")}
+              </div>
+            </>
+          )}
           {/* Pestañas solo en móvil: una lista a la vez, sin scroll eterno. */}
           <div className="grid grid-cols-2 rounded-full border bg-background p-0.5 text-sm md:hidden">
             <button
@@ -579,7 +644,7 @@ export function PuestosClient({
         >
           {/* Asignados */}
           {(isDesktop || vista === "asignados") && (
-          <section className="rounded-xl border bg-surface p-4">
+          <section className="min-w-0 rounded-xl border bg-surface p-4">
             <div className="mb-3 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 border-b pb-2">
               <h3 className="text-xs font-medium uppercase tracking-[0.15em] text-muted-foreground">
                 Asignados a {area.nombre} ({asignadosAEsta.length} /{" "}
@@ -634,7 +699,7 @@ export function PuestosClient({
 
           {/* Sin asignar (+ otra area) */}
           {(isDesktop || vista === "sin") && (
-          <section className="rounded-xl border bg-surface p-4">
+          <section className="min-w-0 rounded-xl border bg-surface p-4">
             <div className="mb-3 flex items-baseline justify-between gap-3 border-b pb-2">
               <h3 className="text-xs font-medium uppercase tracking-[0.15em] text-muted-foreground">
                 Sin asignar ({sinAsignar.length})
@@ -657,6 +722,7 @@ export function PuestosClient({
               className="mt-3"
               aria-label={`Buscar ${cfg.singular}`}
             />
+            <div className="-mx-1 mt-1 max-h-[calc(100dvh-24rem)] min-h-[10rem] overflow-y-auto px-1 md:max-h-[60vh]">
             {sinAsignar.length === 0 ? (
               <p className="py-4 text-sm text-muted-foreground">
                 {cfg.rol === "hermanas"
@@ -777,6 +843,7 @@ export function PuestosClient({
                 </ul>
               </details>
             )}
+            </div>
           </section>
           )}
         </div>

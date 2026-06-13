@@ -91,7 +91,6 @@ export function RecepcionClient({
     <div className="flex flex-1 flex-col gap-4 p-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-lg font-semibold">Recepción del local</h2>
           <p className="text-sm text-muted-foreground">
             {items.length} reporte{items.length === 1 ? "" : "s"}
             {pendientes > 0 && (
@@ -101,8 +100,7 @@ export function RecepcionClient({
                   {pendientes} pendiente{pendientes === 1 ? "" : "s"}
                 </span>
               </>
-            )}{" "}
-            · <span>Asamblea N° {asamblea.numero} — {asamblea.edicion}</span>
+            )}
           </p>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">

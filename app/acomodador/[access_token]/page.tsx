@@ -140,7 +140,7 @@ export default async function Page({
           href={`/acomodador/${access_token}/asistencia`}
           icon={<CalendarCheckIcon className="size-5" />}
           title="Asistencia"
-          description="Confirma las sesiones a las que vas a asistir."
+          description="Captura las asistencias del recinto en tu área asignada."
         />
         <NavCard
           href={`/acomodador/${access_token}/incidencias`}

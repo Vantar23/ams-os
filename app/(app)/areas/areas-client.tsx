@@ -3,7 +3,13 @@
 import * as React from "react"
 import { createPortal } from "react-dom"
 import { useRouter } from "next/navigation"
-import { PencilIcon, PlusIcon, Trash2Icon } from "lucide-react"
+import {
+  CheckIcon,
+  PencilIcon,
+  PlusIcon,
+  Trash2Icon,
+  UserPlusIcon,
+} from "lucide-react"
 
 import {
   AlertDialog,
@@ -42,7 +48,12 @@ import {
 } from "@/components/ui/table"
 import { useMediaQuery } from "@/lib/use-media-query"
 
-import { actualizarArea, agregarArea, eliminarArea } from "./actions"
+import {
+  actualizarArea,
+  agregarArea,
+  asignarCapitanArea,
+  eliminarArea,
+} from "./actions"
 
 type Asamblea = { id: string; numero: string; edicion: string }
 
@@ -57,22 +68,51 @@ export type Area = {
   created_at: string
 }
 
+export type Capitan = {
+  id: string
+  nombre: string
+  apellido: string
+  area: string[] | null
+}
+
+function areaLabel(area: Pick<Area, "piso" | "nombre">): string {
+  return `${area.piso} — ${area.nombre}`
+}
+
+function capitanNombre(c: Capitan): string {
+  return `${c.nombre} ${c.apellido}`
+}
+
 export function AreasClient({
   asamblea,
   areas,
-  capitanesPorArea,
+  capitanes,
 }: {
   asamblea: Asamblea
   areas: Area[]
-  capitanesPorArea: Record<string, string[]>
+  capitanes: Capitan[]
 }) {
   const [addOpen, setAddOpen] = React.useState(false)
   const [mobileCardsContainer, setMobileCardsContainer] =
     React.useState<HTMLDivElement | null>(null)
   const isDesktop = useMediaQuery("(min-width: 768px)")
 
+  // capitanes.area guarda etiquetas "piso — nombre"; agrupamos los capitanes
+  // que cubren cada área para mostrar el asignado y marcar las que no tienen.
+  const capitanesPorArea = React.useMemo(() => {
+    const map = new Map<string, Capitan[]>()
+    for (const c of capitanes) {
+      for (const label of c.area ?? []) {
+        const list = map.get(label) ?? []
+        list.push(c)
+        map.set(label, list)
+      }
+    }
+    return map
+  }, [capitanes])
+
   const capitanesDeArea = React.useCallback(
-    (area: Area) => capitanesPorArea[`${area.piso} — ${area.nombre}`] ?? [],
+    (area: Area) => capitanesPorArea.get(areaLabel(area)) ?? [],
     [capitanesPorArea],
   )
   const sinCapitan = areas.filter((a) => capitanesDeArea(a).length === 0).length
@@ -81,7 +121,6 @@ export function AreasClient({
     <div className="flex flex-1 flex-col gap-4 p-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-lg font-semibold">Áreas</h2>
           <p className="text-sm text-muted-foreground">
             {areas.length} área{areas.length === 1 ? "" : "s"} registrada
             {areas.length === 1 ? "" : "s"}
@@ -92,11 +131,7 @@ export function AreasClient({
                   {sinCapitan} sin capitán
                 </span>
               </>
-            )}{" "}
-            ·{" "}
-            <span className="text-foreground/70">
-              Asamblea N° {asamblea.numero} — {asamblea.edicion}
-            </span>
+            )}
           </p>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row">
@@ -142,7 +177,8 @@ export function AreasClient({
                   <AreaRow
                     key={a.id}
                     area={a}
-                    capitanes={capitanesDeArea(a)}
+                    asignados={capitanesDeArea(a)}
+                    capitanes={capitanes}
                     mobileCardsContainer={mobileCardsContainer}
                   />
                 ))
@@ -173,28 +209,47 @@ export function AreasClient({
   )
 }
 
-function CapitanCell({ capitanes }: { capitanes: string[] }) {
-  if (capitanes.length === 0) {
-    return (
-      <span className="inline-flex items-center rounded-full border border-amber-500/40 px-2 py-0.5 text-xs text-amber-600 dark:text-amber-500">
-        Sin capitán
-      </span>
-    )
-  }
-  return <span>{capitanes.join(", ")}</span>
+function CapitanCell({
+  asignados,
+  onAssign,
+}: {
+  asignados: Capitan[]
+  onAssign: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onAssign}
+      className="inline-flex items-center gap-1.5 rounded-md text-left text-sm transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    >
+      {asignados.length === 0 ? (
+        <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/40 px-2 py-0.5 text-xs text-amber-600 dark:text-amber-500">
+          <UserPlusIcon className="size-3" />
+          Asignar capitán
+        </span>
+      ) : (
+        <span className="text-foreground">
+          {asignados.map(capitanNombre).join(", ")}
+        </span>
+      )}
+    </button>
+  )
 }
 
 function AreaRow({
   area,
+  asignados,
   capitanes,
   mobileCardsContainer,
 }: {
   area: Area
-  capitanes: string[]
+  asignados: Capitan[]
+  capitanes: Capitan[]
   mobileCardsContainer: HTMLElement | null
 }) {
   const router = useRouter()
   const [editOpen, setEditOpen] = React.useState(false)
+  const [assignOpen, setAssignOpen] = React.useState(false)
   const [deleteOpen, setDeleteOpen] = React.useState(false)
   const [deleting, setDeleting] = React.useState(false)
   const [deleteError, setDeleteError] = React.useState<string | null>(null)
@@ -218,6 +273,10 @@ function AreaRow({
         <PencilIcon />
         Editar
       </ContextMenuItem>
+      <ContextMenuItem onSelect={() => setAssignOpen(true)}>
+        <UserPlusIcon />
+        Asignar capitán
+      </ContextMenuItem>
       <ContextMenuItem
         variant="destructive"
         onSelect={() => setDeleteOpen(true)}
@@ -240,7 +299,10 @@ function AreaRow({
             <TableCell>{area.hermanas_necesarias}</TableCell>
             <TableCell>{area.capacidad}</TableCell>
             <TableCell className="text-muted-foreground">
-              <CapitanCell capitanes={capitanes} />
+              <CapitanCell
+                asignados={asignados}
+                onAssign={() => setAssignOpen(true)}
+              />
             </TableCell>
             <TableCell>
               <Button
@@ -295,7 +357,10 @@ function AreaRow({
                   <div className="flex justify-between gap-3">
                     <dt className="text-muted-foreground">Capitán</dt>
                     <dd className="text-right">
-                      <CapitanCell capitanes={capitanes} />
+                      <CapitanCell
+                        asignados={asignados}
+                        onAssign={() => setAssignOpen(true)}
+                      />
                     </dd>
                   </div>
                 </dl>
@@ -312,6 +377,16 @@ function AreaRow({
         mode="edit"
         area={area}
       />
+
+      {assignOpen && (
+        <AsignarCapitanDialog
+          open
+          onOpenChange={setAssignOpen}
+          area={area}
+          capitanes={capitanes}
+          asignados={asignados}
+        />
+      )}
 
       <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <AlertDialogContent>
@@ -341,6 +416,141 @@ function AreaRow({
         </AlertDialogContent>
       </AlertDialog>
     </>
+  )
+}
+
+function AsignarCapitanDialog({
+  open,
+  onOpenChange,
+  area,
+  capitanes,
+  asignados,
+}: {
+  open: boolean
+  onOpenChange: (v: boolean) => void
+  area: Area
+  capitanes: Capitan[]
+  asignados: Capitan[]
+}) {
+  const router = useRouter()
+  const label = areaLabel(area)
+  const [selected, setSelected] = React.useState<string | null>(
+    asignados[0]?.id ?? null,
+  )
+  const [query, setQuery] = React.useState("")
+  const [saving, setSaving] = React.useState(false)
+  const [error, setError] = React.useState<string | null>(null)
+
+  const q = query.trim().toLowerCase()
+  const filtrados = q
+    ? capitanes.filter((c) => capitanNombre(c).toLowerCase().includes(q))
+    : capitanes
+
+  async function handleGuardar() {
+    setSaving(true)
+    setError(null)
+    const { error: err } = await asignarCapitanArea(area.id, selected)
+    setSaving(false)
+    if (err) {
+      setError(err)
+      return
+    }
+    router.refresh()
+    onOpenChange(false)
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Asignar capitán</DialogTitle>
+          <DialogDescription>{label}</DialogDescription>
+        </DialogHeader>
+
+        {capitanes.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            Aún no hay capitanes registrados. Regístralos en la sección
+            Capitanes para poder asignarlos.
+          </p>
+        ) : (
+          <div className="grid gap-3">
+            <Input
+              placeholder="Buscar capitán…"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+            />
+            <div className="max-h-72 divide-y overflow-y-auto rounded-md border">
+              <CapitanOption
+                nombre="Sin capitán"
+                detalle="Dejar el área sin capitán asignado"
+                active={selected === null}
+                onSelect={() => setSelected(null)}
+              />
+              {filtrados.map((c) => {
+                const otras = (c.area ?? []).filter((l) => l !== label)
+                return (
+                  <CapitanOption
+                    key={c.id}
+                    nombre={capitanNombre(c)}
+                    detalle={
+                      otras.length === 0
+                        ? "Aún no tiene áreas asignadas"
+                        : `Ya tiene: ${otras.join(", ")}`
+                    }
+                    active={selected === c.id}
+                    onSelect={() => setSelected(c.id)}
+                  />
+                )
+              })}
+              {filtrados.length === 0 && (
+                <p className="px-3 py-4 text-center text-sm text-muted-foreground">
+                  Ningún capitán coincide con la búsqueda.
+                </p>
+              )}
+            </div>
+          </div>
+        )}
+
+        {error && <p className="text-sm text-destructive">{error}</p>}
+
+        <DialogFooter>
+          <Button
+            type="button"
+            onClick={handleGuardar}
+            disabled={saving || capitanes.length === 0}
+            className="w-full sm:w-auto"
+          >
+            {saving ? "Guardando…" : "Guardar"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function CapitanOption({
+  nombre,
+  detalle,
+  active,
+  onSelect,
+}: {
+  nombre: string
+  detalle: string
+  active: boolean
+  onSelect: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      className="flex w-full items-start justify-between gap-3 px-3 py-2.5 text-left transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:bg-muted/40"
+    >
+      <div className="min-w-0">
+        <p className="truncate text-sm font-medium">{nombre}</p>
+        <p className="truncate text-xs text-muted-foreground">{detalle}</p>
+      </div>
+      {active && <CheckIcon className="mt-0.5 size-4 shrink-0 text-primary" />}
+    </button>
   )
 }
 

@@ -184,14 +184,10 @@ export function HermanasApoyoClient({
     <div className="flex flex-1 flex-col gap-4 p-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-lg font-semibold">Hermanas de Apoyo</h2>
           <p className="text-sm text-muted-foreground">
             {hermanas.length} hermana
             {hermanas.length === 1 ? "" : "s"} registrada
-            {hermanas.length === 1 ? "" : "s"} ·{" "}
-            <span className="text-foreground/70">
-              Asamblea N° {asamblea.numero} — {asamblea.edicion}
-            </span>
+            {hermanas.length === 1 ? "" : "s"}
           </p>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row">

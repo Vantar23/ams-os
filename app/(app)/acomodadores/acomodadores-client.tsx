@@ -186,14 +186,10 @@ export function AcomodadoresClient({
     <div className="flex flex-1 flex-col gap-4 p-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-lg font-semibold">Acomodadores</h2>
           <p className="text-sm text-muted-foreground">
             {acomodadores.length} hermano
             {acomodadores.length === 1 ? "" : "s"} registrado
-            {acomodadores.length === 1 ? "" : "s"} ·{" "}
-            <span className="text-foreground/70">
-              Asamblea N° {asamblea.numero} — {asamblea.edicion}
-            </span>
+            {acomodadores.length === 1 ? "" : "s"}
           </p>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row">

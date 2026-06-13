@@ -79,3 +79,72 @@ export async function eliminarArea(
   revalidatePath("/areas")
   return { error: null }
 }
+
+// Asigna (o quita, con capitanId = null) el capitán de un área. La relación
+// área↔capitán se guarda en capitanes.area como etiquetas "piso — nombre", así
+// que asignar = agregar la etiqueta al capitán elegido y quitarla de cualquier
+// otro capitán que la tuviera (un área tiene un solo capitán).
+export async function asignarCapitanArea(
+  areaId: string,
+  capitanId: string | null,
+): Promise<{ error: string | null }> {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { error: "No autenticado" }
+
+  const { data: area, error: areaErr } = await supabase
+    .from("areas")
+    .select("id, piso, nombre, asamblea_id")
+    .eq("id", areaId)
+    .single()
+  if (areaErr || !area) {
+    return { error: areaErr?.message ?? "Área no encontrada" }
+  }
+
+  const label = `${area.piso} — ${area.nombre}`
+
+  // Quita la etiqueta de cualquier otro capitán que ya la tuviera.
+  const { data: previos, error: previosErr } = await supabase
+    .from("capitanes")
+    .select("id, area")
+    .eq("asamblea_id", area.asamblea_id)
+    .contains("area", [label])
+  if (previosErr) return { error: previosErr.message }
+
+  for (const c of previos ?? []) {
+    if (c.id === capitanId) continue
+    const next = (c.area ?? []).filter((l: string) => l !== label)
+    const { error } = await supabase
+      .from("capitanes")
+      .update({ area: next })
+      .eq("id", c.id)
+    if (error) return { error: error.message }
+  }
+
+  // Agrega la etiqueta al capitán elegido.
+  if (capitanId) {
+    const { data: target, error: targetErr } = await supabase
+      .from("capitanes")
+      .select("id, area")
+      .eq("id", capitanId)
+      .single()
+    if (targetErr || !target) {
+      return { error: targetErr?.message ?? "Capitán no encontrado" }
+    }
+    const current: string[] = target.area ?? []
+    if (!current.includes(label)) {
+      const { error } = await supabase
+        .from("capitanes")
+        .update({ area: [...current, label] })
+        .eq("id", capitanId)
+      if (error) return { error: error.message }
+    }
+  }
+
+  revalidatePath("/areas")
+  revalidatePath("/capitanes")
+  revalidatePath("/acomodadores")
+  return { error: null }
+}
