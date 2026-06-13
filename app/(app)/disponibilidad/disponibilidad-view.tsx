@@ -92,6 +92,7 @@ export function DisponibilidadView({
   const [origin, setOrigin] = React.useState("")
   const [isDesktopSm, setIsDesktopSm] = React.useState(false)
   React.useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- lee origin/viewport del navegador al montar
     setOrigin(window.location.origin)
     const mq = window.matchMedia("(min-width: 640px)")
     const update = () => setIsDesktopSm(mq.matches)

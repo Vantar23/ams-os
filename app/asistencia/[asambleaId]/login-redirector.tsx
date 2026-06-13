@@ -84,6 +84,7 @@ export function LoginRedirector({
   React.useEffect(() => {
     const stored = readStored(asambleaId)
     if (!stored) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- arranca el flujo según el estado guardado al montar
       setStatus({ kind: "form" })
       return
     }

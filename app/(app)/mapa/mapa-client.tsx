@@ -219,6 +219,7 @@ function UploadMapaDialog({
   React.useEffect(() => {
     if (!open) {
       if (previewUrl) URL.revokeObjectURL(previewUrl)
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- reset intencional al cerrar el diálogo
       setFile(null)
       setPreviewUrl("")
       setNombre("")

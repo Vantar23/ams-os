@@ -9,6 +9,9 @@ export function useLocalStorage<T>(key: string, initial: T) {
   React.useEffect(() => {
     try {
       const raw = window.localStorage.getItem(key)
+      // Hidratación deliberada tras montar: leer localStorage en el primer
+      // render rompería el SSR.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       if (raw !== null) setValue(JSON.parse(raw) as T)
     } catch {
       /* ignored */

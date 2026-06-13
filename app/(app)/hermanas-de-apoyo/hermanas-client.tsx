@@ -346,6 +346,7 @@ function ManualAddDialog({
 
   React.useEffect(() => {
     if (!open) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- reset intencional al cerrar el diálogo
       setStep("datos")
       setError(null)
       setCreatedToken(null)
@@ -658,6 +659,7 @@ function EditDialog({
 
   React.useEffect(() => {
     if (!open) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- reset intencional al cerrar el diálogo
       setError(null)
       setCapitanId(initialCapitanId)
       setDisponibilidad(initialDisponibilidad)
