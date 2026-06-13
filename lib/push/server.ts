@@ -105,6 +105,49 @@ export async function pushParaAdmins(
   await enviar((data ?? []) as Suscripcion[], payload)
 }
 
+/** Push a todos los dispositivos de un tipo de personal del portal. */
+export async function pushParaTipoPortal(
+  asambleaId: string,
+  tipo: "acomodador" | "hermana",
+  payload: PushPayload,
+): Promise<void> {
+  const admin = createAdminClient()
+  const { data } = await admin
+    .from("push_suscripciones")
+    .select("id, endpoint, p256dh, auth")
+    .eq("asamblea_id", asambleaId)
+    .eq("destinatario", tipo)
+  await enviar((data ?? []) as Suscripcion[], payload)
+}
+
+/**
+ * Push a los capitanes de la asamblea. Sus dispositivos se registran como
+ * `admin` (entran al panel), así que se filtran por los user_id de la tabla
+ * `capitanes`.
+ */
+export async function pushParaCapitanes(
+  asambleaId: string,
+  payload: PushPayload,
+): Promise<void> {
+  const admin = createAdminClient()
+  const { data: caps } = await admin
+    .from("capitanes")
+    .select("user_id")
+    .eq("asamblea_id", asambleaId)
+    .not("user_id", "is", null)
+  const userIds = (caps ?? [])
+    .map((c) => c.user_id as string | null)
+    .filter((id): id is string => Boolean(id))
+  if (userIds.length === 0) return
+  const { data } = await admin
+    .from("push_suscripciones")
+    .select("id, endpoint, p256dh, auth")
+    .eq("asamblea_id", asambleaId)
+    .eq("destinatario", "admin")
+    .in("user_id", userIds)
+  await enviar((data ?? []) as Suscripcion[], payload)
+}
+
 /** Push a los dispositivos de una persona del portal. */
 export async function pushParaPersona(
   asambleaId: string,

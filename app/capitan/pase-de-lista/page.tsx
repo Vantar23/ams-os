@@ -63,12 +63,17 @@ export default async function Page() {
         asignacionId: r.id,
         nombre: ac ? `${ac.nombre} ${ac.apellido}`.trim() : "—",
         congregacion: ac?.congregacion ?? "",
+        areaNombre,
         puesto: `${areaNombre} · ${slotLabelCorto(r.slot)}`,
         telefono: ac?.telefono ?? null,
         asistencia: r.asistencia,
       }
     })
-    .sort((a, b) => a.nombre.localeCompare(b.nombre))
+    .sort(
+      (a, b) =>
+        a.areaNombre.localeCompare(b.areaNombre) ||
+        a.nombre.localeCompare(b.nombre),
+    )
 
   return (
     <main className="mx-auto w-full max-w-2xl px-5 py-10 sm:py-14">

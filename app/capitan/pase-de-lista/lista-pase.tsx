@@ -19,18 +19,39 @@ export type ItemPase = {
   asignacionId: string
   nombre: string
   congregacion: string
+  areaNombre: string
   puesto: string
   telefono: string | null
   asistencia: "presente" | "necesita_remplazo" | null
 }
 
 export function ListaPase({ items }: { items: ItemPase[] }) {
+  // Agrupados por área (los items ya vienen ordenados por área y nombre).
+  const grupos: { area: string; items: ItemPase[] }[] = []
+  for (const item of items) {
+    let grupo = grupos.find((g) => g.area === item.areaNombre)
+    if (!grupo) {
+      grupo = { area: item.areaNombre, items: [] }
+      grupos.push(grupo)
+    }
+    grupo.items.push(item)
+  }
+
   return (
-    <ul className="mt-6 grid gap-3">
-      {items.map((item) => (
-        <FilaPase key={item.asignacionId} item={item} />
+    <div className="mt-6 grid gap-6">
+      {grupos.map((grupo) => (
+        <div key={grupo.area || "sin-area"}>
+          <h2 className="mb-2 text-xs font-medium uppercase tracking-[0.15em] text-muted-foreground">
+            {grupo.area || "Sin área"}
+          </h2>
+          <ul className="grid gap-3">
+            {grupo.items.map((item) => (
+              <FilaPase key={item.asignacionId} item={item} />
+            ))}
+          </ul>
+        </div>
       ))}
-    </ul>
+    </div>
   )
 }
 
@@ -154,7 +175,7 @@ function FilaPase({ item }: { item: ItemPase }) {
               <UserRoundXIcon className="size-3.5" />
               {pending === "necesita_remplazo"
                 ? "Guardando…"
-                : "Necesita reemplazo"}
+                : "Solicitar reemplazo"}
             </button>
           </div>
 
