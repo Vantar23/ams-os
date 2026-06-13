@@ -9,9 +9,10 @@ import {
   slotLabelCorto,
   slotsVisibles,
 } from "@/lib/disponibilidad"
+import { cn } from "@/lib/utils"
 
 /** Tarjeta pequeña con el turno vigente según la hora del recinto. */
-export function TurnoEnCursoCard() {
+export function TurnoEnCursoCard({ className }: { className?: string }) {
   // Se calcula al montar para no provocar mismatch de hidratación (el servidor
   // puede estar en otra zona horaria que el cliente).
   const [slot, setSlot] = React.useState<string | null>(null)
@@ -21,7 +22,12 @@ export function TurnoEnCursoCard() {
   }, [])
 
   return (
-    <div className="inline-flex w-fit items-center gap-2 rounded-lg border bg-surface px-3 py-1.5">
+    <div
+      className={cn(
+        "inline-flex w-fit items-center gap-2 rounded-lg border bg-surface px-3 py-1.5",
+        className,
+      )}
+    >
       <ClockIcon className="size-4 shrink-0 text-primary" />
       <div className="leading-tight">
         <p className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground">

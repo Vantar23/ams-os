@@ -87,13 +87,13 @@ export default async function Page() {
         ))}
       </div>
 
-      <div className="mt-4 flex flex-wrap gap-2">
-        <TurnoEnCursoCard />
+      <div className="mt-4 flex gap-2">
+        <TurnoEnCursoCard className="min-w-0 flex-1" />
         {areas.length > 0 && (
-          <div className="inline-flex w-fit items-center gap-2 rounded-lg border bg-surface px-3 py-1.5">
+          <div className="inline-flex min-w-0 flex-1 items-center gap-2 rounded-lg border bg-surface px-3 py-1.5">
             <ArmchairIcon className="size-4 shrink-0 text-primary" />
-            <div className="leading-tight">
-              <p className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground">
+            <div className="min-w-0 leading-tight">
+              <p className="truncate text-[10px] uppercase tracking-[0.15em] text-muted-foreground">
                 Asientos disponibles
               </p>
               <p className="text-sm font-medium text-foreground">

@@ -279,7 +279,7 @@ function ContadorForm({
           value={valor}
           onChange={(e) => setFromInput(e.target.value)}
           onFocus={(e) => e.currentTarget.select()}
-          className="w-full min-w-0 rounded-lg border border-border bg-background py-3 text-center text-5xl font-semibold tabular-nums tracking-tight outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="w-full min-w-0 rounded-lg border border-border bg-background py-3 text-center text-5xl font-semibold tabular-nums tracking-tight outline-none focus-visible:ring-2 focus-visible:ring-ring [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
           aria-label={modo === "vacios" ? "Lugares vacíos" : "Asistentes"}
         />
 
