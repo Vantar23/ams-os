@@ -125,12 +125,14 @@ export function AcomodadoresClient({
   capitanes,
   currentCapitanId,
   puestos,
+  areasPorAcomodador,
 }: {
   asamblea: Asamblea
   acomodadores: Acomodador[]
   capitanes: CapitanOption[]
   currentCapitanId: string | null
   puestos: PuestosPorPersona
+  areasPorAcomodador: Record<string, string[]>
 }) {
   const router = useRouter()
   const [shareOpen, setShareOpen] = React.useState(false)
@@ -258,6 +260,7 @@ export function AcomodadoresClient({
                   asambleaId={asamblea.id}
                   capitanes={capitanes}
                   puestos={puestos[a.id]}
+                  areasAcomodador={areasPorAcomodador[a.id] ?? []}
                   mobileCardsContainer={mobileCardsContainer}
                 />
               ))
@@ -479,6 +482,7 @@ function ManualAddDialog({
                 />
                 <CapitanSelector
                   capitanes={capitanes}
+                  areasAcomodador={[]}
                   value={capitanId}
                   onChange={setCapitanId}
                 />
@@ -639,12 +643,14 @@ function EditDialog({
   onOpenChange,
   acomodador,
   capitanes,
+  areasAcomodador,
   onSaved,
 }: {
   open: boolean
   onOpenChange: (v: boolean) => void
   acomodador: Acomodador
   capitanes: CapitanOption[]
+  areasAcomodador: string[]
   onSaved: () => void
 }) {
   const [submitting, setSubmitting] = React.useState(false)
@@ -747,6 +753,7 @@ function EditDialog({
           />
           <CapitanSelector
             capitanes={capitanes}
+            areasAcomodador={areasAcomodador}
             value={capitanId}
             onChange={setCapitanId}
           />
@@ -777,13 +784,52 @@ function EditDialog({
 
 function CapitanSelector({
   capitanes,
+  areasAcomodador,
   value,
   onChange,
 }: {
   capitanes: CapitanOption[]
+  areasAcomodador: string[]
   value: string
   onChange: (v: string) => void
 }) {
+  // El capitán de un acomodador se elige entre los capitanes asignados al área
+  // que tiene asignada el acomodador. Sin área asignada no hay con qué filtrar,
+  // así que se bloquea hasta que se le asigne un puesto.
+  const sinArea = areasAcomodador.length === 0
+
+  const elegibles = React.useMemo(() => {
+    const labels = new Set(areasAcomodador)
+    return capitanes.filter((c) => c.area.some((a) => labels.has(a)))
+  }, [capitanes, areasAcomodador])
+
+  // Mantén visible al capitán ya asignado aunque sus áreas dejen de coincidir
+  // (p. ej. tras reasignar puestos), para no romper el valor mostrado.
+  const opciones = React.useMemo(() => {
+    if (value === SIN_CAPITAN_VALUE || elegibles.some((c) => c.id === value)) {
+      return elegibles
+    }
+    const actual = capitanes.find((c) => c.id === value)
+    return actual ? [actual, ...elegibles] : elegibles
+  }, [elegibles, capitanes, value])
+
+  if (sinArea) {
+    return (
+      <div className="grid gap-1.5">
+        <Label htmlFor="capitan_id">Capitán</Label>
+        <Select disabled value={SIN_CAPITAN_VALUE}>
+          <SelectTrigger id="capitan_id">
+            <SelectValue placeholder="Sin capitán asignado" />
+          </SelectTrigger>
+          <SelectContent />
+        </Select>
+        <p className="text-xs text-muted-foreground">
+          Asigna primero un puesto en un área para poder elegir capitán.
+        </p>
+      </div>
+    )
+  }
+
   return (
     <div className="grid gap-1.5">
       <Label htmlFor="capitan_id">Capitán</Label>
@@ -793,16 +839,16 @@ function CapitanSelector({
         </SelectTrigger>
         <SelectContent>
           <SelectItem value={SIN_CAPITAN_VALUE}>Sin capitán</SelectItem>
-          {capitanes.map((c) => (
+          {opciones.map((c) => (
             <SelectItem key={c.id} value={c.id}>
               {c.nombre} {c.apellido}
             </SelectItem>
           ))}
         </SelectContent>
       </Select>
-      {capitanes.length === 0 && (
+      {elegibles.length === 0 && (
         <p className="text-xs text-muted-foreground">
-          Aún no hay capitanes registrados.
+          Ningún capitán cubre el área asignada a este acomodador.
         </p>
       )}
     </div>
@@ -923,12 +969,14 @@ function AcomodadorRow({
   asambleaId,
   capitanes,
   puestos,
+  areasAcomodador,
   mobileCardsContainer,
 }: {
   acomodador: Acomodador
   asambleaId: string
   capitanes: CapitanOption[]
   puestos: PuestoAsignado[] | undefined
+  areasAcomodador: string[]
   mobileCardsContainer: HTMLElement | null
 }) {
   const capitan = acomodador.capitan_id
@@ -1113,6 +1161,7 @@ function AcomodadorRow({
         onOpenChange={setEditOpen}
         acomodador={acomodador}
         capitanes={capitanes}
+        areasAcomodador={areasAcomodador}
         onSaved={() => router.refresh()}
       />
 
