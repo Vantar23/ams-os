@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache"
 
+import { pushParaPersona } from "@/lib/push/server"
 import { createClient } from "@/lib/supabase/server"
 
 /**
@@ -67,6 +68,30 @@ export async function realizarReemplazo(input: {
     realizado_por: user.id,
   })
   if (insErr) return { error: insErr.message }
+
+  // Aviso cordial al acomodador reemplazado. Además del banner que verá en su
+  // portal, le mandamos un push si tiene notificaciones activas. Nunca rompe
+  // el reemplazo si el push falla.
+  try {
+    const { data: saliente } = await supabase
+      .from("acomodadores")
+      .select("nombre, access_token")
+      .eq("id", pendiente.acomodador_id)
+      .maybeSingle()
+    await pushParaPersona(
+      pendiente.asamblea_id,
+      "acomodador",
+      pendiente.acomodador_id,
+      {
+        titulo: "Gracias por tu servicio 💛",
+        cuerpo: `${saliente?.nombre ? `Hola ${saliente.nombre}: ` : ""}como no pudiste estar en tu puesto, otro hermano lo cubrió para no dejar el área sola. Te lo agradecemos de corazón y esperamos verte en tu próximo turno.`,
+        url: saliente?.access_token ? `/acomodador/${saliente.access_token}` : "/",
+        tag: `reemplazo-${pendiente.id}`,
+      },
+    )
+  } catch {
+    /* push opcional */
+  }
 
   revalidatePath("/remplazos")
   revalidatePath("/puestos")
