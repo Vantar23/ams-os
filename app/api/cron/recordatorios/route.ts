@@ -1,7 +1,11 @@
-// Recordatorio de turno: lo dispara pg_cron cada minuto (vía pg_net) y aquí
-// decidimos si estamos en la ventana de "20 min antes del inicio" de alguna
-// sesión de hoy. Si sí, avisamos a acomodadores y hermanas con puesto en ese
-// turno. La tabla recordatorios_turno evita repetir el aviso.
+// Avisos de turno disparados por pg_cron cada minuto (vía pg_net). En cada
+// tick decidimos, según la hora local del recinto, si toca enviar:
+//   - Recordatorio a acomodadores y hermanas con puesto, 20 min ANTES del
+//     inicio de la sesión.
+//   - Aviso "pasa lista" a los capitanes con equipo, AL INICIO de la sesión.
+// La tabla recordatorios_turno (asamblea_id, slot, fecha, tipo) evita repetir
+// cada aviso. Los capitanes no tienen push: su aviso es un mensaje admin→capitán
+// que ven en /capitan/mensajes (badge de no leídos).
 
 import { parseFechas } from "@/lib/asamblea"
 import { pushParaPersona } from "@/lib/push/server"
@@ -11,10 +15,10 @@ export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 
 const TZ_RECINTO = "America/Mexico_City"
-// Minutos antes del inicio en que se envía el recordatorio.
+// Minutos antes del inicio en que se avisa a los acomodadores.
 const ANTICIPACION_MIN = 20
 // Ventana de tolerancia por si el cron se retrasa; el control de duplicados
-// garantiza que solo se envíe una vez por sesión y día.
+// garantiza que cada aviso se envíe una sola vez por sesión y día.
 const VENTANA_MIN = 15
 
 const DIA_POR_WEEKDAY: Record<number, "viernes" | "sabado" | "domingo"> = {
@@ -73,8 +77,147 @@ function minutosDeHora(hora: string | null): number | null {
   return Number(m[1]) * 60 + Number(m[2])
 }
 
+function enVentana(ahora: number, objetivo: number): boolean {
+  return ahora >= objetivo && ahora < objetivo + VENTANA_MIN
+}
+
 const first = <T,>(v: T | T[] | null | undefined): T | null =>
   Array.isArray(v) ? (v[0] ?? null) : (v ?? null)
+
+type Admin = ReturnType<typeof createAdminClient>
+
+/**
+ * Marca el aviso como enviado para (asamblea, slot, fecha, tipo). Devuelve true
+ * solo si esta llamada lo registró (no existía); false si ya estaba (otro tick).
+ */
+async function registrarEnvio(
+  admin: Admin,
+  asambleaId: string,
+  slot: string,
+  fecha: string,
+  tipo: "acomodadores" | "capitanes",
+): Promise<boolean> {
+  const { error } = await admin
+    .from("recordatorios_turno")
+    .insert({ asamblea_id: asambleaId, slot, fecha, tipo })
+  if (!error) return true
+  if (error.code === "23505") return false // ya enviado
+  throw new Error(`dedupe ${tipo} ${slot}: ${error.message}`)
+}
+
+/** Recordatorio a acomodadores y hermanas con puesto en el turno. */
+async function avisarPersonal(
+  admin: Admin,
+  asambleaId: string,
+  slot: string,
+  sesion: "manana" | "tarde",
+): Promise<number> {
+  const cuerpo = `Tu turno ${SESION_LABEL[sesion]} empieza pronto. Por favor, preséntate ${ANTICIPACION_MIN} minutos antes del inicio del programa.`
+  let enviados = 0
+
+  const { data: asgAcom } = await admin
+    .from("asignaciones")
+    .select("acomodador_id, acomodadores(access_token)")
+    .eq("asamblea_id", asambleaId)
+    .eq("slot", slot)
+  const vistosAcom = new Set<string>()
+  for (const r of (asgAcom ?? []) as {
+    acomodador_id: string
+    acomodadores: { access_token: string | null } | { access_token: string | null }[] | null
+  }[]) {
+    if (vistosAcom.has(r.acomodador_id)) continue
+    vistosAcom.add(r.acomodador_id)
+    const token = first(r.acomodadores)?.access_token ?? null
+    await pushParaPersona(asambleaId, "acomodador", r.acomodador_id, {
+      titulo: "Recordatorio de turno",
+      cuerpo,
+      url: token ? `/acomodador/${token}` : "/",
+      tag: `recordatorio-${slot}`,
+    })
+    enviados++
+  }
+
+  const { data: asgHerm } = await admin
+    .from("asignaciones_hermanas")
+    .select("hermana_apoyo_id, hermanas_apoyo(access_token)")
+    .eq("asamblea_id", asambleaId)
+    .eq("slot", slot)
+  const vistosHerm = new Set<string>()
+  for (const r of (asgHerm ?? []) as {
+    hermana_apoyo_id: string
+    hermanas_apoyo: { access_token: string | null } | { access_token: string | null }[] | null
+  }[]) {
+    if (vistosHerm.has(r.hermana_apoyo_id)) continue
+    vistosHerm.add(r.hermana_apoyo_id)
+    const token = first(r.hermanas_apoyo)?.access_token ?? null
+    await pushParaPersona(asambleaId, "hermana", r.hermana_apoyo_id, {
+      titulo: "Recordatorio de turno",
+      cuerpo,
+      url: token ? `/hermana-apoyo/${token}` : "/",
+      tag: `recordatorio-${slot}`,
+    })
+    enviados++
+  }
+
+  return enviados
+}
+
+/**
+ * Aviso "pasa lista" a los capitanes que tienen al menos un acomodador con
+ * puesto en este turno. Es un mensaje admin→capitán (los capitanes no tienen
+ * push); aparece en /capitan/mensajes con badge de no leídos.
+ */
+async function avisarCapitanes(
+  admin: Admin,
+  asambleaId: string,
+  slot: string,
+  sesion: "manana" | "tarde",
+): Promise<number> {
+  // Áreas con acomodadores asignados en este turno.
+  const { data: asg } = await admin
+    .from("asignaciones")
+    .select("area_id")
+    .eq("asamblea_id", asambleaId)
+    .eq("slot", slot)
+  const areaIdsConEquipo = new Set(
+    ((asg ?? []) as { area_id: string }[]).map((a) => a.area_id),
+  )
+  if (areaIdsConEquipo.size === 0) return 0
+
+  // Etiqueta "piso — nombre" de esas áreas (así se guardan en capitanes.area).
+  const { data: areas } = await admin
+    .from("areas")
+    .select("id, piso, nombre")
+    .eq("asamblea_id", asambleaId)
+  const labelsConEquipo = new Set(
+    ((areas ?? []) as { id: string; piso: string; nombre: string }[])
+      .filter((a) => areaIdsConEquipo.has(a.id))
+      .map((a) => `${a.piso} — ${a.nombre}`),
+  )
+
+  const { data: capitanes } = await admin
+    .from("capitanes")
+    .select("id, area")
+    .eq("asamblea_id", asambleaId)
+  const objetivo = ((capitanes ?? []) as { id: string; area: string[] | null }[]).filter(
+    (c) => (c.area ?? []).some((label) => labelsConEquipo.has(label)),
+  )
+  if (objetivo.length === 0) return 0
+
+  const cuerpo = `Ya inició el turno ${SESION_LABEL[sesion]}. Por favor pasa lista de tus acomodadores en “Pase de lista”: marca quién llegó y quién necesita reemplazo.`
+  const { error } = await admin.from("mensajes").insert(
+    objetivo.map((c) => ({
+      asamblea_id: asambleaId,
+      persona_tipo: "capitan",
+      persona_id: c.id,
+      remitente: "admin",
+      admin_user_id: null,
+      cuerpo,
+    })),
+  )
+  if (error) throw new Error(`mensajes capitanes ${slot}: ${error.message}`)
+  return objetivo.length
+}
 
 async function manejar(request: Request): Promise<Response> {
   const secret = process.env.CRON_SECRET
@@ -110,76 +253,30 @@ async function manejar(request: Request): Promise<Response> {
     { sesion: "tarde", inicio: minutosDeHora(asamblea.hora_inicio_tarde) },
   ]
 
-  let enviados = 0
   const detalle: string[] = []
+  let enviados = 0
 
   for (const { sesion, inicio } of sesiones) {
     if (inicio === null) continue
-    const objetivo = inicio - ANTICIPACION_MIN
-    if (minutos < objetivo || minutos >= objetivo + VENTANA_MIN) continue
-
     const slot = `${dia}-${sesion}`
 
-    // Control de duplicados: si la fila ya existe, otro tick ya envió.
-    const { error: dupErr } = await admin
-      .from("recordatorios_turno")
-      .insert({ asamblea_id: asamblea.id, slot, fecha })
-    if (dupErr) {
-      // 23505 = unique_violation → ya se envió esta sesión hoy.
-      if (dupErr.code === "23505") continue
-      detalle.push(`error dedupe ${slot}: ${dupErr.message}`)
-      continue
+    // Acomodadores y hermanas: 20 min antes del inicio.
+    if (enVentana(minutos, inicio - ANTICIPACION_MIN)) {
+      if (await registrarEnvio(admin, asamblea.id, slot, fecha, "acomodadores")) {
+        const n = await avisarPersonal(admin, asamblea.id, slot, sesion)
+        enviados += n
+        detalle.push(`personal ${slot}: ${n}`)
+      }
     }
 
-    const cuerpo = `Tu turno ${SESION_LABEL[sesion]} empieza pronto. Por favor, preséntate ${ANTICIPACION_MIN} minutos antes del inicio del programa.`
-
-    // Acomodadores con puesto en este turno.
-    const { data: asgAcom } = await admin
-      .from("asignaciones")
-      .select("acomodador_id, acomodadores(access_token)")
-      .eq("asamblea_id", asamblea.id)
-      .eq("slot", slot)
-    const vistosAcom = new Set<string>()
-    for (const r of (asgAcom ?? []) as {
-      acomodador_id: string
-      acomodadores: { access_token: string | null } | { access_token: string | null }[] | null
-    }[]) {
-      if (vistosAcom.has(r.acomodador_id)) continue
-      vistosAcom.add(r.acomodador_id)
-      const token = first(r.acomodadores)?.access_token ?? null
-      await pushParaPersona(asamblea.id, "acomodador", r.acomodador_id, {
-        titulo: "Recordatorio de turno",
-        cuerpo,
-        url: token ? `/acomodador/${token}` : "/",
-        tag: `recordatorio-${slot}`,
-      })
-      enviados++
+    // Capitanes: al inicio del turno, para que pasen lista.
+    if (enVentana(minutos, inicio)) {
+      if (await registrarEnvio(admin, asamblea.id, slot, fecha, "capitanes")) {
+        const n = await avisarCapitanes(admin, asamblea.id, slot, sesion)
+        enviados += n
+        detalle.push(`capitanes ${slot}: ${n}`)
+      }
     }
-
-    // Hermanas de apoyo con puesto en este turno.
-    const { data: asgHerm } = await admin
-      .from("asignaciones_hermanas")
-      .select("hermana_apoyo_id, hermanas_apoyo(access_token)")
-      .eq("asamblea_id", asamblea.id)
-      .eq("slot", slot)
-    const vistosHerm = new Set<string>()
-    for (const r of (asgHerm ?? []) as {
-      hermana_apoyo_id: string
-      hermanas_apoyo: { access_token: string | null } | { access_token: string | null }[] | null
-    }[]) {
-      if (vistosHerm.has(r.hermana_apoyo_id)) continue
-      vistosHerm.add(r.hermana_apoyo_id)
-      const token = first(r.hermanas_apoyo)?.access_token ?? null
-      await pushParaPersona(asamblea.id, "hermana", r.hermana_apoyo_id, {
-        titulo: "Recordatorio de turno",
-        cuerpo,
-        url: token ? `/hermana-apoyo/${token}` : "/",
-        tag: `recordatorio-${slot}`,
-      })
-      enviados++
-    }
-
-    detalle.push(`${slot}: ${vistosAcom.size + vistosHerm.size} personas`)
   }
 
   return Response.json({ ok: true, enviados, dia, fecha, detalle })
