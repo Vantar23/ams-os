@@ -36,19 +36,44 @@ export default async function AreasPage() {
     )
   }
 
-  const { data: areas } = await supabase
-    .from("areas")
-    .select(
-      "id, piso, nombre, filas, acomodadores_necesarios, hermanas_necesarias, capacidad, created_at",
-    )
-    .eq("asamblea_id", asamblea.id)
-    .order("piso", { ascending: true })
-    .order("nombre", { ascending: true })
+  const [{ data: areas }, { data: capitanes }] = await Promise.all([
+    supabase
+      .from("areas")
+      .select(
+        "id, piso, nombre, filas, acomodadores_necesarios, hermanas_necesarias, capacidad, created_at",
+      )
+      .eq("asamblea_id", asamblea.id)
+      .order("piso", { ascending: true })
+      .order("nombre", { ascending: true }),
+    supabase
+      .from("capitanes")
+      .select("nombre, apellido, area")
+      .eq("asamblea_id", asamblea.id)
+      .order("nombre", { ascending: true }),
+  ])
+
+  // capitanes.area guarda etiquetas "piso — nombre"; agrupamos los capitanes
+  // que cubren cada área para marcar las que se quedaron sin capitán.
+  const capitanesPorArea: Record<string, string[]> = {}
+  for (const c of (capitanes ?? []) as {
+    nombre: string
+    apellido: string
+    area: string[] | null
+  }[]) {
+    const nombre = `${c.nombre} ${c.apellido}`
+    for (const label of c.area ?? []) {
+      ;(capitanesPorArea[label] ??= []).push(nombre)
+    }
+  }
 
   return (
     <>
       <PageHeader parent="Lugar" title="Áreas" />
-      <AreasClient asamblea={asamblea} areas={areas ?? []} />
+      <AreasClient
+        asamblea={asamblea}
+        areas={areas ?? []}
+        capitanesPorArea={capitanesPorArea}
+      />
     </>
   )
 }
