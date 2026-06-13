@@ -2,6 +2,7 @@ import Link from "next/link"
 import { redirect } from "next/navigation"
 import {
   AlertOctagonIcon,
+  ArmchairIcon,
   CalendarCheckIcon,
   LayoutDashboardIcon,
   MapIcon,
@@ -19,7 +20,11 @@ import {
 } from "@/lib/disponibilidad"
 import { createClient } from "@/lib/supabase/server"
 
-import { loadAreasDelCapitan, loadCapitanActual } from "./load"
+import {
+  loadAreasDelCapitan,
+  loadAsientosPorArea,
+  loadCapitanActual,
+} from "./load"
 
 export default async function Page() {
   const actual = await loadCapitanActual()
@@ -30,19 +35,24 @@ export default async function Page() {
 
   const supabase = await createClient()
   // Su equipo: acomodadores con puesto asignado en sus áreas.
-  const areaIds = (
-    await loadAreasDelCapitan(asamblea.id, capitan.area)
-  ).map((a) => a.id)
-  const [{ data: asignaciones }, { data: noLeidos }] = await Promise.all([
-    areaIds.length
-      ? supabase
-          .from("asignaciones")
-          .select("acomodador_id, slot")
-          .eq("asamblea_id", asamblea.id)
-          .in("area_id", areaIds)
-      : Promise.resolve({ data: [] }),
-    supabase.rpc("mensajes_no_leidos_capitan"),
-  ])
+  const areas = await loadAreasDelCapitan(asamblea.id, capitan.area)
+  const areaIds = areas.map((a) => a.id)
+  const [{ data: asignaciones }, { data: noLeidos }, asientos] =
+    await Promise.all([
+      areaIds.length
+        ? supabase
+            .from("asignaciones")
+            .select("acomodador_id, slot")
+            .eq("asamblea_id", asamblea.id)
+            .in("area_id", areaIds)
+        : Promise.resolve({ data: [] }),
+      supabase.rpc("mensajes_no_leidos_capitan"),
+      loadAsientosPorArea(asamblea.id, areas),
+    ])
+  // Total de asientos disponibles según el conteo oficial de cada área.
+  const totalAsientos = asientos.reduce((s, a) => s + (a.disponibles ?? 0), 0)
+  const capacidadTotal = asientos.reduce((s, a) => s + a.capacidad, 0)
+  const hayReporteAsientos = asientos.some((a) => a.disponibles !== null)
   // Solo cuenta el turno vigente, igual que la lista de Mis acomodadores.
   const slotsVigentes = new Set(
     slotsVisibles(DISPONIBILIDAD_SLOTS, momentoEnRecinto()),
@@ -77,8 +87,23 @@ export default async function Page() {
         ))}
       </div>
 
-      <div className="mt-4">
+      <div className="mt-4 flex flex-wrap gap-2">
         <TurnoEnCursoCard />
+        {areas.length > 0 && (
+          <div className="inline-flex w-fit items-center gap-2 rounded-lg border bg-surface px-3 py-1.5">
+            <ArmchairIcon className="size-4 shrink-0 text-primary" />
+            <div className="leading-tight">
+              <p className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground">
+                Asientos disponibles
+              </p>
+              <p className="text-sm font-medium text-foreground">
+                {hayReporteAsientos
+                  ? `${totalAsientos}${capacidadTotal ? ` / ${capacidadTotal}` : ""}`
+                  : "Sin reporte"}
+              </p>
+            </div>
+          </div>
+        )}
       </div>
 
       <nav className="mt-10 grid gap-3">

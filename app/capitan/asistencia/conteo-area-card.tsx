@@ -15,12 +15,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
-import {
-  DISPONIBILIDAD_DIAS,
-  DISPONIBILIDAD_SESIONES,
-  type DisponibilidadDia,
-  type DisponibilidadSesion,
-} from "@/lib/disponibilidad"
+import { slotLabelCorto } from "@/lib/disponibilidad"
 
 import type { ReporteAcomodador } from "../load"
 
@@ -31,17 +26,6 @@ export type ConteoVigente = {
   reportadoAt: string
   /** Nombre del capitán que mandó el reporte vigente, si no fuiste tú. */
   reportadoPorOtro: string | null
-}
-
-function defaultDia(): DisponibilidadDia {
-  const weekday = new Date().getDay()
-  if (weekday === 6) return "sabado"
-  if (weekday === 0) return "domingo"
-  return "viernes"
-}
-
-function defaultSesion(): DisponibilidadSesion {
-  return new Date().getHours() < 14 ? "manana" : "tarde"
 }
 
 function formatReportado(reportadoAt: string | null): string {
@@ -64,6 +48,7 @@ function formatReportado(reportadoAt: string | null): string {
  */
 export function ConteoAreaCard({
   area,
+  slot,
   vigentes,
   reportesPorSlot,
 }: {
@@ -74,16 +59,13 @@ export function ConteoAreaCard({
     capacidad: number
     filas: number
   }
+  /** Turno en curso (fijo); null si no hay sesión activa. */
+  slot: string | null
   vigentes: Record<string, ConteoVigente>
   reportesPorSlot: Record<string, ReporteAcomodador[]>
 }) {
-  const [dia, setDia] = React.useState<DisponibilidadDia>(() => defaultDia())
-  const [sesion, setSesion] = React.useState<DisponibilidadSesion>(() =>
-    defaultSesion(),
-  )
-  const slot = `${dia}-${sesion}`
-  const vigente = vigentes[slot] ?? null
-  const reportes = reportesPorSlot[slot] ?? []
+  const vigente = slot ? (vigentes[slot] ?? null) : null
+  const reportes = slot ? (reportesPorSlot[slot] ?? []) : []
 
   return (
     <div className="rounded-xl border bg-surface p-4">
@@ -94,53 +76,27 @@ export function ConteoAreaCard({
         {area.filas > 0 && ` · ${area.filas} filas`}
       </p>
 
-      <div className="mt-4 grid gap-3">
-        <div>
-          <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
-            Día
+      {slot ? (
+        <>
+          <p className="mt-3 inline-flex w-fit items-center rounded-full border border-primary/40 bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
+            {slotLabelCorto(slot)}
           </p>
-          <div className="mt-2 grid grid-cols-3 gap-2">
-            {DISPONIBILIDAD_DIAS.map((d) => (
-              <Button
-                key={d.key}
-                type="button"
-                variant={dia === d.key ? "default" : "outline"}
-                onClick={() => setDia(d.key)}
-              >
-                {d.label}
-              </Button>
-            ))}
-          </div>
-        </div>
-        <div>
-          <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
-            Sesión
-          </p>
-          <div className="mt-2 grid grid-cols-2 gap-2">
-            {DISPONIBILIDAD_SESIONES.map((s) => (
-              <Button
-                key={s.key}
-                type="button"
-                variant={sesion === s.key ? "default" : "outline"}
-                onClick={() => setSesion(s.key)}
-              >
-                {s.label}
-              </Button>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      <ContadorForm
-        key={slot}
-        areaId={area.id}
-        slot={slot}
-        areaCapacidad={area.capacidad}
-        initialValor={vigente?.valor ?? null}
-        reportadoAt={vigente?.reportadoAt ?? null}
-        reportadoPorOtro={vigente?.reportadoPorOtro ?? null}
-        reportes={reportes}
-      />
+          <ContadorForm
+            key={slot}
+            areaId={area.id}
+            slot={slot}
+            areaCapacidad={area.capacidad}
+            initialValor={vigente?.valor ?? null}
+            reportadoAt={vigente?.reportadoAt ?? null}
+            reportadoPorOtro={vigente?.reportadoPorOtro ?? null}
+            reportes={reportes}
+          />
+        </>
+      ) : (
+        <p className="mt-3 text-sm text-muted-foreground">
+          No hay un turno en curso ahora mismo.
+        </p>
+      )}
     </div>
   )
 }

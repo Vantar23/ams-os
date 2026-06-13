@@ -47,11 +47,12 @@ export default async function Page({
   }
 
   const todas = await loadAsignaciones(access_token)
-  const visibles = slotsVisibles(
-    todas.map((a) => a.slot),
-    momentoEnRecinto(),
-  )
-  const asignaciones = todas.filter((a) => visibles.includes(a.slot))
+  // Solo el turno en curso (el primero vigente), no todos los visibles.
+  const slotVigente =
+    slotsVisibles(todas.map((a) => a.slot), momentoEnRecinto())[0] ?? null
+  const asignaciones = slotVigente
+    ? todas.filter((a) => a.slot === slotVigente)
+    : []
 
   return (
     <main className="mx-auto w-full max-w-2xl px-4 py-6 sm:px-5 sm:py-14">

@@ -2,6 +2,11 @@ import Link from "next/link"
 import { redirect } from "next/navigation"
 import { ArrowLeftIcon } from "lucide-react"
 
+import {
+  DISPONIBILIDAD_SLOTS,
+  momentoEnRecinto,
+  slotsVisibles,
+} from "@/lib/disponibilidad"
 import { createClient } from "@/lib/supabase/server"
 
 import {
@@ -20,6 +25,9 @@ export default async function Page() {
   const { capitan, asamblea } = actual
 
   const areas = await loadAreasDelCapitan(asamblea.id, capitan.area)
+  // Solo el turno en curso (o el próximo si no hay sesión activa).
+  const slotVigente =
+    slotsVisibles(DISPONIBILIDAD_SLOTS, momentoEnRecinto())[0] ?? null
   const asientos = await loadAsientosPorArea(asamblea.id, areas)
   const reportesAcomodadores = await loadReportesAcomodadoresPorArea(
     asamblea.id,
@@ -104,6 +112,7 @@ export default async function Page() {
             <ConteoAreaCard
               key={a.id}
               area={a}
+              slot={slotVigente}
               vigentes={vigentesPorArea.get(a.id) ?? {}}
               reportesPorSlot={reportesAcomodadores[a.id] ?? {}}
             />
