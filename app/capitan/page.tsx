@@ -3,7 +3,6 @@ import { redirect } from "next/navigation"
 import {
   AlertOctagonIcon,
   CalendarCheckIcon,
-  ClipboardCheckIcon,
   LayoutDashboardIcon,
   MapIcon,
   MapPinIcon,
@@ -84,20 +83,14 @@ export default async function Page() {
 
       <nav className="mt-10 grid gap-3">
         <NavCard
-          href="/capitan/acomodadores"
+          href="/capitan/pase-de-lista"
           icon={<UsersIcon className="size-5" />}
           title="Mis acomodadores"
           description={
             totalAcomodadores
-              ? `Tu equipo (${totalAcomodadores}): llámalos o escríbeles por WhatsApp.`
-              : "Tu equipo: llámalos o escríbeles por WhatsApp."
+              ? `Tu equipo (${totalAcomodadores}): contáctalos y marca asistencia o reemplazo.`
+              : "Tu equipo: contáctalos y marca asistencia o reemplazo."
           }
-        />
-        <NavCard
-          href="/capitan/pase-de-lista"
-          icon={<ClipboardCheckIcon className="size-5" />}
-          title="Asistencias y Remplazos"
-          description="Marca qué acomodadores se presentaron o necesitan reemplazo."
         />
         <NavCard
           href="/capitan/asistencia"

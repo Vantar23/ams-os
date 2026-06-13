@@ -30,7 +30,7 @@ export default async function Page() {
     ? await supabase
         .from("asignaciones")
         .select(
-          "id, acomodador_id, area_id, slot, asistencia, acomodadores(nombre, apellido, congregacion)",
+          "id, acomodador_id, area_id, slot, asistencia, acomodadores(nombre, apellido, congregacion, telefono)",
         )
         .eq("asamblea_id", asamblea.id)
         .in("area_id", areaIds)
@@ -47,8 +47,8 @@ export default async function Page() {
     slot: string
     asistencia: "presente" | "necesita_remplazo" | null
     acomodadores:
-      | { nombre: string; apellido: string; congregacion: string }
-      | { nombre: string; apellido: string; congregacion: string }[]
+      | { nombre: string; apellido: string; congregacion: string; telefono: string | null }
+      | { nombre: string; apellido: string; congregacion: string; telefono: string | null }[]
       | null
   }
   const first = <T,>(v: T | T[] | null | undefined): T | null =>
@@ -64,6 +64,7 @@ export default async function Page() {
         nombre: ac ? `${ac.nombre} ${ac.apellido}`.trim() : "—",
         congregacion: ac?.congregacion ?? "",
         puesto: `${areaNombre} · ${slotLabelCorto(r.slot)}`,
+        telefono: ac?.telefono ?? null,
         asistencia: r.asistencia,
       }
     })
@@ -79,11 +80,12 @@ export default async function Page() {
         Volver
       </Link>
       <h1 className="mt-4 font-serif text-[2rem] leading-[1.1] text-foreground sm:text-4xl sm:leading-tight">
-        Asistencias y Remplazos
+        Mis acomodadores
       </h1>
       <p className="mt-3 text-sm text-muted-foreground">
-        Marca quién se presentó en el turno vigente. Si alguien no llegó, márcalo
-        como “Necesita reemplazo” y administración le asignará un sustituto.
+        Tu equipo en el turno vigente: contáctalos y marca quién se presentó. Si
+        alguien no llegó, márcalo como “Necesita reemplazo” y administración le
+        asignará un sustituto.
       </p>
 
       {items.length === 0 ? (
