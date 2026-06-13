@@ -2,6 +2,7 @@ import Link from "next/link"
 import { AlertTriangleIcon } from "lucide-react"
 
 import type { BlockReason } from "./load"
+import { LogoutLink } from "./logout-link"
 import { RebindButton } from "./rebind-button"
 
 const TITLES: Record<BlockReason, string> = {
@@ -25,10 +26,12 @@ export function BlockedView({
   reason,
   message,
   accessToken,
+  asambleaId,
 }: {
   reason: BlockReason
   message?: string
   accessToken?: string
+  asambleaId?: string
 }) {
   return (
     <main className="flex min-h-svh items-center justify-center px-5 py-12">
@@ -55,6 +58,14 @@ export function BlockedView({
         >
           Volver al inicio
         </Link>
+        {reason === "device_mismatch" && (
+          <div className="mt-8 border-t border-border pt-6">
+            <LogoutLink
+              asambleaId={asambleaId}
+              label="Iniciar sesión con otra cuenta"
+            />
+          </div>
+        )}
       </div>
     </main>
   )

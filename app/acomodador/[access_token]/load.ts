@@ -1,5 +1,6 @@
 import { cookies } from "next/headers"
 
+import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
 
 const DEVICE_COOKIE = "acomodador_device_key"
@@ -24,8 +25,18 @@ export type Acomodador = {
 }
 
 export type LoadResult =
-  | { kind: "blocked"; reason: BlockReason; message?: string }
-  | { kind: "claim"; nombre: string; asamblea: { numero: string; edicion: string; titulo: string } }
+  | {
+      kind: "blocked"
+      reason: BlockReason
+      message?: string
+      asambleaId?: string
+    }
+  | {
+      kind: "claim"
+      nombre: string
+      asambleaId: string
+      asamblea: { numero: string; edicion: string; titulo: string }
+    }
   | { kind: "ok"; acomodador: Acomodador }
 
 export type BlockReason = "no_cookie" | "device_mismatch" | "invalid" | "error"
@@ -45,7 +56,11 @@ export async function loadAcomodadorByToken(
   })
   if (error) {
     if (error.message.includes("device_mismatch")) {
-      return { kind: "blocked", reason: "device_mismatch" }
+      return {
+        kind: "blocked",
+        reason: "device_mismatch",
+        asambleaId: await asambleaIdDeToken(accessToken),
+      }
     }
     if (error.message.includes("invalid_access_token")) {
       return { kind: "blocked", reason: "invalid" }
@@ -60,6 +75,7 @@ export async function loadAcomodadorByToken(
     return {
       kind: "claim",
       nombre: acomodador.nombre,
+      asambleaId: acomodador.asamblea_id,
       asamblea: {
         numero: acomodador.asamblea_numero,
         edicion: acomodador.asamblea_edicion,
@@ -97,6 +113,23 @@ export async function loadAsignaciones(
   })
   if (error) return []
   return (data ?? []) as Asignacion[]
+}
+
+/** asamblea_id a partir del token, para los estados sin sesión activa. */
+async function asambleaIdDeToken(
+  accessToken: string,
+): Promise<string | undefined> {
+  try {
+    const admin = createAdminClient()
+    const { data } = await admin
+      .from("acomodadores")
+      .select("asamblea_id")
+      .eq("access_token", accessToken)
+      .maybeSingle()
+    return (data?.asamblea_id as string | undefined) ?? undefined
+  } catch {
+    return undefined
+  }
 }
 
 async function sha256(input: string): Promise<string> {

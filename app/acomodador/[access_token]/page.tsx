@@ -22,6 +22,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { BlockedView } from "./blocked-view"
 import { ClaimView } from "./claim-view"
 import { loadAcomodadorByToken, loadAsignaciones } from "./load"
+import { LogoutLink } from "./logout-link"
 
 export default async function Page({
   params,
@@ -32,7 +33,14 @@ export default async function Page({
   const result = await loadAcomodadorByToken(access_token)
 
   if (result.kind === "blocked") {
-    return <BlockedView reason={result.reason} message={result.message} accessToken={access_token} />
+    return (
+      <BlockedView
+        reason={result.reason}
+        message={result.message}
+        accessToken={access_token}
+        asambleaId={result.asambleaId}
+      />
+    )
   }
   if (result.kind === "claim") {
     return (
@@ -40,6 +48,7 @@ export default async function Page({
         accessToken={access_token}
         nombre={result.nombre}
         asamblea={result.asamblea}
+        asambleaId={result.asambleaId}
       />
     )
   }
@@ -137,10 +146,15 @@ export default async function Page({
         />
       </nav>
 
-      <p className="mt-12 border-t border-border pt-6 text-center text-xs text-muted-foreground">
-        Si pierdes este enlace, escríbele a tu capitán para que te genere uno
-        nuevo.
-      </p>
+      <div className="mt-12 border-t border-border pt-6 text-center">
+        <p className="text-xs text-muted-foreground">
+          Si pierdes este enlace, escríbele a tu capitán para que te genere uno
+          nuevo.
+        </p>
+        <div className="mt-4">
+          <LogoutLink asambleaId={acomodador.asamblea_id} />
+        </div>
+      </div>
     </main>
   )
 }

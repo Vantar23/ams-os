@@ -37,7 +37,10 @@ export function RecepcionForm({
   const [butaca, setButaca] = React.useState("")
   const [otroObjeto, setOtroObjeto] = React.useState("")
   const [foto, setFoto] = React.useState<File | null>(null)
-  const [preview, setPreview] = React.useState<string | null>(null)
+  const preview = React.useMemo(
+    () => (foto ? URL.createObjectURL(foto) : null),
+    [foto],
+  )
   const [procesandoFoto, setProcesandoFoto] = React.useState(false)
   const [submitting, setSubmitting] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
@@ -61,14 +64,9 @@ export function RecepcionForm({
   }
 
   React.useEffect(() => {
-    if (!foto) {
-      setPreview(null)
-      return
-    }
-    const url = URL.createObjectURL(foto)
-    setPreview(url)
-    return () => URL.revokeObjectURL(url)
-  }, [foto])
+    if (!preview) return
+    return () => URL.revokeObjectURL(preview)
+  }, [preview])
 
   React.useEffect(() => {
     if (savedAt === null) return

@@ -7,6 +7,7 @@ import { ShieldCheckIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
 import { claimAccess } from "./actions"
+import { LogoutLink } from "./logout-link"
 
 type Asamblea = {
   numero: string
@@ -18,10 +19,12 @@ export function ClaimView({
   accessToken,
   nombre,
   asamblea,
+  asambleaId,
 }: {
   accessToken: string
   nombre: string
   asamblea: Asamblea
+  asambleaId?: string
 }) {
   const router = useRouter()
   const [submitting, setSubmitting] = React.useState(false)
@@ -81,6 +84,13 @@ export function ClaimView({
           Si no es tu dispositivo, no confirmes — pídele a tu capitán que
           regenere tu enlace.
         </p>
+
+        <div className="mt-8 border-t border-border pt-6 text-center">
+          <LogoutLink
+            asambleaId={asambleaId}
+            label="Iniciar sesión con otra cuenta"
+          />
+        </div>
       </div>
     </main>
   )
