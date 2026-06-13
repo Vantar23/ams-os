@@ -201,7 +201,6 @@ export function MensajesClient({
     <div className="flex flex-1 flex-col gap-4 p-4">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
-          <h2 className="text-lg font-semibold">Mensajes</h2>
           <p className="text-sm text-muted-foreground">
             {conversaciones.length} conversaci
             {conversaciones.length === 1 ? "ón" : "ones"}
@@ -212,8 +211,7 @@ export function MensajesClient({
                   {totalNoLeidos} sin leer
                 </span>
               </>
-            )}{" "}
-            · Asamblea N° {asamblea.numero} — {asamblea.edicion}
+            )}
           </p>
         </div>
         <div className="flex gap-2">

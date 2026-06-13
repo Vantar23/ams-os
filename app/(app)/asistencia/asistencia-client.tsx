@@ -903,7 +903,9 @@ function ResumenAsistencia({
     }
     const rows: Row[] = []
     for (const [key, list] of byKey) {
-      // sort newest first
+      // El conteo vigente por área+sesión es el más reciente, venga de capitán
+      // o de administrador: un reporte nuevo reemplaza al anterior, no se suma
+      // ni se resta.
       list.sort((a, b) => (a.timestamp < b.timestamp ? 1 : -1))
       const head = list[0]
       const liveArea = areas.find((a) => a.id === head.areaId)
@@ -911,13 +913,10 @@ function ResumenAsistencia({
       const modo: Modo = liveArea
         ? modoDeArea(liveArea)
         : head.modo
-      let asistencia = 0
-      if (modo === "asistentes") {
-        asistencia = list.reduce((sum, c) => sum + c.valor, 0)
-      } else {
-        // most recent measurement
-        asistencia = Math.max(0, capacidad - head.valor)
-      }
+      const asistencia =
+        modo === "asistentes"
+          ? Math.max(0, head.valor)
+          : Math.max(0, capacidad - head.valor)
       rows.push({
         key,
         dia: head.dia,

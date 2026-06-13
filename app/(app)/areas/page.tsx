@@ -47,24 +47,10 @@ export default async function AreasPage() {
       .order("nombre", { ascending: true }),
     supabase
       .from("capitanes")
-      .select("nombre, apellido, area")
+      .select("id, nombre, apellido, area")
       .eq("asamblea_id", asamblea.id)
       .order("nombre", { ascending: true }),
   ])
-
-  // capitanes.area guarda etiquetas "piso — nombre"; agrupamos los capitanes
-  // que cubren cada área para marcar las que se quedaron sin capitán.
-  const capitanesPorArea: Record<string, string[]> = {}
-  for (const c of (capitanes ?? []) as {
-    nombre: string
-    apellido: string
-    area: string[] | null
-  }[]) {
-    const nombre = `${c.nombre} ${c.apellido}`
-    for (const label of c.area ?? []) {
-      ;(capitanesPorArea[label] ??= []).push(nombre)
-    }
-  }
 
   return (
     <>
@@ -72,7 +58,7 @@ export default async function AreasPage() {
       <AreasClient
         asamblea={asamblea}
         areas={areas ?? []}
-        capitanesPorArea={capitanesPorArea}
+        capitanes={capitanes ?? []}
       />
     </>
   )

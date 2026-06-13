@@ -42,7 +42,7 @@ const data = {
         { title: "Capitanes", url: "/capitanes" },
         { title: "Acomodadores", url: "/acomodadores" },
         { title: "Hermanas de Apoyo", url: "/hermanas-de-apoyo" },
-        { title: "Disponibilidad", url: "/disponibilidad" },
+        { title: "Personal", url: "/disponibilidad" },
       ],
     },
     {
@@ -85,8 +85,17 @@ export function AppSidebar({
 }: React.ComponentProps<typeof Sidebar> & { role?: Role }) {
   const pathname = usePathname()
   const router = useRouter()
-  const { isMobile, setOpenMobile } = useSidebar()
+  const { isMobile, setOpen, setOpenMobile } = useSidebar()
   const [signingOut, setSigningOut] = React.useState(false)
+  // Cierra el sidebar después de cambiar de página (no en el montaje inicial).
+  const prevPath = React.useRef(pathname)
+  React.useEffect(() => {
+    if (prevPath.current !== pathname) {
+      prevPath.current = pathname
+      if (isMobile) setOpenMobile(false)
+      else setOpen(false)
+    }
+  }, [pathname, isMobile, setOpen, setOpenMobile])
   // Hide placeholder items that don't have a route yet.
   const visibleNav = data.navMain
     .map((g) => ({ ...g, items: g.items.filter((i) => i.url !== "#") }))
@@ -178,12 +187,7 @@ export function AppSidebar({
                       asChild
                       isActive={item.url !== "#" && pathname === item.url}
                     >
-                      <Link
-                        href={item.url}
-                        onClick={() => {
-                          if (isMobile) setOpenMobile(false)
-                        }}
-                      >
+                      <Link href={item.url}>
                         <span>{item.title}</span>
                         {item.url === "/mensajes" && <MensajesBadge />}
                         {item.url === "/remplazos" && <RemplazosBadge />}

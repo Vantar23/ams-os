@@ -124,3 +124,12 @@
     grid-template-columns: minmax(180px, 280px) minmax(0, 1fr);
   }
 }
+
+/* Oculta la barra de desplazamiento, manteniendo el scroll funcional. */
+.no-scrollbar {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge */
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none; /* Chrome/Safari */
+}

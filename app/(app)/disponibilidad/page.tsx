@@ -20,7 +20,7 @@ export default async function DisponibilidadPage() {
   if (!asamblea) {
     return (
       <>
-        <PageHeader parent="Personal" title="Disponibilidad" />
+        <PageHeader parent="Personal" title="Personal" />
         <div className="flex flex-1 items-center justify-center p-10">
           <div className="max-w-md text-center">
             <h2 className="font-serif text-2xl">Aún no tienes una asamblea</h2>
@@ -40,6 +40,8 @@ export default async function DisponibilidadPage() {
     { data: capitanes },
     { data: acomodadores },
     { data: hermanas },
+    { data: areas },
+    { data: asignaciones },
   ] = await Promise.all([
     supabase
       .from("capitanes")
@@ -62,16 +64,26 @@ export default async function DisponibilidadPage() {
       )
       .eq("asamblea_id", asamblea.id)
       .order("nombre", { ascending: true }),
+    supabase
+      .from("areas")
+      .select("id, piso, nombre")
+      .eq("asamblea_id", asamblea.id),
+    supabase
+      .from("asignaciones")
+      .select("acomodador_id, area_id, slot")
+      .eq("asamblea_id", asamblea.id),
   ])
 
   return (
     <>
-      <PageHeader parent="Personal" title="Disponibilidad" />
+      <PageHeader parent="Personal" title="Personal" />
       <DisponibilidadView
         asamblea={asamblea}
         capitanes={capitanes ?? []}
         acomodadores={acomodadores ?? []}
         hermanas={hermanas ?? []}
+        areas={areas ?? []}
+        asignaciones={asignaciones ?? []}
       />
     </>
   )

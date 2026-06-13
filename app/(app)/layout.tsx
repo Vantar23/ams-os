@@ -1,4 +1,5 @@
 import { AppSidebar } from "@/components/app-sidebar"
+import { AsambleaProvider, type AsambleaInfo } from "@/components/asamblea-context"
 import { RealtimeAlerts } from "@/components/realtime-alerts"
 import { RoleProvider, type Role } from "@/components/role-context"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
@@ -8,20 +9,24 @@ import { createClient } from "@/lib/supabase/server"
 async function getCurrentMembership(): Promise<{
   role: Role | null
   asambleaId: string | null
+  asamblea: AsambleaInfo | null
 }> {
   const supabase = await createClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) return { role: null, asambleaId: null }
+  if (!user) return { role: null, asambleaId: null, asamblea: null }
 
   const { data: asambleas } = await supabase
     .from("asambleas")
-    .select("id")
+    .select("id, numero, edicion")
     .order("created_at", { ascending: false })
     .limit(1)
-  const asambleaId = asambleas?.[0]?.id as string | undefined
-  if (!asambleaId) return { role: null, asambleaId: null }
+  const asamblea = asambleas?.[0] as
+    | { id: string; numero: string | null; edicion: string | null }
+    | undefined
+  const asambleaId = asamblea?.id
+  if (!asambleaId) return { role: null, asambleaId: null, asamblea: null }
 
   const { data: miembro } = await supabase
     .from("asamblea_miembros")
@@ -32,6 +37,7 @@ async function getCurrentMembership(): Promise<{
   return {
     role: (miembro?.role as Role | undefined) ?? null,
     asambleaId,
+    asamblea: { numero: asamblea.numero, edicion: asamblea.edicion },
   }
 }
 
@@ -40,16 +46,18 @@ export default async function AppLayout({
 }: Readonly<{
   children: React.ReactNode
 }>) {
-  const { role, asambleaId } = await getCurrentMembership()
+  const { role, asambleaId, asamblea } = await getCurrentMembership()
 
   return (
     <TooltipProvider>
       <RoleProvider role={role}>
-        <SidebarProvider>
-          <AppSidebar role={role ?? undefined} />
-          <SidebarInset>{children}</SidebarInset>
-          {asambleaId && <RealtimeAlerts asambleaId={asambleaId} />}
-        </SidebarProvider>
+        <AsambleaProvider value={asamblea}>
+          <SidebarProvider>
+            <AppSidebar role={role ?? undefined} />
+            <SidebarInset>{children}</SidebarInset>
+            {asambleaId && <RealtimeAlerts asambleaId={asambleaId} />}
+          </SidebarProvider>
+        </AsambleaProvider>
       </RoleProvider>
     </TooltipProvider>
   )

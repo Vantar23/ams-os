@@ -79,13 +79,6 @@ export function RemplazosClient({
 
   return (
     <div className="flex flex-1 flex-col gap-6 p-4">
-      <div>
-        <h2 className="text-lg font-semibold">Remplazos</h2>
-        <p className="text-sm text-muted-foreground">
-          Asamblea N° {asamblea.numero} — {asamblea.edicion}
-        </p>
-      </div>
-
       <section className="rounded-xl border bg-surface p-4">
         <h3 className="text-xs font-medium uppercase tracking-[0.15em] text-muted-foreground">
           Pendientes de reemplazo ({pendientes.length})
