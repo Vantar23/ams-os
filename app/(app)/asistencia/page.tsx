@@ -130,8 +130,10 @@ export default async function AsistenciaPage() {
       }
     })
 
-  // Conteos reportados por capitanes (append-only): se toma el más reciente
-  // por capitán+área+slot y entra a la misma lista que los de acomodadores.
+  // Conteos reportados por capitanes (append-only): el conteo vigente por
+  // área+slot es la fila más reciente (sin importar qué capitán la reportó —
+  // un reporte nuevo reemplaza al anterior, no se suma). Entra a la misma
+  // lista que los de acomodadores.
   const { data: conteosCapRaw } = await supabase
     .from("conteos_capitan")
     .select(
@@ -153,7 +155,7 @@ export default async function AsistenciaPage() {
   const vistosCap = new Set<string>()
   for (const c of (conteosCapRaw ?? []) as unknown as ConteoCapRow[]) {
     if (capitanAreaLabels !== null && !areaIdsVisibles.has(c.area_id)) continue
-    const clave = `${c.capitan_id}|${c.area_id}|${c.slot}`
+    const clave = `${c.area_id}|${c.slot}`
     if (vistosCap.has(clave)) continue
     vistosCap.add(clave)
     const area = first(c.areas)
