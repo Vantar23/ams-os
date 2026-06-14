@@ -16,7 +16,7 @@ const Lanyard = dynamic(() => import("./lanyard"), {
 
 export function PaseCard({ data }: { data: LanyardData }) {
   return (
-    <div className="h-[68svh] w-full">
+    <div className="h-full w-full">
       <Lanyard data={data} />
     </div>
   )

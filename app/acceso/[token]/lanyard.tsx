@@ -2,8 +2,13 @@
 
 import * as React from "react"
 import * as THREE from "three"
-import { Canvas, extend, useFrame, useThree, type ThreeElement } from "@react-three/fiber"
-import { Environment, Lightformer, RoundedBox } from "@react-three/drei"
+import {
+  Canvas,
+  extend,
+  useFrame,
+  type ThreeElement,
+} from "@react-three/fiber"
+import { Environment, Lightformer, useGLTF, useTexture } from "@react-three/drei"
 import {
   BallCollider,
   CuboidCollider,
@@ -26,6 +31,9 @@ declare module "@react-three/fiber" {
   }
 }
 
+const CARD_GLB = "/lanyard/card.glb"
+useGLTF.preload(CARD_GLB)
+
 // Paleta institucional (app/globals.css). El sitio es de un solo tema.
 const PALETTE = {
   background: "#faf8f3",
@@ -37,6 +45,12 @@ const PALETTE = {
   mutedForeground: "#6b6e66",
   border: "#d9d4c7",
 }
+
+// El frente del modelo está mapeado a la mitad IZQUIERDA del atlas de textura y
+// el reverso a la mitad DERECHA (medido del card.glb). Cada imagen se compone en
+// su mitad respetando proporción.
+const FRONT_UV_RECT = { x: 0, y: 0, w: 0.5, h: 0.755 }
+const BACK_UV_RECT = { x: 0.5, y: 0, w: 0.5, h: 0.757 }
 
 export type LanyardData = Pick<
   Pase,
@@ -50,51 +64,88 @@ export type LanyardData = Pick<
 >
 
 export default function Lanyard({ data }: { data: LanyardData }) {
+  const [isMobile, setIsMobile] = React.useState(
+    () => typeof window !== "undefined" && window.innerWidth < 768,
+  )
+  React.useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth < 768)
+    window.addEventListener("resize", onResize)
+    return () => window.removeEventListener("resize", onResize)
+  }, [])
+
+  const frontImage = React.useMemo(() => makeFrontFace(data), [data])
+  const backImage = React.useMemo(() => makeBackFace(data), [data])
+
   return (
     <Canvas
-      camera={{ position: [0, 0, 13], fov: 25 }}
-      gl={{ alpha: true, antialias: true }}
+      camera={{ position: [0, 0, 9.5], fov: 25 }}
+      dpr={[1, isMobile ? 1.5 : 2]}
+      gl={{ alpha: true }}
       className="!touch-none"
+      onCreated={({ gl }) => gl.setClearColor(new THREE.Color(0x000000), 0)}
     >
       <ambientLight intensity={Math.PI} />
-      <Physics interpolate gravity={[0, -40, 0]} timeStep={1 / 60}>
-        <Band data={data} />
-      </Physics>
-      <Environment blur={0.75}>
-        <Lightformer
-          intensity={2}
-          color="white"
-          position={[0, -1, 5]}
-          rotation={[0, 0, Math.PI / 3]}
-          scale={[100, 0.1, 1]}
-        />
-        <Lightformer
-          intensity={3}
-          color="white"
-          position={[-1, -1, 1]}
-          rotation={[0, 0, Math.PI / 3]}
-          scale={[100, 0.1, 1]}
-        />
-        <Lightformer
-          intensity={3}
-          color="white"
-          position={[1, 1, 1]}
-          rotation={[0, 0, Math.PI / 3]}
-          scale={[100, 0.1, 1]}
-        />
-        <Lightformer
-          intensity={10}
-          color="white"
-          position={[-10, 0, 14]}
-          rotation={[0, Math.PI / 2, Math.PI / 3]}
-          scale={[100, 10, 1]}
-        />
-      </Environment>
+      <React.Suspense fallback={null}>
+        <Physics gravity={[0, -40, 0]} timeStep={isMobile ? 1 / 30 : 1 / 60}>
+          <Band
+            isMobile={isMobile}
+            frontImage={frontImage}
+            backImage={backImage}
+          />
+        </Physics>
+        <Environment blur={0.75}>
+          <Lightformer
+            intensity={2}
+            color="white"
+            position={[0, -1, 5]}
+            rotation={[0, 0, Math.PI / 3]}
+            scale={[100, 0.1, 1]}
+          />
+          <Lightformer
+            intensity={3}
+            color="white"
+            position={[-1, -1, 1]}
+            rotation={[0, 0, Math.PI / 3]}
+            scale={[100, 0.1, 1]}
+          />
+          <Lightformer
+            intensity={3}
+            color="white"
+            position={[1, 1, 1]}
+            rotation={[0, 0, Math.PI / 3]}
+            scale={[100, 0.1, 1]}
+          />
+          <Lightformer
+            intensity={10}
+            color="white"
+            position={[-10, 0, 14]}
+            rotation={[0, Math.PI / 2, Math.PI / 3]}
+            scale={[100, 10, 1]}
+          />
+        </Environment>
+      </React.Suspense>
     </Canvas>
   )
 }
 
-function Band({ data }: { data: LanyardData }) {
+type GLTFResult = {
+  nodes: Record<string, THREE.Mesh>
+  materials: Record<string, THREE.MeshStandardMaterial>
+}
+
+function Band({
+  isMobile = false,
+  frontImage,
+  backImage,
+  maxSpeed = 50,
+  minSpeed = 0,
+}: {
+  isMobile?: boolean
+  frontImage: string
+  backImage: string
+  maxSpeed?: number
+  minSpeed?: number
+}) {
   const band = React.useRef<THREE.Mesh>(null)
   const fixed = React.useRef<RapierRigidBody>(null!)
   const j1 = React.useRef<RapierRigidBody>(null!)
@@ -111,13 +162,60 @@ function Band({ data }: { data: LanyardData }) {
     type: "dynamic" as const,
     canSleep: true,
     colliders: false as const,
-    angularDamping: 2,
-    linearDamping: 2,
+    angularDamping: 4,
+    linearDamping: 4,
   }
 
-  const { width, height } = useThree((s) => s.size)
-  const [dragged, drag] = React.useState<false | THREE.Vector3>(false)
-  const [hovered, hover] = React.useState(false)
+  const { nodes, materials } = useGLTF(CARD_GLB) as unknown as GLTFResult
+  const frontTex = useTexture(frontImage)
+  const backTex = useTexture(backImage)
+
+  // Compone las caras (frente = mitad izquierda del atlas, reverso = derecha)
+  // sobre la textura base del modelo, respetando proporción (sin estirar).
+  const cardMap = React.useMemo(() => {
+    const baseMap = materials.base.map
+    const baseImg = baseMap?.image as HTMLImageElement | undefined
+    if (!baseMap || !baseImg) return baseMap ?? null
+    const W = baseImg.width
+    const H = baseImg.height
+    const canvas = document.createElement("canvas")
+    canvas.width = W
+    canvas.height = H
+    const ctx = canvas.getContext("2d")
+    if (!ctx) return baseMap
+    ctx.drawImage(baseImg, 0, 0, W, H)
+
+    const drawFitted = (
+      img: HTMLImageElement,
+      rect: { x: number; y: number; w: number; h: number },
+    ) => {
+      const rx = rect.x * W
+      const ry = rect.y * H
+      const rw = rect.w * W
+      const rh = rect.h * H
+      const scale = Math.max(rw / img.width, rh / img.height) // cover
+      const dw = img.width * scale
+      const dh = img.height * scale
+      const dx = rx + (rw - dw) / 2
+      const dy = ry + (rh - dh) / 2
+      ctx.save()
+      ctx.beginPath()
+      ctx.rect(rx, ry, rw, rh)
+      ctx.clip()
+      ctx.drawImage(img, dx, dy, dw, dh)
+      ctx.restore()
+    }
+
+    if (frontTex.image) drawFitted(frontTex.image as HTMLImageElement, FRONT_UV_RECT)
+    if (backTex.image) drawFitted(backTex.image as HTMLImageElement, BACK_UV_RECT)
+
+    const composite = new THREE.CanvasTexture(canvas)
+    composite.colorSpace = THREE.SRGBColorSpace
+    composite.flipY = baseMap.flipY
+    composite.anisotropy = 16
+    composite.needsUpdate = true
+    return composite
+  }, [frontTex, backTex, materials.base.map])
 
   const curve = React.useMemo(() => {
     const c = new THREE.CatmullRomCurve3([
@@ -130,13 +228,13 @@ function Band({ data }: { data: LanyardData }) {
     return c
   }, [])
 
-  const cardTexture = React.useMemo(() => makeCardTexture(data), [data])
-  React.useEffect(() => () => cardTexture.dispose(), [cardTexture])
+  const [dragged, drag] = React.useState<false | THREE.Vector3>(false)
+  const [hovered, hover] = React.useState(false)
 
-  useRopeJoint(fixed, j1, [[0, 0, 0], [0, 0, 0], 1])
-  useRopeJoint(j1, j2, [[0, 0, 0], [0, 0, 0], 1])
-  useRopeJoint(j2, j3, [[0, 0, 0], [0, 0, 0], 1])
-  useSphericalJoint(j3, card, [[0, 0, 0], [0, 1.45, 0]])
+  useRopeJoint(fixed, j1, [[0, 0, 0], [0, 0, 0], 0.6])
+  useRopeJoint(j1, j2, [[0, 0, 0], [0, 0, 0], 0.6])
+  useRopeJoint(j2, j3, [[0, 0, 0], [0, 0, 0], 0.6])
+  useSphericalJoint(j3, card, [[0, 0, 0], [0, 1.5, 0]])
 
   React.useEffect(() => {
     if (hovered) {
@@ -160,7 +258,6 @@ function Band({ data }: { data: LanyardData }) {
       })
     }
     if (fixed.current && j1.current && j2.current && j3.current && band.current) {
-      // Suaviza el movimiento del cordón con un pequeño lerp por segmento.
       ;[j1, j2].forEach((r) => {
         const rc = r.current as RapierRigidBody & { lerped?: THREE.Vector3 }
         if (!rc.lerped) rc.lerped = new THREE.Vector3().copy(rc.translation())
@@ -168,7 +265,10 @@ function Band({ data }: { data: LanyardData }) {
           0.1,
           Math.min(1, rc.lerped.distanceTo(rc.translation())),
         )
-        rc.lerped.lerp(rc.translation(), delta * (10 + dist * 40))
+        rc.lerped.lerp(
+          rc.translation(),
+          delta * (minSpeed + dist * (maxSpeed - minSpeed)),
+        )
       })
       curve.points[0].copy(j3.current.translation())
       curve.points[1].copy(
@@ -182,8 +282,7 @@ function Band({ data }: { data: LanyardData }) {
         band.current.geometry as unknown as {
           setPoints: (p: THREE.Vector3[]) => void
         }
-      ).setPoints(curve.getPoints(32))
-      // Frena el giro del carnet para que se asiente.
+      ).setPoints(curve.getPoints(isMobile ? 16 : 32))
       if (card.current) {
         ang.copy(card.current.angvel() as THREE.Vector3)
         rot.copy(card.current.rotation() as unknown as THREE.Vector3)
@@ -197,27 +296,30 @@ function Band({ data }: { data: LanyardData }) {
 
   return (
     <>
-      <group position={[0, 4, 0]}>
+      <group position={[0, 3.2, 0]}>
         <RigidBody ref={fixed} {...segmentProps} type="fixed" />
-        <RigidBody position={[0.5, 0, 0]} ref={j1} {...segmentProps}>
+        <RigidBody position={[0.4, 0, 0]} ref={j1} {...segmentProps}>
           <BallCollider args={[0.1]} />
         </RigidBody>
-        <RigidBody position={[1, 0, 0]} ref={j2} {...segmentProps}>
+        <RigidBody position={[0.8, 0, 0]} ref={j2} {...segmentProps}>
           <BallCollider args={[0.1]} />
         </RigidBody>
-        <RigidBody position={[1.5, 0, 0]} ref={j3} {...segmentProps}>
+        <RigidBody position={[1.2, 0, 0]} ref={j3} {...segmentProps}>
           <BallCollider args={[0.1]} />
         </RigidBody>
         <RigidBody
-          position={[2, 0, 0]}
+          position={[1.6, 0, 0]}
           ref={card}
           {...segmentProps}
           type={dragged ? "kinematicPosition" : "dynamic"}
         >
-          <CuboidCollider args={[0.8, 1.125, 0.02]} />
+          <CuboidCollider args={[0.8, 1.125, 0.01]} />
           <group
+            scale={2.25}
+            position={[0, -1.2, -0.05]}
             onPointerOver={() => hover(true)}
             onPointerOut={() => hover(false)}
+            onPointerCancel={() => drag(false)}
             onPointerUp={(e) => {
               ;(e.target as Element).releasePointerCapture?.(e.pointerId)
               drag(false)
@@ -233,73 +335,65 @@ function Band({ data }: { data: LanyardData }) {
               }
             }}
           >
-            {/* Cuerpo del carnet */}
-            <RoundedBox args={[1.6, 2.25, 0.04]} radius={0.08} smoothness={4}>
+            <mesh geometry={nodes.card.geometry}>
               <meshPhysicalMaterial
-                map={cardTexture}
-                clearcoat={0.9}
-                clearcoatRoughness={0.2}
-                roughness={0.4}
-                metalness={0.1}
-              />
-            </RoundedBox>
-            {/* Clip metálico que une al cordón */}
-            <mesh position={[0, 1.2, 0]}>
-              <torusGeometry args={[0.12, 0.04, 12, 32]} />
-              <meshStandardMaterial
-                color="#c9c4b6"
-                metalness={0.9}
-                roughness={0.3}
+                map={cardMap}
+                map-anisotropy={16}
+                clearcoat={isMobile ? 0 : 1}
+                clearcoatRoughness={0.15}
+                roughness={0.9}
+                metalness={0.8}
               />
             </mesh>
+            <mesh
+              geometry={nodes.clip.geometry}
+              material={materials.metal}
+              material-roughness={0.3}
+            />
+            <mesh geometry={nodes.clamp.geometry} material={materials.metal} />
           </group>
         </RigidBody>
       </group>
       <mesh ref={band}>
         <meshLineGeometry />
         <meshLineMaterial
-          args={[{ resolution: new THREE.Vector2(width, height) }]}
+          args={[{ resolution: new THREE.Vector2(1000, 1000) }]}
           color={PALETTE.primary}
           depthTest={false}
-          resolution={[width, height]}
-          lineWidth={0.45}
+          resolution={isMobile ? [1000, 2000] : [1000, 1000]}
+          lineWidth={isMobile ? 0.7 : 0.6}
         />
       </mesh>
     </>
   )
 }
 
-// Dibuja la cara del carnet con los estilos del sitio sobre un canvas y la
-// devuelve como textura. Relación ~0.71 para encajar con el carnet (1.6×2.25).
-function makeCardTexture(data: LanyardData): THREE.CanvasTexture {
+// ── Generación de las caras del carnet con los estilos del sitio ────────────
+
+const SERIF = "Georgia, 'Times New Roman', serif"
+const SANS = "system-ui, -apple-system, 'Segoe UI', sans-serif"
+
+/** Cara frontal: credencial completa. Devuelve un data URL PNG. */
+function makeFrontFace(data: LanyardData): string {
   const W = 1024
-  const H = 1440
-  const canvas = document.createElement("canvas")
-  canvas.width = W
-  canvas.height = H
-  const ctx = canvas.getContext("2d")!
+  const H = 1448
+  const { canvas, ctx } = newCanvas(W, H)
 
-  const serif = "Georgia, 'Times New Roman', serif"
-  const sans = "system-ui, -apple-system, 'Segoe UI', sans-serif"
-
-  // Fondo del carnet
   ctx.fillStyle = PALETTE.card
   ctx.fillRect(0, 0, W, H)
 
-  // Encabezado sage
   const headerH = 300
   ctx.fillStyle = PALETTE.primary
   ctx.fillRect(0, 0, W, headerH)
 
   ctx.fillStyle = PALETTE.primaryForeground
-  ctx.textBaseline = "alphabetic"
   ctx.textAlign = "left"
-  ctx.font = `600 34px ${sans}`
-  ctx.letterSpacing = "10px"
+  ctx.font = `600 34px ${SANS}`
+  setLetterSpacing(ctx, 10)
   ctx.fillText("PASE DE ACCESO", 72, 130)
-  ctx.letterSpacing = "0px"
+  setLetterSpacing(ctx, 0)
   ctx.globalAlpha = 0.9
-  ctx.font = `28px ${sans}`
+  ctx.font = `28px ${SANS}`
   ctx.fillText(
     `Asamblea N° ${data.asamblea_numero} — ${data.asamblea_edicion}`,
     72,
@@ -307,7 +401,7 @@ function makeCardTexture(data: LanyardData): THREE.CanvasTexture {
   )
   ctx.globalAlpha = 1
 
-  // Insignia circular con check
+  // Insignia con check
   const cx = 150
   const cy = headerH + 150
   ctx.beginPath()
@@ -324,20 +418,32 @@ function makeCardTexture(data: LanyardData): THREE.CanvasTexture {
   ctx.lineTo(cx + 34, cy - 26)
   ctx.stroke()
 
-  // Nombre del área (serif, puede ir en dos líneas)
+  // Título: el nombre del portador si se registró; si no, el área.
+  const holder = data.nombre?.trim()
+  const titleText = holder || data.area_nombre
   ctx.fillStyle = PALETTE.foreground
-  ctx.textAlign = "left"
-  const areaLines = wrapText(ctx, data.area_nombre, `64px ${serif}`, W - 144)
-  ctx.font = `64px ${serif}`
-  let y = headerH + 300
-  for (const line of areaLines.slice(0, 2)) {
+  const titleLines = wrapText(ctx, titleText, `64px ${SERIF}`, W - 144)
+  ctx.font = `64px ${SERIF}`
+  let y = headerH + 290
+  for (const line of titleLines.slice(0, 2)) {
     ctx.fillText(line, 72, y)
     y += 78
   }
 
-  // Pastilla "Acceso autorizado"
+  // Subtítulo: el área a la que accede (cuando el título es el nombre).
+  if (holder) {
+    ctx.fillStyle = PALETTE.mutedForeground
+    ctx.font = `30px ${SANS}`
+    const subLines = wrapText(ctx, `Acceso a ${data.area_nombre}`, `30px ${SANS}`, W - 144)
+    for (const line of subLines.slice(0, 1)) {
+      ctx.fillText(line, 72, y)
+      y += 42
+    }
+  }
+
+  // Pastilla
   y += 8
-  ctx.font = `600 28px ${sans}`
+  ctx.font = `600 28px ${SANS}`
   const pillText = "Acceso autorizado"
   const pillW = ctx.measureText(pillText).width + 90
   const pillH = 64
@@ -346,29 +452,24 @@ function makeCardTexture(data: LanyardData): THREE.CanvasTexture {
   ctx.fill()
   ctx.fillStyle = PALETTE.primary
   ctx.fillText(pillText, 124, y + 42)
-  // punto check de la pastilla
   ctx.beginPath()
   ctx.arc(96, y + 32, 8, 0, Math.PI * 2)
   ctx.fill()
-
   y += pillH + 70
 
-  // Datos: portador, sede, fechas
-  ctx.textAlign = "left"
+  // Datos (el portador ya es el título; no lo repetimos)
   const filas: [string, string][] = []
-  if (data.nombre) filas.push(["PORTADOR", data.nombre])
   if (data.asamblea_sede) filas.push(["SEDE", data.asamblea_sede])
   if (data.asamblea_fechas) filas.push(["FECHAS", data.asamblea_fechas])
-
   for (const [label, value] of filas) {
     ctx.fillStyle = PALETTE.mutedForeground
-    ctx.font = `500 22px ${sans}`
-    ctx.letterSpacing = "3px"
-    ctx.fillText(label.toUpperCase(), 72, y)
-    ctx.letterSpacing = "0px"
+    ctx.font = `500 22px ${SANS}`
+    setLetterSpacing(ctx, 3)
+    ctx.fillText(label, 72, y)
+    setLetterSpacing(ctx, 0)
     ctx.fillStyle = PALETTE.foreground
-    ctx.font = `34px ${sans}`
-    const valueLines = wrapText(ctx, value, `34px ${sans}`, W - 144)
+    ctx.font = `34px ${SANS}`
+    const valueLines = wrapText(ctx, value, `34px ${SANS}`, W - 144)
     let vy = y + 44
     for (const line of valueLines.slice(0, 2)) {
       ctx.fillText(line, 72, vy)
@@ -381,18 +482,59 @@ function makeCardTexture(data: LanyardData): THREE.CanvasTexture {
   ctx.strokeStyle = PALETTE.border
   ctx.lineWidth = 2
   ctx.beginPath()
-  ctx.moveTo(72, H - 130)
-  ctx.lineTo(W - 72, H - 130)
+  ctx.moveTo(72, H - 150)
+  ctx.lineTo(W - 72, H - 150)
   ctx.stroke()
   ctx.fillStyle = PALETTE.mutedForeground
-  ctx.font = `24px ${sans}`
-  ctx.fillText("Ligado a este dispositivo · solo funciona aquí", 72, H - 80)
+  ctx.font = `24px ${SANS}`
+  ctx.fillText("Ligado a este dispositivo · solo funciona aquí", 72, H - 100)
 
-  const texture = new THREE.CanvasTexture(canvas)
-  texture.colorSpace = THREE.SRGBColorSpace
-  texture.anisotropy = 8
-  texture.needsUpdate = true
-  return texture
+  return canvas.toDataURL("image/png")
+}
+
+/** Reverso: sage con identidad sobria. */
+function makeBackFace(data: LanyardData): string {
+  const W = 1024
+  const H = 1448
+  const { canvas, ctx } = newCanvas(W, H)
+
+  ctx.fillStyle = PALETTE.primary
+  ctx.fillRect(0, 0, W, H)
+
+  ctx.textAlign = "center"
+  ctx.fillStyle = PALETTE.primaryForeground
+  ctx.font = `600 64px ${SERIF}`
+  ctx.fillText("AMS-OS", W / 2, H / 2 - 20)
+  ctx.globalAlpha = 0.85
+  ctx.font = `28px ${SANS}`
+  setLetterSpacing(ctx, 6)
+  ctx.fillText("GESTIÓN DE ASAMBLEAS", W / 2, H / 2 + 40)
+  setLetterSpacing(ctx, 0)
+  ctx.globalAlpha = 0.7
+  ctx.font = `26px ${SANS}`
+  ctx.fillText(
+    `Asamblea N° ${data.asamblea_numero} — ${data.asamblea_edicion}`,
+    W / 2,
+    H - 140,
+  )
+  ctx.globalAlpha = 1
+
+  return canvas.toDataURL("image/png")
+}
+
+function newCanvas(w: number, h: number) {
+  const canvas = document.createElement("canvas")
+  canvas.width = w
+  canvas.height = h
+  const ctx = canvas.getContext("2d")!
+  ctx.textBaseline = "alphabetic"
+  return { canvas, ctx }
+}
+
+function setLetterSpacing(ctx: CanvasRenderingContext2D, px: number) {
+  // letterSpacing existe en navegadores modernos; si no, se ignora.
+  ;(ctx as CanvasRenderingContext2D & { letterSpacing?: string }).letterSpacing =
+    `${px}px`
 }
 
 function roundRect(
