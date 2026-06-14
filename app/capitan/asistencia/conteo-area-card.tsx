@@ -192,7 +192,7 @@ function ContadorForm({
   const valorCambia = valorAnterior !== null && valorAnterior !== valor
 
   return (
-    <form onSubmit={onSubmit} className="mt-4 grid gap-4">
+    <form onSubmit={onSubmit} className="mt-4 grid grid-cols-1 gap-4">
       {reportadoPorOtro && (
         <div className="flex items-start gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-700 dark:text-amber-400">
           <AlertTriangleIcon className="mt-0.5 size-4 shrink-0" />
@@ -214,7 +214,7 @@ function ContadorForm({
             Aún sin reportes para esta sesión.
           </p>
         ) : (
-          <ul className="mt-2 grid gap-1.5">
+          <ul className="mt-2 grid grid-cols-1 gap-1.5">
             {reportes.map((r, i) => (
               <li
                 key={`${r.acomodadorNombre}-${r.reportadoAt}-${i}`}

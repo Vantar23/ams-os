@@ -115,7 +115,7 @@ export function LugaresVaciosForm({
   const valorCambia = valorAnterior !== null && valorAnterior !== valor
 
   return (
-    <form onSubmit={onSubmit} className="mt-4 grid gap-4">
+    <form onSubmit={onSubmit} className="mt-4 grid grid-cols-1 gap-4">
       <div>
         <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
           {modo === "vacios" ? "Lugares vacíos" : "Asistentes contados"}

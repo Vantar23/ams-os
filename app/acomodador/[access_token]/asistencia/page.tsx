@@ -77,7 +77,7 @@ export default async function Page({
             <ArmchairIcon className="size-4" />
             Asientos disponibles en tu sección
           </p>
-          <ul className="mt-3 grid gap-2">
+          <ul className="mt-3 grid grid-cols-1 gap-2">
             {asignaciones.map((a) => {
               const { disponibles } = asientosDeReporte(
                 a.area_capacidad,
@@ -121,7 +121,7 @@ export default async function Page({
             : "No tienes puesto asignado en este turno."}
         </p>
       ) : (
-        <ul className="mt-6 grid gap-3">
+        <ul className="mt-6 grid grid-cols-1 gap-3">
           {asignaciones.map((a) => {
             const label = SLOT_LABEL[a.slot]
             return (

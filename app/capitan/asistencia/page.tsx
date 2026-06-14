@@ -107,7 +107,7 @@ export default async function Page() {
           área, aparecerá aquí.
         </p>
       ) : (
-        <div className="mt-6 grid gap-3">
+        <div className="mt-6 grid grid-cols-1 gap-3">
           {areas.map((a) => (
             <ConteoAreaCard
               key={a.id}
