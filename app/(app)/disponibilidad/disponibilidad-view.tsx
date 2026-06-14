@@ -24,6 +24,7 @@ import {
   DISPONIBILIDAD_DIAS,
   DISPONIBILIDAD_SESIONES,
   type DisponibilidadSlot,
+  slotLabelCorto,
 } from "@/lib/disponibilidad"
 import { cn } from "@/lib/utils"
 
@@ -209,10 +210,19 @@ export function DisponibilidadView({
   const [currentSlot, setCurrentSlot] = React.useState<string | null>(null)
   React.useEffect(() => {
     const { dia, sesion } = currentDiaSesion()
-    setCurrentSlot(`${dia}-${sesion}`)
+    const slot = `${dia}-${sesion}` as DisponibilidadSlot
+    setCurrentSlot(slot)
+    // Preselecciona el turno en curso en vez de "Todos" al abrir la vista.
+    setSelected(slot)
   }, [])
   const puestoActual = (acoId: string) =>
     currentSlot ? puestoPorAcoSlot.get(`${acoId}:${currentSlot}`) : undefined
+  // Historial de puestos (turnos pasados + el actual) para la vista "Todos".
+  const puestosHistorial = (acoId: string) =>
+    slotsHastaActual.flatMap((slot) => {
+      const label = puestoPorAcoSlot.get(`${acoId}:${slot}`)
+      return label ? [{ slot, label, actual: slot === currentSlot }] : []
+    })
 
   // Filtro por área. Áreas ordenadas para las tarjetas.
   const areasOrdenadas = React.useMemo(
@@ -235,23 +245,30 @@ export function DisponibilidadView({
     )
     return m
   }, [asignaciones])
-  // Turno relevante para el puesto: el seleccionado, o el actual en "Todos".
-  const slotRelevante = selected === "todos" ? currentSlot : selected
+  // Turnos pasados + el actual (en orden cronológico), para la vista "Todos".
+  const slotsHastaActual = React.useMemo(() => {
+    const orden = ALL_SLOTS.map((s) => s.slot)
+    if (!currentSlot) return orden
+    const idx = orden.indexOf(currentSlot as DisponibilidadSlot)
+    return idx < 0 ? orden : orden.slice(0, idx + 1)
+  }, [currentSlot])
   const areaSel = areaFiltro === "todas" ? null : areaObjById.get(areaFiltro)
   // Las áreas de los capitanes se guardan como "Piso — Nombre".
   const areaSelCapLabel = areaSel ? `${areaSel.piso} — ${areaSel.nombre}` : null
   const matchAreaCapitan = (c: Capitan) =>
     areaFiltro === "todas" ||
     (areaSelCapLabel != null && c.area.includes(areaSelCapLabel))
+  // Filtra acomodadores por su puesto REAL (asignación), no por el de su capitán.
+  // - Turno concreto: su puesto en ese turno debe ser el área seleccionada.
+  // - "Todos": asignado al área en algún turno pasado o el actual.
   const matchAreaAco = (a: Acomodador) => {
     if (areaFiltro === "todas") return true
-    if (
-      slotRelevante &&
-      areaIdPorAcoSlot.get(`${a.id}:${slotRelevante}`) === areaFiltro
-    )
-      return true
-    const cap = a.capitan_id ? capitanById.get(a.capitan_id) : null
-    return !!(cap && areaSelCapLabel != null && cap.area.includes(areaSelCapLabel))
+    if (selected === "todos") {
+      return slotsHastaActual.some(
+        (slot) => areaIdPorAcoSlot.get(`${a.id}:${slot}`) === areaFiltro,
+      )
+    }
+    return areaIdPorAcoSlot.get(`${a.id}:${selected}`) === areaFiltro
   }
   const matchAreaHer = (h: Hermana) => {
     if (areaFiltro === "todas") return true
@@ -312,7 +329,9 @@ export function DisponibilidadView({
                 label={`${dia.slice(0, 3)} · ${sesion}`}
                 count={counts[slot]}
                 active={selected === slot}
-                onClick={() => setSelected(slot)}
+                onClick={() =>
+                  setSelected(selected === slot ? "todos" : slot)
+                }
               />
             ))}
           </div>
@@ -369,7 +388,9 @@ export function DisponibilidadView({
                     <li key={s.key}>
                       <button
                         type="button"
-                        onClick={() => setSelected(slot)}
+                        onClick={() =>
+                          setSelected(active ? "todos" : slot)
+                        }
                         className={cn(
                           "flex w-full items-center justify-between rounded-md px-3 py-2 text-sm transition-colors",
                           active
@@ -420,7 +441,7 @@ export function DisponibilidadView({
           </div>
 
           <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center">
-            <div className="inline-flex flex-wrap self-start rounded-full border bg-background p-0.5 text-xs sm:self-auto">
+            <div className="inline-flex flex-wrap self-start rounded-full border bg-background p-1 text-sm sm:self-auto">
               {(
                 [
                   { key: "todos", label: "Todos" },
@@ -432,9 +453,11 @@ export function DisponibilidadView({
                 <button
                   key={f.key}
                   type="button"
-                  onClick={() => setFiltro(f.key)}
+                  onClick={() =>
+                    setFiltro(filtro === f.key ? "todos" : f.key)
+                  }
                   className={cn(
-                    "rounded-full px-3 py-1 transition-colors",
+                    "rounded-full px-4 py-2 font-medium transition-colors",
                     filtro === f.key
                       ? "bg-primary text-primary-foreground"
                       : "text-muted-foreground hover:text-foreground",
@@ -471,7 +494,9 @@ export function DisponibilidadView({
                   label={a.nombre}
                   piso={a.piso}
                   active={areaFiltro === a.id}
-                  onClick={() => setAreaFiltro(a.id)}
+                  onClick={() =>
+                    setAreaFiltro(areaFiltro === a.id ? "todas" : a.id)
+                  }
                 />
               ))}
             </div>
@@ -520,7 +545,7 @@ export function DisponibilidadView({
                             : a.congregacion
                         }
                         telefono={a.telefono}
-                        puesto={puestoActual(a.id)}
+                        puestos={puestosHistorial(a.id)}
                         disponibilidad={a.disponibilidad}
                         confirmadas={a.asistencia_confirmada}
                       />
@@ -954,17 +979,19 @@ function MatrixRow({
   title,
   subtitle,
   telefono,
-  puesto,
+  puestos,
   disponibilidad,
   confirmadas,
 }: {
   title: string
   subtitle: string
   telefono: string
-  puesto?: string
+  puestos?: { slot: string; label: string; actual: boolean }[]
   disponibilidad: string[]
   confirmadas: string[]
 }) {
+  const puestoActual = puestos?.find((p) => p.actual)
+  const puestosAnteriores = (puestos ?? []).filter((p) => !p.actual)
   const slots = DISPONIBILIDAD_DIAS.flatMap((d) =>
     DISPONIBILIDAD_SESIONES.map((s) => ({
       key: `${d.key}-${s.key}`,
@@ -985,10 +1012,26 @@ function MatrixRow({
             {subtitle}
           </span>
           <TelefonoButton telefono={telefono} />
-          {puesto && (
-            <span className="truncate text-xs text-primary">
-              Puesto: {puesto}
-            </span>
+          {puestos && puestos.length > 0 && (
+            <div className="flex flex-col">
+              {puestoActual ? (
+                <span className="text-xs text-primary">
+                  Puesto actual: {puestoActual.label}
+                </span>
+              ) : (
+                <span className="text-xs text-muted-foreground">
+                  Sin puesto en el turno actual
+                </span>
+              )}
+              {puestosAnteriores.length > 0 && (
+                <span className="text-xs text-muted-foreground">
+                  Anteriores:{" "}
+                  {puestosAnteriores
+                    .map((p) => `${slotLabelCorto(p.slot)} — ${p.label}`)
+                    .join("    ·    ")}
+                </span>
+              )}
+            </div>
           )}
         </div>
         {visible.length === 0 ? (
