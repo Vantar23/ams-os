@@ -56,7 +56,6 @@ export default async function Page({
   }
 
   const { acomodador } = result
-  const capitan = await loadCapitanAsignado(acomodador.id)
   const avisoReemplazo = await loadAvisoReemplazo(
     acomodador.id,
     acomodador.asamblea_id,
@@ -67,6 +66,18 @@ export default async function Page({
     momentoEnRecinto(),
   )
   const puestos = asignaciones.filter((a) => visibles.includes(a.slot))
+  // El capitán que ve el acomodador es el del área a la que está asignado (no
+  // un capitán fijo). Tomamos las áreas de sus puestos vigentes; si no hay
+  // ninguno vigente, todas sus áreas asignadas para que siempre tenga a quién
+  // acudir.
+  const areasParaCapitan = puestos.length > 0 ? puestos : asignaciones
+  const etiquetasArea = [
+    ...new Set(areasParaCapitan.map((a) => `${a.area_piso} — ${a.area_nombre}`)),
+  ]
+  const capitanes = await loadCapitanesDeAreas(
+    acomodador.asamblea_id,
+    etiquetasArea,
+  )
 
   return (
     <main className="mx-auto w-full max-w-2xl px-5 py-10 sm:py-14">
@@ -120,13 +131,14 @@ export default async function Page({
         </div>
       )}
 
-      {capitan && (
+      {capitanes.map((capitan) => (
         <CapitanCard
+          key={capitan.id}
           nombre={capitan.nombre}
           apellido={capitan.apellido}
           telefono={capitan.telefono}
         />
-      )}
+      ))}
 
       <nav className="mt-10 grid gap-3">
         <NavCard
@@ -186,24 +198,36 @@ export default async function Page({
   )
 }
 
-async function loadCapitanAsignado(acomodadorId: string) {
+/**
+ * Capitanes de las áreas dadas (etiquetas "piso — nombre"), para que el
+ * acomodador vea al capitán del área a la que está asignado y no a un capitán
+ * fijo. Un capitán puede cubrir varias de sus áreas: se devuelve sin repetir.
+ * Usa el cliente admin porque el portal es por token (sin sesión).
+ */
+async function loadCapitanesDeAreas(
+  asambleaId: string,
+  etiquetasArea: string[],
+) {
+  if (etiquetasArea.length === 0) return []
   const admin = createAdminClient()
-  const { data: fila } = await admin
-    .from("acomodadores")
-    .select("capitan_id")
-    .eq("id", acomodadorId)
-    .maybeSingle()
-  if (!fila?.capitan_id) return null
-  const { data: capitan } = await admin
+  const { data } = await admin
     .from("capitanes")
-    .select("nombre, apellido, telefono")
-    .eq("id", fila.capitan_id)
-    .maybeSingle()
-  return capitan as {
+    .select("id, nombre, apellido, telefono, area")
+    .eq("asamblea_id", asambleaId)
+    .overlaps("area", etiquetasArea)
+  const capitanes = (data ?? []) as {
+    id: string
     nombre: string
     apellido: string
     telefono: string | null
-  } | null
+    area: string[]
+  }[]
+  return capitanes.map(({ id, nombre, apellido, telefono }) => ({
+    id,
+    nombre,
+    apellido,
+    telefono,
+  }))
 }
 
 /**
