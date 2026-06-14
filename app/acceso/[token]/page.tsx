@@ -21,6 +21,8 @@ export default async function Page({
         token={token}
         areaNombre={result.areaNombre}
         asamblea={result.asamblea}
+        cupo={result.cupo}
+        restantes={result.restantes}
       />
     )
   }

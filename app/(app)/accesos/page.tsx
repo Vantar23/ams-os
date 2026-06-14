@@ -45,11 +45,19 @@ export default async function AccesosPage() {
     supabase
       .from("accesos_pases")
       .select(
-        "id, area_id, access_token, nombre, telefono, device_bound_at, created_at",
+        "id, area_id, access_token, nombre, telefono, cupo, created_at, accesos_pases_dispositivos(count)",
       )
       .eq("asamblea_id", asamblea.id)
       .order("created_at", { ascending: false }),
   ])
+
+  // Aplana el conteo embebido de dispositivos ligados (usados) por pase.
+  const pasesConUso = (pases ?? []).map((p) => {
+    const { accesos_pases_dispositivos, ...resto } = p as typeof p & {
+      accesos_pases_dispositivos: { count: number }[] | null
+    }
+    return { ...resto, usados: accesos_pases_dispositivos?.[0]?.count ?? 0 }
+  })
 
   return (
     <>
@@ -57,7 +65,7 @@ export default async function AccesosPage() {
       <AccesosClient
         asamblea={asamblea}
         areas={areas ?? []}
-        pases={pases ?? []}
+        pases={pasesConUso}
       />
     </>
   )

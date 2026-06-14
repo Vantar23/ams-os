@@ -59,7 +59,8 @@ export type Pase = {
   access_token: string
   nombre: string | null
   telefono: string | null
-  device_bound_at: string | null
+  cupo: number
+  usados: number
   created_at: string
 }
 
@@ -77,6 +78,13 @@ function fechaCorta(iso: string): string {
   })
 }
 
+// Describe para cuántas personas/dispositivos sirve el enlace.
+function frasePersonas(cupo: number): string {
+  return cupo <= 1
+    ? "Funciona para 1 persona (1 dispositivo)"
+    : `Funciona para ${cupo} personas (hasta ${cupo} dispositivos)`
+}
+
 // Abre WhatsApp con el enlace listo para enviar. Sin número: deja que el admin
 // elija el contacto al que se lo manda. Si hay teléfono, va directo a esa persona.
 function whatsappShareUrl(
@@ -84,9 +92,14 @@ function whatsappShareUrl(
   url: string,
   nombre: string | null,
   telefono: string | null,
+  cupo: number,
 ): string {
   const saludo = nombre ? `Hola ${nombre}` : "Hola"
-  const text = `${saludo}, este es tu enlace de acceso a ${areaNombre}. Solo funcionará en el primer dispositivo donde lo abras: ${url}`
+  const personas =
+    cupo <= 1
+      ? "Sirve para 1 persona: se activa en el primer dispositivo donde lo abras."
+      : `Sirve para ${cupo} personas: ábrelo en cada dispositivo (hasta ${cupo}). Al completarse ya no admitirá más.`
+  const text = `${saludo}, este es tu enlace de acceso a ${areaNombre}. ${personas} ${url}`
   const phone = (telefono ?? "").replace(/\D/g, "")
   const base = phone ? `https://wa.me/${phone}` : "https://wa.me/"
   return `${base}?text=${encodeURIComponent(text)}`
@@ -118,8 +131,8 @@ export function AccesosClient({
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <p className="max-w-prose text-sm text-muted-foreground">
           Comparte el acceso a áreas restringidas (palcos, departamentos, zonas
-          de acceso controlado). Cada enlace que copias es único y se liga al
-          primer dispositivo que lo abre: nunca funcionará en otro.
+          de acceso controlado). Cada enlace admite la cantidad de accesos
+          (dispositivos) que elijas; al llenarse no admite más y no se reutiliza.
         </p>
         <Button onClick={() => setAddOpen(true)} className="shrink-0">
           <PlusIcon className="size-4" />
@@ -175,7 +188,8 @@ function AreaCard({
   const [variosOpen, setVariosOpen] = React.useState(false)
   const [borrarArea, setBorrarArea] = React.useState(false)
 
-  const ligados = pases.filter((p) => p.device_bound_at).length
+  const usados = pases.reduce((s, p) => s + p.usados, 0)
+  const cupoTotal = pases.reduce((s, p) => s + p.cupo, 0)
 
   return (
     <div className="rounded-xl border bg-card">
@@ -186,7 +200,7 @@ function AreaCard({
           </h3>
           <p className="mt-0.5 text-xs text-muted-foreground">
             {pases.length} enlace{pases.length === 1 ? "" : "s"} ·{" "}
-            {ligados} en uso
+            {usados}/{cupoTotal} accesos en uso
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
@@ -262,6 +276,7 @@ function CompartirDialog({
   const [token, setToken] = React.useState<string | null>(null)
   const [nombre, setNombre] = React.useState("")
   const [telefono, setTelefono] = React.useState("")
+  const [cupo, setCupo] = React.useState(1)
   const [creating, setCreating] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
   const [copied, setCopied] = React.useState(false)
@@ -281,6 +296,7 @@ function CompartirDialog({
       setToken(null)
       setNombre("")
       setTelefono("")
+      setCupo(1)
       setError(null)
       setCopied(false)
       setSearch("")
@@ -336,6 +352,7 @@ function CompartirDialog({
       areaId: area.id,
       nombre,
       telefono,
+      cupo,
     })
     setCreating(false)
     if (!nuevo) {
@@ -364,8 +381,9 @@ function CompartirDialog({
         <DialogHeader>
           <DialogTitle>Compartir acceso a {area.nombre}</DialogTitle>
           <DialogDescription>
-            Genera un enlace y envíalo a la persona. Se ligará al primer
-            dispositivo donde lo abra y no funcionará en ningún otro.
+            Genera un enlace y envíalo. Elige para cuántas personas (dispositivos)
+            sirve: cada quien lo abre en su dispositivo hasta llenar el cupo.
+            Al completarse no admite más y no se reutiliza.
           </DialogDescription>
         </DialogHeader>
 
@@ -464,6 +482,27 @@ function CompartirDialog({
               Sirve para saber de quién es el enlace. Si pones el teléfono,
               podrás enviárselo directo por WhatsApp.
             </p>
+            <div className="grid gap-2">
+              <Label htmlFor={`cupo-${area.id}`}>
+                Cantidad de accesos (dispositivos)
+              </Label>
+              <Input
+                id={`cupo-${area.id}`}
+                type="number"
+                inputMode="numeric"
+                min={1}
+                max={50}
+                value={cupo}
+                onChange={(e) => {
+                  const n = Number(e.target.value)
+                  setCupo(Number.isFinite(n) ? Math.min(50, Math.max(1, n)) : 1)
+                }}
+              />
+              <p className="text-xs text-muted-foreground">
+                {frasePersonas(cupo)}. Útil para enviar un mismo enlace a varios
+                familiares o invitados.
+              </p>
+            </div>
             {error && <p className="text-sm text-destructive">{error}</p>}
             <Button
               type="button"
@@ -503,6 +542,7 @@ function CompartirDialog({
                   url,
                   nombre.trim() || null,
                   telefono.trim() || null,
+                  cupo,
                 )}
                 target="_blank"
                 rel="noopener noreferrer"
@@ -512,9 +552,8 @@ function CompartirDialog({
               </a>
             </Button>
             <p className="text-xs text-muted-foreground">
-              {nombre.trim()
-                ? `Enlace para ${nombre.trim()}. Es único: para otra persona, genera otro distinto.`
-                : "Este enlace es único. Para otra persona, genera otro distinto."}
+              {frasePersonas(cupo)}. Compártelo con quienes lo usarán; al llenar
+              el cupo dejará de admitir dispositivos nuevos.
             </p>
           </div>
         )}
@@ -875,6 +914,7 @@ function EnlaceVariosRow({
               url,
               persona.nombre,
               persona.telefono,
+              1,
             )}
             target="_blank"
             rel="noopener noreferrer"
@@ -892,7 +932,17 @@ function PaseRow({ pase }: { pase: Pase }) {
   const router = useRouter()
   const [borrar, setBorrar] = React.useState(false)
   const [copiado, setCopiado] = React.useState(false)
-  const ligado = Boolean(pase.device_bound_at)
+  const lleno = pase.usados >= pase.cupo
+  const enUso = pase.usados > 0
+
+  // Estado legible del pase según cuántos lugares se han ocupado.
+  const estado = lleno
+    ? "Completo"
+    : enUso
+      ? `${pase.usados}/${pase.cupo} en uso`
+      : pase.cupo > 1
+        ? `Sin abrir · ${pase.cupo} accesos`
+        : "Sin abrir"
 
   async function onCopiar() {
     try {
@@ -910,7 +960,7 @@ function PaseRow({ pase }: { pase: Pase }) {
         <span
           className={
             "inline-flex size-8 shrink-0 items-center justify-center rounded-full " +
-            (ligado
+            (enUso
               ? "bg-primary/10 text-primary"
               : "bg-muted text-muted-foreground")
           }
@@ -919,15 +969,13 @@ function PaseRow({ pase }: { pase: Pase }) {
         </span>
         <div className="min-w-0">
           <p className="truncate text-sm font-medium">
-            {pase.nombre || (ligado ? "En uso" : "Sin abrir")}
+            {pase.nombre || estado}
           </p>
           <p className="truncate text-xs text-muted-foreground">
             {[
-              pase.nombre ? (ligado ? "En uso" : "Sin abrir") : null,
+              pase.nombre ? estado : null,
               pase.telefono,
-              ligado
-                ? `ligado ${fechaCorta(pase.device_bound_at!)}`
-                : `creado ${fechaCorta(pase.created_at)}`,
+              `creado ${fechaCorta(pase.created_at)}`,
             ]
               .filter(Boolean)
               .join(" · ")}
@@ -935,7 +983,7 @@ function PaseRow({ pase }: { pase: Pase }) {
         </div>
       </div>
       <div className="flex shrink-0 items-center gap-1">
-        {!ligado && (
+        {!lleno && (
           <Button
             size="icon"
             variant="ghost"
@@ -966,8 +1014,8 @@ function PaseRow({ pase }: { pase: Pase }) {
           <AlertDialogHeader>
             <AlertDialogTitle>Revocar este acceso</AlertDialogTitle>
             <AlertDialogDescription>
-              {ligado
-                ? "El dispositivo que lo está usando dejará de tener acceso de inmediato. Esta acción no se puede deshacer."
+              {enUso
+                ? `${pase.usados === 1 ? "El dispositivo" : `Los ${pase.usados} dispositivos`} que lo ${pase.usados === 1 ? "usa" : "usan"} dejará${pase.usados === 1 ? "" : "n"} de tener acceso de inmediato. Esta acción no se puede deshacer.`
                 : "El enlace dejará de funcionar de inmediato. Esta acción no se puede deshacer."}
             </AlertDialogDescription>
           </AlertDialogHeader>

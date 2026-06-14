@@ -3,15 +3,15 @@ import { AlertTriangleIcon } from "lucide-react"
 import type { BlockReason } from "./load"
 
 const TITLES: Record<BlockReason, string> = {
-  device_mismatch: "Este enlace ya está activo en otro dispositivo",
+  full: "Este enlace ya alcanzó su límite",
   invalid: "Enlace no válido",
   no_cookie: "No pudimos identificar tu dispositivo",
   error: "Algo salió mal",
 }
 
 const DESCRIPTIONS: Record<BlockReason, string> = {
-  device_mismatch:
-    "Este pase de acceso solo funciona en el primer dispositivo donde se confirmó. No puede pasarse a otro. Pide a administración un enlace nuevo si lo necesitas aquí.",
+  full:
+    "Este pase de acceso ya se activó en todos los dispositivos que admite y no acepta más. Pide a administración un enlace nuevo si lo necesitas aquí.",
   invalid:
     "Este enlace no existe o el acceso fue revocado. Pide a administración un enlace nuevo.",
   no_cookie:

@@ -13,14 +13,20 @@ export function ClaimView({
   token,
   areaNombre,
   asamblea,
+  cupo,
+  restantes,
 }: {
   token: string
   areaNombre: string
   asamblea: AsambleaInfo
+  cupo: number
+  restantes: number
 }) {
   const router = useRouter()
   const [submitting, setSubmitting] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
+
+  const compartido = cupo > 1
 
   async function onConfirm() {
     setError(null)
@@ -47,15 +53,29 @@ export function ClaimView({
           Acceso a {areaNombre}
         </h1>
         <p className="mt-4 text-sm text-muted-foreground">
-          Este enlace todavía no está activo en ningún dispositivo. Confírmalo en{" "}
-          <strong className="text-foreground">este</strong> dispositivo para
-          usarlo. Después solo funcionará aquí: no podrás abrirlo en otro.
+          {compartido ? (
+            <>
+              Este enlace funciona para{" "}
+              <strong className="text-foreground">{cupo} dispositivos</strong>.
+              Quedan <strong className="text-foreground">{restantes}</strong>{" "}
+              disponible{restantes === 1 ? "" : "s"}. Confírmalo en{" "}
+              <strong className="text-foreground">este</strong> dispositivo para
+              ocupar un lugar; al llenarse no admitirá más.
+            </>
+          ) : (
+            <>
+              Este enlace todavía no está activo en ningún dispositivo.
+              Confírmalo en{" "}
+              <strong className="text-foreground">este</strong> dispositivo para
+              usarlo. Después solo funcionará aquí: no podrás abrirlo en otro.
+            </>
+          )}
         </p>
 
         {error && (
           <p className="mt-4 text-sm text-destructive">
-            {error.includes("device_mismatch")
-              ? "Otro dispositivo ya confirmó este enlace. Pide uno nuevo a administración."
+            {error.includes("limit_reached")
+              ? "Este enlace ya alcanzó su límite de dispositivos. Pide uno nuevo a administración."
               : error.includes("invalid_access_token")
                 ? "Este enlace ya no es válido."
                 : error}

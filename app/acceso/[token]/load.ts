@@ -13,16 +13,24 @@ export type Pase = {
   asamblea_titulo: string
   asamblea_fechas: string
   asamblea_sede: string
-  is_unbound: boolean
+  cupo: number
+  usados: number
+  is_bound: boolean
+  is_full: boolean
   created_at: string
-  device_bound_at: string | null
 }
 
-export type BlockReason = "no_cookie" | "device_mismatch" | "invalid" | "error"
+export type BlockReason = "no_cookie" | "full" | "invalid" | "error"
 
 export type LoadResult =
   | { kind: "blocked"; reason: BlockReason; message?: string }
-  | { kind: "claim"; areaNombre: string; asamblea: AsambleaInfo }
+  | {
+      kind: "claim"
+      areaNombre: string
+      asamblea: AsambleaInfo
+      cupo: number
+      restantes: number
+    }
   | { kind: "ok"; pase: Pase }
 
 export type AsambleaInfo = {
@@ -45,9 +53,6 @@ export async function loadPaseByToken(token: string): Promise<LoadResult> {
     p_device_key_hash: deviceKeyHash,
   })
   if (error) {
-    if (error.message.includes("device_mismatch")) {
-      return { kind: "blocked", reason: "device_mismatch" }
-    }
     if (error.message.includes("invalid_access_token")) {
       return { kind: "blocked", reason: "invalid" }
     }
@@ -57,21 +62,26 @@ export async function loadPaseByToken(token: string): Promise<LoadResult> {
   const pase = (data ?? [])[0] as Pase | undefined
   if (!pase) return { kind: "blocked", reason: "invalid" }
 
-  if (pase.is_unbound) {
-    return {
-      kind: "claim",
-      areaNombre: pase.area_nombre,
-      asamblea: {
-        numero: pase.asamblea_numero,
-        edicion: pase.asamblea_edicion,
-        titulo: pase.asamblea_titulo,
-        fechas: pase.asamblea_fechas,
-        sede: pase.asamblea_sede,
-      },
-    }
-  }
+  // Ya tiene lugar en este dispositivo: muestra el pase.
+  if (pase.is_bound) return { kind: "ok", pase }
 
-  return { kind: "ok", pase }
+  // Sin lugar y el cupo está lleno: bloqueado.
+  if (pase.is_full) return { kind: "blocked", reason: "full" }
+
+  // Quedan lugares: ofrece confirmar este dispositivo.
+  return {
+    kind: "claim",
+    areaNombre: pase.area_nombre,
+    cupo: pase.cupo,
+    restantes: Math.max(0, pase.cupo - pase.usados),
+    asamblea: {
+      numero: pase.asamblea_numero,
+      edicion: pase.asamblea_edicion,
+      titulo: pase.asamblea_titulo,
+      fechas: pase.asamblea_fechas,
+      sede: pase.asamblea_sede,
+    },
+  }
 }
 
 async function sha256(input: string): Promise<string> {

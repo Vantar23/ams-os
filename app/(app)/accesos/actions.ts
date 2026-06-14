@@ -56,14 +56,16 @@ export async function eliminarArea(
 
 /**
  * Acuña un pase NUEVO para un área y devuelve su token. Cada llamada genera un
- * token único e irrepetible: así, cada vez que el admin "copia un enlace",
- * obtiene uno distinto que solo servirá en el primer dispositivo que lo abra.
+ * token único e irrepetible. `cupo` es la cantidad de dispositivos que admite el
+ * enlace (1 por defecto): los primeros `cupo` dispositivos que lo abran quedan
+ * ligados; al llenarse no entra ninguno más y el enlace no se reutiliza.
  */
 export async function generarPase(input: {
   asambleaId: string
   areaId: string
   nombre?: string
   telefono?: string
+  cupo?: number
 }): Promise<{ token: string | null; error: string | null }> {
   const supabase = await createClient()
   const {
@@ -73,6 +75,8 @@ export async function generarPase(input: {
 
   const nombre = input.nombre?.trim() || null
   const telefono = input.telefono?.trim() || null
+  // Acota el cupo a un rango razonable (coincide con el CHECK de la BD).
+  const cupo = Math.min(50, Math.max(1, Math.floor(input.cupo ?? 1)))
 
   const token = randomToken()
   const { error } = await supabase.from("accesos_pases").insert({
@@ -81,6 +85,7 @@ export async function generarPase(input: {
     access_token: token,
     nombre,
     telefono,
+    cupo,
   })
   if (error) return { token: null, error: error.message }
   revalidatePath("/accesos")
