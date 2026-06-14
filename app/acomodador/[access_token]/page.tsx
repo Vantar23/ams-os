@@ -142,6 +142,18 @@ export default async function Page({
 
       <nav className="mt-10 grid gap-3">
         <NavCard
+          href={`/acomodador/${access_token}/incidencias`}
+          icon={<AlertOctagonIcon className="size-5" />}
+          title="Incidencias"
+          description="Reporta una incidencia durante la asamblea."
+        />
+        <NavCard
+          href={`/acomodador/${access_token}/asistencia`}
+          icon={<CalendarCheckIcon className="size-5" />}
+          title="Asistencia"
+          description="Captura las asistencias del recinto en tu área asignada."
+        />
+        <NavCard
           href={`/acomodador/${access_token}/mensajes`}
           icon={<MessageCircleIcon className="size-5" />}
           title="Mensajes"
@@ -152,18 +164,6 @@ export default async function Page({
               accessToken={access_token}
             />
           }
-        />
-        <NavCard
-          href={`/acomodador/${access_token}/asistencia`}
-          icon={<CalendarCheckIcon className="size-5" />}
-          title="Asistencia"
-          description="Captura las asistencias del recinto en tu área asignada."
-        />
-        <NavCard
-          href={`/acomodador/${access_token}/incidencias`}
-          icon={<AlertOctagonIcon className="size-5" />}
-          title="Incidencias"
-          description="Reporta una incidencia durante la asamblea."
         />
         <NavCard
           href={`/acomodador/${access_token}/mapa`}
