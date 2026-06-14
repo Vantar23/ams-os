@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { useRouter } from "next/navigation"
-import { CheckIcon, CopyIcon, MessageCircleIcon } from "lucide-react"
+import { MessageCircleIcon } from "lucide-react"
 
 import {
   AlertDialog,
@@ -88,7 +88,6 @@ function buildDisponibilidadShareUrl(
 }
 
 export function DisponibilidadView({
-  asamblea,
   capitanes,
   acomodadores,
   hermanas,
@@ -293,8 +292,6 @@ export function DisponibilidadView({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4 p-3 sm:p-4">
-      <PersonalToolbar />
-
       {/* Mobile slot picker — horizontal scrolling chips */}
       {!isDesktopSm && (
         <nav className="-mx-3">
@@ -438,11 +435,7 @@ export function DisponibilidadView({
                 placeholder="Buscar por nombre, número o área…"
               />
             </div>
-            {selected !== "todos" && origin && (
-              <CopyAsistenciaLinkButton
-                url={`${origin}/asistencia/${asamblea.id}/${selected}`}
-              />
-            )}
+            <PersonalToolbar />
           </div>
 
           {selected !== "todos" && areasOrdenadas.length > 0 && (
@@ -687,34 +680,6 @@ export function DisponibilidadView({
         </section>
       </div>
     </div>
-  )
-}
-
-function CopyAsistenciaLinkButton({ url }: { url: string }) {
-  const [copied, setCopied] = React.useState(false)
-  async function copy() {
-    try {
-      await navigator.clipboard.writeText(url)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    } catch {
-      /* ignored */
-    }
-  }
-  return (
-    <button
-      type="button"
-      onClick={copy}
-      className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background px-3 py-1 text-xs text-foreground/80 transition-colors hover:bg-muted"
-      title={url}
-    >
-      {copied ? (
-        <CheckIcon className="size-3.5" />
-      ) : (
-        <CopyIcon className="size-3.5" />
-      )}
-      {copied ? "Copiado" : "Copiar enlace de asistencia"}
-    </button>
   )
 }
 
