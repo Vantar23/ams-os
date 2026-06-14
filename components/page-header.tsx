@@ -1,5 +1,7 @@
 "use client"
 
+import type { ReactNode } from "react"
+
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import { asambleaSubtitle, useAsamblea } from "@/components/asamblea-context"
 import { useHayNotificaciones } from "@/components/notificaciones-context"
@@ -7,10 +9,13 @@ import { roleLabel, useRole } from "@/components/role-context"
 
 export function PageHeader({
   title,
+  right,
 }: {
   /** @deprecated El breadcrumb se reemplazó por el subtítulo de la asamblea. */
   parent?: string
   title: string
+  /** Contenido a la derecha de la cabecera; reemplaza la etiqueta de rol. */
+  right?: ReactNode
 }) {
   const role = useRole()
   const label = roleLabel(role)
@@ -32,10 +37,14 @@ export function PageHeader({
           <p className="truncate text-sm text-muted-foreground">{subtitle}</p>
         )}
       </div>
-      {label && (
-        <span className="ml-auto mt-1 inline-flex shrink-0 items-center rounded-md border bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
-          {label}
-        </span>
+      {right ? (
+        <div className="ml-auto mt-1 shrink-0">{right}</div>
+      ) : (
+        label && (
+          <span className="ml-auto mt-1 inline-flex shrink-0 items-center rounded-md border bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+            {label}
+          </span>
+        )
       )}
     </header>
   )

@@ -1,6 +1,8 @@
 import Link from "next/link"
 
 import { PageHeader } from "@/components/page-header"
+import { TurnoEnCursoBadge } from "@/components/turno-en-curso-badge"
+import { TurnoProvider } from "@/components/turno-context"
 import { Button } from "@/components/ui/button"
 import { createClient } from "@/lib/supabase/server"
 
@@ -75,16 +77,22 @@ export default async function DisponibilidadPage() {
   ])
 
   return (
-    <>
-      <PageHeader parent="Personal" title="Personal" />
-      <DisponibilidadView
-        asamblea={asamblea}
-        capitanes={capitanes ?? []}
-        acomodadores={acomodadores ?? []}
-        hermanas={hermanas ?? []}
-        areas={areas ?? []}
-        asignaciones={asignaciones ?? []}
-      />
-    </>
+    <TurnoProvider>
+      <div className="flex h-svh min-h-0 flex-col overflow-hidden">
+        <PageHeader
+          parent="Personal"
+          title="Personal"
+          right={<TurnoEnCursoBadge />}
+        />
+        <DisponibilidadView
+          asamblea={asamblea}
+          capitanes={capitanes ?? []}
+          acomodadores={acomodadores ?? []}
+          hermanas={hermanas ?? []}
+          areas={areas ?? []}
+          asignaciones={asignaciones ?? []}
+        />
+      </div>
+    </TurnoProvider>
   )
 }

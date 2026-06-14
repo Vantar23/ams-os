@@ -18,9 +18,10 @@ import {
   BuscadorPersonal,
   coincideBusqueda,
 } from "@/components/buscador-personal"
+import { PersonalToolbar } from "@/components/personal-toolbar"
 import { Checkbox } from "@/components/ui/checkbox"
+import { useTurno } from "@/components/turno-context"
 import {
-  currentDiaSesion,
   DISPONIBILIDAD_DIAS,
   DISPONIBILIDAD_SESIONES,
   type DisponibilidadSlot,
@@ -113,9 +114,7 @@ export function DisponibilidadView({
     mq.addEventListener("change", update)
     return () => mq.removeEventListener("change", update)
   }, [])
-  const [selected, setSelected] = React.useState<DisponibilidadSlot | "todos">(
-    "todos",
-  )
+  const { selected, setSelected, currentSlot } = useTurno()
   const [filtro, setFiltro] = React.useState<Filtro>("todos")
   const [busqueda, setBusqueda] = React.useState("")
   const [areaFiltro, setAreaFiltro] = React.useState<string>("todas")
@@ -206,17 +205,13 @@ export function DisponibilidadView({
     })
     return m
   }, [asignaciones, areaLabelById])
-  // Turno actual (según fecha/hora del cliente) para el puesto en vista "Todos".
-  const [currentSlot, setCurrentSlot] = React.useState<string | null>(null)
-  React.useEffect(() => {
-    const { dia, sesion } = currentDiaSesion()
-    const slot = `${dia}-${sesion}` as DisponibilidadSlot
-    setCurrentSlot(slot)
-    // Preselecciona el turno en curso en vez de "Todos" al abrir la vista.
-    setSelected(slot)
-  }, [])
-  const puestoActual = (acoId: string) =>
-    currentSlot ? puestoPorAcoSlot.get(`${acoId}:${currentSlot}`) : undefined
+  // Turnos pasados + el actual (en orden cronológico), para la vista "Todos".
+  const slotsHastaActual = React.useMemo(() => {
+    const orden = ALL_SLOTS.map((s) => s.slot)
+    if (!currentSlot) return orden
+    const idx = orden.indexOf(currentSlot as DisponibilidadSlot)
+    return idx < 0 ? orden : orden.slice(0, idx + 1)
+  }, [currentSlot])
   // Historial de puestos (turnos pasados + el actual) para la vista "Todos".
   const puestosHistorial = (acoId: string) =>
     slotsHastaActual.flatMap((slot) => {
@@ -224,7 +219,8 @@ export function DisponibilidadView({
       return label ? [{ slot, label, actual: slot === currentSlot }] : []
     })
 
-  // Filtro por área. Áreas ordenadas para las tarjetas.
+  // Filtro por área. Solo aplica con un turno/fecha concreto seleccionado;
+  // en la vista general ("Personal"/todos) queda inerte y no se muestra.
   const areasOrdenadas = React.useMemo(
     () =>
       [...areas].sort(
@@ -240,38 +236,23 @@ export function DisponibilidadView({
   // area_id asignado por acomodador y turno (para filtrar por el puesto real).
   const areaIdPorAcoSlot = React.useMemo(() => {
     const m = new Map<string, string>()
-    asignaciones.forEach((a) =>
-      m.set(`${a.acomodador_id}:${a.slot}`, a.area_id),
-    )
+    asignaciones.forEach((a) => m.set(`${a.acomodador_id}:${a.slot}`, a.area_id))
     return m
   }, [asignaciones])
-  // Turnos pasados + el actual (en orden cronológico), para la vista "Todos".
-  const slotsHastaActual = React.useMemo(() => {
-    const orden = ALL_SLOTS.map((s) => s.slot)
-    if (!currentSlot) return orden
-    const idx = orden.indexOf(currentSlot as DisponibilidadSlot)
-    return idx < 0 ? orden : orden.slice(0, idx + 1)
-  }, [currentSlot])
   const areaSel = areaFiltro === "todas" ? null : areaObjById.get(areaFiltro)
   // Las áreas de los capitanes se guardan como "Piso — Nombre".
   const areaSelCapLabel = areaSel ? `${areaSel.piso} — ${areaSel.nombre}` : null
   const matchAreaCapitan = (c: Capitan) =>
+    selected === "todos" ||
     areaFiltro === "todas" ||
     (areaSelCapLabel != null && c.area.includes(areaSelCapLabel))
-  // Filtra acomodadores por su puesto REAL (asignación), no por el de su capitán.
-  // - Turno concreto: su puesto en ese turno debe ser el área seleccionada.
-  // - "Todos": asignado al área en algún turno pasado o el actual.
+  // Acomodadores: por su puesto REAL (asignación) en el turno seleccionado.
   const matchAreaAco = (a: Acomodador) => {
-    if (areaFiltro === "todas") return true
-    if (selected === "todos") {
-      return slotsHastaActual.some(
-        (slot) => areaIdPorAcoSlot.get(`${a.id}:${slot}`) === areaFiltro,
-      )
-    }
+    if (selected === "todos" || areaFiltro === "todas") return true
     return areaIdPorAcoSlot.get(`${a.id}:${selected}`) === areaFiltro
   }
   const matchAreaHer = (h: Hermana) => {
-    if (areaFiltro === "todas") return true
+    if (selected === "todos" || areaFiltro === "todas") return true
     const cap = h.capitan_id ? capitanById.get(h.capitan_id) : null
     return !!(cap && areaSelCapLabel != null && cap.area.includes(areaSelCapLabel))
   }
@@ -292,9 +273,9 @@ export function DisponibilidadView({
       cap ? cap.area.join(" ") : null,
     )
   }
-  const fCapitanes = capitanes.filter(matchCapitan).filter(matchAreaCapitan)
-  const fAcomodadores = acomodadores.filter(matchAcoHer).filter(matchAreaAco)
-  const fHermanas = hermanas.filter(matchAcoHer).filter(matchAreaHer)
+  const fCapitanes = capitanes.filter(matchCapitan)
+  const fAcomodadores = acomodadores.filter(matchAcoHer)
+  const fHermanas = hermanas.filter(matchAcoHer)
   const fSelCapitanes = selectedCapitanes
     .filter(matchCapitan)
     .filter(matchAreaCapitan)
@@ -303,7 +284,6 @@ export function DisponibilidadView({
     .filter(matchAreaAco)
   const fSelHermanas = selectedHermanas.filter(matchAcoHer).filter(matchAreaHer)
 
-  const selectedLabel = ALL_SLOTS.find((s) => s.slot === selected)
   const totalSelected =
     selectedCapitanes.length +
     selectedAcomodadores.length +
@@ -312,13 +292,15 @@ export function DisponibilidadView({
   const totalAll = capitanes.length + acomodadores.length + hermanas.length
 
   return (
-    <div className="flex flex-1 flex-col gap-4 p-3 sm:p-4">
+    <div className="flex min-h-0 flex-1 flex-col gap-4 p-3 sm:p-4">
+      <PersonalToolbar />
+
       {/* Mobile slot picker — horizontal scrolling chips */}
       {!isDesktopSm && (
         <nav className="-mx-3">
           <div className="no-scrollbar flex gap-2 overflow-x-auto px-3 pb-1">
             <SlotChip
-              label="Todos"
+              label="Personal"
               count={totalAll}
               active={selected === "todos"}
               onClick={() => setSelected("todos")}
@@ -339,15 +321,16 @@ export function DisponibilidadView({
       )}
 
       <div
-        className="grid flex-1 gap-4"
+        className="grid min-h-0 flex-1 gap-4"
         style={{
           gridTemplateColumns: isDesktopSm
             ? "minmax(180px, 280px) minmax(0, 1fr)"
             : "1fr",
+          gridTemplateRows: "minmax(0, 1fr)",
         }}
       >
         {isDesktopSm && (
-        <aside className="rounded-xl border bg-surface">
+        <aside className="min-h-0 overflow-y-auto rounded-xl border bg-surface">
           <div className="border-b p-2">
             <button
               type="button"
@@ -359,7 +342,7 @@ export function DisponibilidadView({
                   : "hover:bg-muted",
               )}
             >
-              <span>Todos</span>
+              <span>Personal</span>
               <span
                 className={cn(
                   "rounded-full border px-2 py-0.5 text-[11px]",
@@ -419,28 +402,9 @@ export function DisponibilidadView({
         </aside>
         )}
 
-        <section className="rounded-xl border bg-surface p-4 sm:p-5">
-          <div className="flex flex-wrap items-baseline justify-between gap-3">
-            <div>
-              <p className="text-xs uppercase tracking-[0.15em] text-muted-foreground">
-                {selected === "todos" ? "Vista general" : selectedLabel?.dia}
-              </p>
-              <h3 className="mt-1 font-serif text-xl">
-                {selected === "todos" ? "Todos" : selectedLabel?.sesion}
-              </h3>
-            </div>
-            <p className="text-sm text-muted-foreground">
-              {selected === "todos"
-                ? `${capitanes.length + acomodadores.length} hermano${
-                    capitanes.length + acomodadores.length === 1 ? "" : "s"
-                  }`
-                : `${totalSelected} hermano${
-                    totalSelected === 1 ? "" : "s"
-                  } disponible${totalSelected === 1 ? "" : "s"}`}
-            </p>
-          </div>
-
-          <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center">
+        <section className="flex min-h-0 flex-col rounded-xl border bg-surface">
+          <div className="shrink-0 p-4 sm:p-5">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
             <div className="inline-flex flex-wrap self-start rounded-full border bg-background p-1 text-sm sm:self-auto">
               {(
                 [
@@ -481,13 +445,8 @@ export function DisponibilidadView({
             )}
           </div>
 
-          {areasOrdenadas.length > 0 && (
-            <div className="no-scrollbar -mx-4 mt-3 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-x-visible sm:px-0 sm:pb-0">
-              <AreaFiltroChip
-                label="Todas"
-                active={areaFiltro === "todas"}
-                onClick={() => setAreaFiltro("todas")}
-              />
+          {selected !== "todos" && areasOrdenadas.length > 0 && (
+            <div className="no-scrollbar -mx-4 mt-5 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:gap-x-2 sm:gap-y-2.5 sm:overflow-x-visible sm:px-0 sm:pb-0">
               {areasOrdenadas.map((a) => (
                 <AreaFiltroChip
                   key={a.id}
@@ -502,9 +461,21 @@ export function DisponibilidadView({
             </div>
           )}
 
+          <p className="mt-5 text-sm text-muted-foreground">
+            {selected === "todos"
+              ? `${capitanes.length + acomodadores.length} hermano${
+                  capitanes.length + acomodadores.length === 1 ? "" : "s"
+                }`
+              : `${totalSelected} hermano${
+                  totalSelected === 1 ? "" : "s"
+                } disponible${totalSelected === 1 ? "" : "s"}`}
+          </p>
+          </div>
+
+          <div className="min-h-0 flex-1 overflow-y-auto border-t px-4 py-4 sm:px-5">
           {selected === "todos" ? (
             <div
-              className="mt-6 grid grid-cols-1 gap-6"
+              className="grid grid-cols-1 gap-6"
             >
               {showCapitanes && (
                 <Group
@@ -584,7 +555,7 @@ export function DisponibilidadView({
             </div>
           ) : (
             <div
-              className="mt-6 grid grid-cols-1 gap-6"
+              className="grid grid-cols-1 gap-6"
             >
               {showCapitanes && (
                 <Group
@@ -712,6 +683,7 @@ export function DisponibilidadView({
               )}
             </div>
           )}
+          </div>
         </section>
       </div>
     </div>
