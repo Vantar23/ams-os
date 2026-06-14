@@ -5,9 +5,12 @@ import Link from "next/link"
 import {
   ArrowLeftIcon,
   CheckIcon,
+  ChevronDownIcon,
   ChevronRightIcon,
   HistoryIcon,
   PencilIcon,
+  PlusIcon,
+  TableIcon,
   Trash2Icon,
   Undo2Icon,
 } from "lucide-react"
@@ -145,6 +148,8 @@ const SESION_LABEL: Record<Sesion, string> = {
   tarde: "Tarde",
 }
 
+const SESIONES: Sesion[] = ["manana", "tarde"]
+
 function defaultDia(): string {
   const today = new Date().toISOString().slice(0, 10)
   return DIAS.find((d) => d.value === today)?.value ?? DIAS[0].value
@@ -187,6 +192,58 @@ function asistenciaFromConteo(c: Conteo): number {
   return Math.max(0, c.capacidadSnapshot - c.valor)
 }
 
+type ResumenRow = {
+  key: string
+  dia: string
+  sesion: Sesion
+  areaId: string
+  areaNombre: string
+  modo: Modo
+  capacidad: number
+  asistencia: number
+}
+
+// Asistencia vigente por área+sesión: el conteo más reciente (de capitán o
+// admin) gana; los reportes de acomodadores son solo referencia y no cuentan.
+function computeResumenRows(areas: Area[], conteos: Conteo[]): ResumenRow[] {
+  const byKey = new Map<string, Conteo[]>()
+  for (const c of conteos) {
+    if (c.origen === "acomodador") continue
+    const k = `${c.dia}|${c.sesion}|${c.areaId}`
+    const list = byKey.get(k) ?? []
+    list.push(c)
+    byKey.set(k, list)
+  }
+  const rows: ResumenRow[] = []
+  for (const [key, list] of byKey) {
+    list.sort((a, b) => (a.timestamp < b.timestamp ? 1 : -1))
+    const head = list[0]
+    const liveArea = areas.find((a) => a.id === head.areaId)
+    const capacidad = liveArea?.capacidad ?? head.capacidadSnapshot
+    const modo: Modo = liveArea ? modoDeArea(liveArea) : head.modo
+    const asistencia =
+      modo === "asistentes"
+        ? Math.max(0, head.valor)
+        : Math.max(0, capacidad - head.valor)
+    rows.push({
+      key,
+      dia: head.dia,
+      sesion: head.sesion,
+      areaId: head.areaId,
+      areaNombre: liveArea?.nombre ?? head.areaNombre,
+      modo,
+      capacidad,
+      asistencia,
+    })
+  }
+  rows.sort((a, b) => {
+    if (a.dia !== b.dia) return a.dia.localeCompare(b.dia)
+    if (a.sesion !== b.sesion) return a.sesion.localeCompare(b.sesion)
+    return a.areaNombre.localeCompare(b.areaNombre)
+  })
+  return rows
+}
+
 export function AsistenciaClient({
   areas,
   reportes,
@@ -213,6 +270,24 @@ export function AsistenciaClient({
     return map
   }, [historial])
 
+  // Datos de área/turno por asignación, para titular las filas del historial.
+  const asignacionInfo = React.useMemo(() => {
+    const map = new Map<
+      string,
+      { areaNombre: string; dia: string; sesion: Sesion }
+    >()
+    for (const r of reportes) {
+      if (r.fuente !== "acomodador") continue
+      const [diaKey, sesionKey] = r.slot.split("-") as [string, Sesion]
+      const dia = SLOT_DIA[diaKey]
+      if (!dia || (sesionKey !== "manana" && sesionKey !== "tarde")) continue
+      if (!map.has(r.id)) {
+        map.set(r.id, { areaNombre: r.areaNombre, dia, sesion: sesionKey })
+      }
+    }
+    return map
+  }, [reportes])
+
   const [historialAbierto, setHistorialAbierto] = React.useState<{
     asignacionId: string
     areaNombre: string
@@ -232,16 +307,289 @@ export function AsistenciaClient({
     return all
   }, [conteosRaw, reportes])
 
+  const resumenRows = React.useMemo(
+    () => computeResumenRows(areas, conteos),
+    [areas, conteos],
+  )
+
+  // Totales por turno (día+sesión) para las tarjetas del inicio. `contadas`
+  // son las áreas con conteo validado; el resto faltan por contar.
+  const resumenPorTurno = React.useMemo(() => {
+    const map = new Map<string, { asistencia: number; contadas: Set<string> }>()
+    for (const r of resumenRows) {
+      const k = `${r.dia}|${r.sesion}`
+      const prev = map.get(k) ?? { asistencia: 0, contadas: new Set<string>() }
+      prev.asistencia += r.asistencia
+      prev.contadas.add(r.areaId)
+      map.set(k, prev)
+    }
+    return map
+  }, [resumenRows])
+
+  const [editing, setEditing] = React.useState<Conteo | null>(null)
+  const [agregarOpen, setAgregarOpen] = React.useState(false)
+  const [desgloseOpen, setDesgloseOpen] = React.useState(false)
+  const [historialListaOpen, setHistorialListaOpen] = React.useState(false)
+
+  function onAddLocal(conteo: Conteo) {
+    setConteos((prev) => [conteo, ...prev])
+  }
+
+  function applyEdit(updated: Conteo) {
+    setConteos((prev) => prev.map((c) => (c.id === updated.id ? updated : c)))
+    setEditing(null)
+  }
+
+  function deleteConteo(id: string) {
+    setConteos((prev) => prev.filter((c) => c.id !== id))
+    setEditing(null)
+  }
+
+  const hayHistorial = historialPorAsignacion.size > 0
+
+  return (
+    <>
+      <div className="flex flex-1 flex-col gap-4 p-3 sm:p-4">
+        <section className="flex flex-col rounded-xl border bg-surface">
+          {/* Cabecera con acciones, al estilo de Personal */}
+          <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
+            <div className="min-w-0">
+              <h2 className="font-serif text-xl text-foreground">
+                Resumen por turno
+              </h2>
+              <p className="mt-0.5 text-sm text-muted-foreground">
+                Asistencia total de cada turno, según los conteos validados.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button size="sm" onClick={() => setAgregarOpen(true)}>
+                <PlusIcon className="size-4" />
+                Agregar asistencia
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setDesgloseOpen(true)}
+              >
+                <TableIcon className="size-4" />
+                Desglose
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setHistorialListaOpen(true)}
+                disabled={!hayHistorial}
+              >
+                <HistoryIcon className="size-4" />
+                Historial
+              </Button>
+            </div>
+          </div>
+
+          {/* Tarjetas de turno agrupadas por día */}
+          <div className="grid gap-6 border-t px-4 py-4 sm:px-5">
+            {DIAS.map((d) => (
+              <div key={d.value}>
+                <p className="px-1 text-xs font-medium uppercase tracking-[0.15em] text-muted-foreground">
+                  {d.label}
+                </p>
+                <div className="mt-3 grid grid-cols-2 gap-3">
+                  {SESIONES.map((s) => {
+                    const datos = resumenPorTurno.get(`${d.value}|${s}`)
+                    const contadas = datos?.contadas
+                    const faltantes = areas.filter((a) => !contadas?.has(a.id))
+                    return (
+                      <TurnoCard
+                        key={s}
+                        sesionLabel={SESION_LABEL[s]}
+                        asistencia={datos?.asistencia ?? 0}
+                        areasTotal={areas.length}
+                        faltantes={faltantes}
+                      />
+                    )
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      </div>
+
+      <AgregarAsistenciaDialog
+        open={agregarOpen}
+        onOpenChange={setAgregarOpen}
+        areas={areas}
+        capitanMode={capitanMode}
+        onAddLocal={onAddLocal}
+      />
+
+      <DesgloseDialog
+        open={desgloseOpen}
+        onOpenChange={setDesgloseOpen}
+        conteos={conteos}
+        resumenRows={resumenRows}
+        historialPorAsignacion={historialPorAsignacion}
+        onEdit={setEditing}
+        onVerHistorial={setHistorialAbierto}
+      />
+
+      <HistorialListaDialog
+        open={historialListaOpen}
+        onOpenChange={setHistorialListaOpen}
+        historialPorAsignacion={historialPorAsignacion}
+        asignacionInfo={asignacionInfo}
+        onVer={(asignacionId, areaNombre, slot) => {
+          setHistorialListaOpen(false)
+          setHistorialAbierto({ asignacionId, areaNombre, slot })
+        }}
+      />
+
+      <EditConteoDialog
+        conteo={editing}
+        areas={areas}
+        onClose={() => setEditing(null)}
+        onSave={applyEdit}
+        onDelete={deleteConteo}
+      />
+
+      <HistorialDialog
+        abierto={historialAbierto}
+        entradas={
+          historialAbierto
+            ? historialPorAsignacion.get(historialAbierto.asignacionId) ?? []
+            : []
+        }
+        onClose={() => setHistorialAbierto(null)}
+      />
+    </>
+  )
+}
+
+function TurnoCard({
+  sesionLabel,
+  asistencia,
+  areasTotal,
+  faltantes,
+}: {
+  sesionLabel: string
+  asistencia: number
+  areasTotal: number
+  faltantes: Area[]
+}) {
+  const [abierto, setAbierto] = React.useState(false)
+  const areasRep = areasTotal - faltantes.length
+  const interactivo = areasTotal > 0 && faltantes.length > 0
+
+  const contenido = (
+    <>
+      <div className="flex items-start justify-between gap-2">
+        <p className="text-sm font-medium text-foreground">{sesionLabel}</p>
+        {interactivo && (
+          <ChevronDownIcon
+            className={
+              "size-4 shrink-0 text-foreground transition-transform " +
+              (abierto ? "rotate-180" : "")
+            }
+            strokeWidth={2.5}
+          />
+        )}
+      </div>
+      <p className="mt-3 font-serif text-3xl tabular-nums text-foreground">
+        {asistencia}
+      </p>
+
+      {areasTotal === 0 ? (
+        <p className="mt-0.5 text-xs text-muted-foreground">
+          Sin áreas registradas
+        </p>
+      ) : faltantes.length === 0 ? (
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-primary">
+          <CheckIcon className="size-3.5" />
+          {areasRep} de {areasTotal} área{areasTotal === 1 ? "" : "s"} · todas
+          contadas
+        </p>
+      ) : (
+        <>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            {areasRep} de {areasTotal} área{areasTotal === 1 ? "" : "s"} contada
+            {areasRep === 1 ? "" : "s"}
+          </p>
+          {abierto && (
+            <div className="mt-2">
+              <p className="text-[10px] font-medium uppercase tracking-[0.1em] text-amber-600 dark:text-amber-400">
+                Faltan por contar
+              </p>
+              <div className="mt-1 flex flex-wrap gap-1">
+                {faltantes.map((a) => (
+                  <span
+                    key={a.id}
+                    className="inline-flex max-w-full items-center truncate rounded-full border border-border bg-surface px-2 py-0.5 text-[10px] text-muted-foreground"
+                    title={`${a.piso} · ${a.nombre}`}
+                  >
+                    {a.nombre}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </>
+  )
+
+  if (!interactivo) {
+    return (
+      <div className="rounded-xl border border-border bg-background p-4">
+        {contenido}
+      </div>
+    )
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={() => setAbierto((v) => !v)}
+      aria-expanded={abierto}
+      aria-label={`Ver las ${faltantes.length} áreas que faltan por contar`}
+      className="rounded-xl border border-border bg-background p-4 text-left transition-colors hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    >
+      {contenido}
+    </button>
+  )
+}
+
+function AgregarAsistenciaDialog({
+  open,
+  onOpenChange,
+  areas,
+  capitanMode,
+  onAddLocal,
+}: {
+  open: boolean
+  onOpenChange: (v: boolean) => void
+  areas: Area[]
+  capitanMode: boolean
+  onAddLocal: (c: Conteo) => void
+}) {
   const [step, setStep] = React.useState<"area" | "valor">("area")
   const [selected, setSelected] = React.useState<Area | null>(null)
   const [valor, setValor] = React.useState("")
   const [dia, setDia] = React.useState<string>(() => defaultDia())
   const [sesion, setSesion] = React.useState<Sesion>(() => defaultSesion())
   const [savedAt, setSavedAt] = React.useState<number | null>(null)
-
-  const [editing, setEditing] = React.useState<Conteo | null>(null)
   const [guardando, setGuardando] = React.useState(false)
   const [saveError, setSaveError] = React.useState<string | null>(null)
+
+  function handleOpenChange(v: boolean) {
+    if (!v) {
+      setStep("area")
+      setSelected(null)
+      setValor("")
+      setSavedAt(null)
+      setSaveError(null)
+    }
+    onOpenChange(v)
+  }
 
   function pickArea(area: Area) {
     setSelected(area)
@@ -249,13 +597,20 @@ export function AsistenciaClient({
     setValor("")
     setDia(defaultDia())
     setSesion(defaultSesion())
+    setSaveError(null)
   }
 
-  function reset() {
+  function backToAreas() {
     setSelected(null)
     setStep("area")
     setValor("")
   }
+
+  React.useEffect(() => {
+    if (savedAt === null) return
+    const t = setTimeout(() => setSavedAt(null), 2000)
+    return () => clearTimeout(t)
+  }, [savedAt])
 
   async function save(e: React.FormEvent) {
     e.preventDefault()
@@ -281,11 +636,11 @@ export function AsistenciaClient({
         return
       }
       setSavedAt(Date.now())
-      reset()
+      backToAreas()
       return
     }
 
-    const conteo: Conteo = {
+    onAddLocal({
       id: uid(),
       areaId: selected.id,
       areaNombre: selected.nombre,
@@ -296,26 +651,9 @@ export function AsistenciaClient({
       sesion,
       timestamp: new Date().toISOString(),
       origen: "manual",
-    }
-    setConteos((prev) => [conteo, ...prev])
+    })
     setSavedAt(Date.now())
-    reset()
-  }
-
-  React.useEffect(() => {
-    if (savedAt === null) return
-    const t = setTimeout(() => setSavedAt(null), 2000)
-    return () => clearTimeout(t)
-  }, [savedAt])
-
-  function applyEdit(updated: Conteo) {
-    setConteos((prev) => prev.map((c) => (c.id === updated.id ? updated : c)))
-    setEditing(null)
-  }
-
-  function deleteConteo(id: string) {
-    setConteos((prev) => prev.filter((c) => c.id !== id))
-    setEditing(null)
+    backToAreas()
   }
 
   const selectedModo = selected ? modoDeArea(selected) : "vacios"
@@ -328,355 +666,481 @@ export function AsistenciaClient({
     valorNum > selected.capacidad
 
   return (
-    <>
-      <div className="flex flex-1 flex-col gap-6 p-4">
-        <section className="rounded-xl border border-border bg-surface p-5 sm:p-6">
-          {step === "area" ? (
-            <>
-              <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
-                Paso 1 de 2
-              </p>
-              <h2 className="mt-1 font-serif text-2xl text-foreground">
-                Selecciona un área
-              </h2>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Toca el área donde estás contando.
-              </p>
-
-              {areas.length === 0 ? (
-                <div className="mt-6 rounded-lg border border-dashed border-border bg-background p-6 text-center">
-                  <p className="text-sm text-muted-foreground">
-                    No hay áreas registradas todavía.
-                  </p>
-                  <Button
-                    asChild
-                    variant="outline"
-                    size="sm"
-                    className="mt-3"
-                  >
-                    <Link href="/areas">Crear áreas</Link>
-                  </Button>
-                </div>
-              ) : (
-                <ul className="mt-6 grid gap-2 sm:grid-cols-2">
-                  {areas.map((a) => {
-                    const modo = modoDeArea(a)
-                    return (
-                      <li key={a.id}>
-                        <button
-                          type="button"
-                          onClick={() => pickArea(a)}
-                          className="flex w-full items-center justify-between gap-3 rounded-lg border border-border bg-background p-4 text-left transition-colors hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                        >
-                          <div className="min-w-0">
-                            <p className="font-medium text-foreground">
-                              {a.nombre}
-                            </p>
-                            <p className="mt-0.5 text-xs text-muted-foreground">
-                              {a.piso}
-                              {" · "}
-                              {modo === "vacios"
-                                ? `Cap. ${a.capacidad}`
-                                : "Sin capacidad fija"}
-                            </p>
-                          </div>
-                          <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground" />
-                        </button>
-                      </li>
-                    )
-                  })}
-                </ul>
-              )}
-            </>
-          ) : (
-            <form onSubmit={save}>
-              <button
-                type="button"
-                onClick={reset}
-                className="inline-flex items-center gap-1 text-xs uppercase tracking-[0.15em] text-muted-foreground transition-colors hover:text-foreground"
-              >
-                <ArrowLeftIcon className="size-3.5" />
-                Cambiar área
-              </button>
-              <p className="mt-3 text-xs uppercase tracking-[0.2em] text-muted-foreground">
-                Paso 2 de 2 · Área
-              </p>
-              <h2 className="mt-1 font-serif text-2xl text-foreground">
-                {selected?.nombre}
-              </h2>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {selected?.piso}
-                {selectedModo === "vacios"
-                  ? ` · Capacidad ${selected?.capacidad}`
-                  : " · Sin capacidad fija — los conteos se suman"}
-              </p>
-
-              <div className="mt-6 grid gap-4 sm:grid-cols-2">
-                <div>
-                  <label
-                    htmlFor="dia"
-                    className="block text-sm font-medium text-foreground"
-                  >
-                    Día
-                  </label>
-                  <Select value={dia} onValueChange={setDia}>
-                    <SelectTrigger id="dia" className="mt-2 w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {DIAS.map((d) => (
-                        <SelectItem key={d.value} value={d.value}>
-                          {d.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <p className="block text-sm font-medium text-foreground">
-                    Sesión
-                  </p>
-                  <div className="mt-2 grid grid-cols-2 gap-2">
-                    {(Object.keys(SESION_LABEL) as Sesion[]).map((s) => (
-                      <Button
-                        key={s}
-                        type="button"
-                        variant={sesion === s ? "default" : "outline"}
-                        onClick={() => setSesion(s)}
-                      >
-                        {SESION_LABEL[s]}
-                      </Button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              <label
-                htmlFor="valor"
-                className="mt-6 block text-sm font-medium text-foreground"
-              >
-                {selectedModo === "vacios"
-                  ? "Lugares vacíos"
-                  : "Asistentes contados"}
-              </label>
-              <p className="mt-1 text-xs text-muted-foreground">
-                {selectedModo === "vacios"
-                  ? `Se restarán a la capacidad (${selected?.capacidad}) del área.`
-                  : "Se sumarán al total de esta área en la sesión."}
-              </p>
-              <Input
-                id="valor"
-                type="number"
-                inputMode="numeric"
-                min={0}
-                max={selectedModo === "vacios" ? selected?.capacidad : undefined}
-                value={valor}
-                onChange={(e) => setValor(e.target.value)}
-                placeholder="0"
-                autoFocus
-                required
-                className="mt-2 h-14 text-2xl tabular-nums"
-              />
-              {excedeCapacidad && (
-                <p className="mt-2 text-sm text-destructive">
-                  No puede ser mayor a la capacidad ({selected?.capacidad}).
-                </p>
-              )}
-
-              {valorValido && !excedeCapacidad && selected && (
-                <p className="mt-3 text-sm text-muted-foreground">
-                  {selectedModo === "vacios" ? (
-                    <>
-                      Asistencia calculada:{" "}
-                      <span className="font-medium text-foreground tabular-nums">
-                        {selected.capacidad - valorNum}
-                      </span>
-                    </>
-                  ) : (
-                    <>
-                      Se agregará{" "}
-                      <span className="font-medium text-foreground tabular-nums">
-                        {valorNum}
-                      </span>{" "}
-                      al total del área.
-                    </>
-                  )}
-                </p>
-              )}
-
-              {saveError && (
-                <p className="mt-3 text-sm text-destructive">{saveError}</p>
-              )}
-
-              <Button
-                type="submit"
-                size="lg"
-                className="mt-6 w-full"
-                disabled={valor === "" || excedeCapacidad || guardando}
-              >
-                {guardando ? "Guardando…" : "Guardar conteo"}
-              </Button>
-            </form>
-          )}
-        </section>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent className="max-h-[85svh] overflow-y-auto sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Agregar asistencia</DialogTitle>
+          <DialogDescription>
+            {step === "area"
+              ? "Toca el área donde estás contando."
+              : "Indica el día, la sesión y el conteo."}
+          </DialogDescription>
+        </DialogHeader>
 
         {savedAt !== null && (
-          <p className="flex items-center justify-center gap-2 text-sm text-primary">
+          <p className="flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-sm text-primary">
             <CheckIcon className="size-4" /> Conteo guardado
           </p>
         )}
 
-        <ResumenAsistencia areas={areas} conteos={conteos} />
-
-        <section>
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold">Últimos conteos</h2>
-            <p className="text-sm text-muted-foreground">
-              {conteos.length} registro{conteos.length === 1 ? "" : "s"}
-            </p>
-          </div>
-
-          <div className="mt-4 overflow-x-auto rounded-xl border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Día</TableHead>
-                  <TableHead>Sesión</TableHead>
-                  <TableHead>Área</TableHead>
-                  <TableHead className="text-right">Conteo</TableHead>
-                  <TableHead className="text-right">Asistencia</TableHead>
-                  <TableHead className="w-12 text-right">
-                    <span className="sr-only">Editar</span>
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {conteos.length === 0 ? (
-                  <TableRow>
-                    <TableCell
-                      colSpan={6}
-                      className="h-24 text-center text-muted-foreground"
+        {step === "area" ? (
+          areas.length === 0 ? (
+            <div className="rounded-lg border border-dashed border-border bg-background p-6 text-center">
+              <p className="text-sm text-muted-foreground">
+                No hay áreas registradas todavía.
+              </p>
+              <Button asChild variant="outline" size="sm" className="mt-3">
+                <Link href="/areas">Crear áreas</Link>
+              </Button>
+            </div>
+          ) : (
+            <ul className="grid gap-2 sm:grid-cols-2">
+              {areas.map((a) => {
+                const modo = modoDeArea(a)
+                return (
+                  <li key={a.id}>
+                    <button
+                      type="button"
+                      onClick={() => pickArea(a)}
+                      className="flex w-full items-center justify-between gap-3 rounded-lg border border-border bg-background p-4 text-left transition-colors hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     >
-                      Sin conteos. Registra el primero para comenzar.
-                    </TableCell>
-                  </TableRow>
+                      <div className="min-w-0">
+                        <p className="font-medium text-foreground">{a.nombre}</p>
+                        <p className="mt-0.5 text-xs text-muted-foreground">
+                          {a.piso}
+                          {" · "}
+                          {modo === "vacios"
+                            ? `Cap. ${a.capacidad}`
+                            : "Sin capacidad fija"}
+                        </p>
+                      </div>
+                      <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground" />
+                    </button>
+                  </li>
+                )
+              })}
+            </ul>
+          )
+        ) : (
+          <form onSubmit={save}>
+            <button
+              type="button"
+              onClick={backToAreas}
+              className="inline-flex items-center gap-1 text-xs uppercase tracking-[0.15em] text-muted-foreground transition-colors hover:text-foreground"
+            >
+              <ArrowLeftIcon className="size-3.5" />
+              Cambiar área
+            </button>
+            <h3 className="mt-3 font-serif text-2xl text-foreground">
+              {selected?.nombre}
+            </h3>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {selected?.piso}
+              {selectedModo === "vacios"
+                ? ` · Capacidad ${selected?.capacidad}`
+                : " · Sin capacidad fija — los conteos se suman"}
+            </p>
+
+            <div className="mt-6 grid gap-4 sm:grid-cols-2">
+              <div>
+                <label
+                  htmlFor="dia"
+                  className="block text-sm font-medium text-foreground"
+                >
+                  Día
+                </label>
+                <Select value={dia} onValueChange={setDia}>
+                  <SelectTrigger id="dia" className="mt-2 w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {DIAS.map((d) => (
+                      <SelectItem key={d.value} value={d.value}>
+                        {d.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <p className="block text-sm font-medium text-foreground">
+                  Sesión
+                </p>
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  {(Object.keys(SESION_LABEL) as Sesion[]).map((s) => (
+                    <Button
+                      key={s}
+                      type="button"
+                      variant={sesion === s ? "default" : "outline"}
+                      onClick={() => setSesion(s)}
+                    >
+                      {SESION_LABEL[s]}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <label
+              htmlFor="valor"
+              className="mt-6 block text-sm font-medium text-foreground"
+            >
+              {selectedModo === "vacios"
+                ? "Lugares vacíos"
+                : "Asistentes contados"}
+            </label>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {selectedModo === "vacios"
+                ? `Se restarán a la capacidad (${selected?.capacidad}) del área.`
+                : "Se sumarán al total de esta área en la sesión."}
+            </p>
+            <Input
+              id="valor"
+              type="number"
+              inputMode="numeric"
+              min={0}
+              max={selectedModo === "vacios" ? selected?.capacidad : undefined}
+              value={valor}
+              onChange={(e) => setValor(e.target.value)}
+              placeholder="0"
+              autoFocus
+              required
+              className="mt-2 h-14 text-2xl tabular-nums"
+            />
+            {excedeCapacidad && (
+              <p className="mt-2 text-sm text-destructive">
+                No puede ser mayor a la capacidad ({selected?.capacidad}).
+              </p>
+            )}
+
+            {valorValido && !excedeCapacidad && selected && (
+              <p className="mt-3 text-sm text-muted-foreground">
+                {selectedModo === "vacios" ? (
+                  <>
+                    Asistencia calculada:{" "}
+                    <span className="font-medium text-foreground tabular-nums">
+                      {selected.capacidad - valorNum}
+                    </span>
+                  </>
                 ) : (
-                  conteos.map((c) => (
-                    <TableRow key={c.id}>
-                      <TableCell className="text-muted-foreground">
-                        {formatDia(c.dia)}
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {c.sesion ? SESION_LABEL[c.sesion] : "—"}
-                      </TableCell>
-                      <TableCell className="font-medium">
-                        <span>{c.areaNombre}</span>
-                        {c.reportadoPor && c.origen !== "manual" && (
-                          <span className="ml-2 inline-flex items-center rounded-full border border-primary/30 bg-primary/5 px-2 py-0.5 text-[10px] text-primary">
-                            {c.reportadoPor}
-                          </span>
-                        )}
-                        {c.origen === "acomodador" && (
-                          <span className="ml-2 inline-flex items-center rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10px] text-amber-600 dark:text-amber-400">
-                            Sin validar
-                          </span>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums">
-                        {c.modo === "vacios" ? (
-                          <>
-                            <span className="font-medium">{c.valor}</span>
-                            <span className="text-xs text-muted-foreground">
-                              {" "}
-                              vacíos
-                            </span>
-                          </>
-                        ) : (
-                          <>
-                            <span className="font-medium">+{c.valor}</span>
-                            <span className="text-xs text-muted-foreground">
-                              {" "}
-                              asist.
-                            </span>
-                          </>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right font-medium tabular-nums">
-                        {asistenciaFromConteo(c)}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {c.origen === "manual" ? (
+                  <>
+                    Se agregará{" "}
+                    <span className="font-medium text-foreground tabular-nums">
+                      {valorNum}
+                    </span>{" "}
+                    al total del área.
+                  </>
+                )}
+              </p>
+            )}
+
+            {saveError && (
+              <p className="mt-3 text-sm text-destructive">{saveError}</p>
+            )}
+
+            <Button
+              type="submit"
+              size="lg"
+              className="mt-6 w-full"
+              disabled={valor === "" || excedeCapacidad || guardando}
+            >
+              {guardando ? "Guardando…" : "Guardar conteo"}
+            </Button>
+          </form>
+        )}
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function DesgloseDialog({
+  open,
+  onOpenChange,
+  conteos,
+  resumenRows,
+  historialPorAsignacion,
+  onEdit,
+  onVerHistorial,
+}: {
+  open: boolean
+  onOpenChange: (v: boolean) => void
+  conteos: Conteo[]
+  resumenRows: ResumenRow[]
+  historialPorAsignacion: Map<string, HistorialEntry[]>
+  onEdit: (c: Conteo) => void
+  onVerHistorial: (info: {
+    asignacionId: string
+    areaNombre: string
+    slot?: string
+  }) => void
+}) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[85svh] overflow-y-auto sm:max-w-3xl">
+        <DialogHeader>
+          <DialogTitle>Desglose de asistencia</DialogTitle>
+          <DialogDescription>
+            Detalle por área y sesión, y los conteos registrados.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="grid gap-8">
+          <ResumenAsistencia rows={resumenRows} />
+          <UltimosConteosTabla
+            conteos={conteos}
+            historialPorAsignacion={historialPorAsignacion}
+            onEdit={onEdit}
+            onVerHistorial={onVerHistorial}
+          />
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function UltimosConteosTabla({
+  conteos,
+  historialPorAsignacion,
+  onEdit,
+  onVerHistorial,
+}: {
+  conteos: Conteo[]
+  historialPorAsignacion: Map<string, HistorialEntry[]>
+  onEdit: (c: Conteo) => void
+  onVerHistorial: (info: {
+    asignacionId: string
+    areaNombre: string
+    slot?: string
+  }) => void
+}) {
+  return (
+    <section>
+      <div className="flex items-center justify-between">
+        <h3 className="text-base font-semibold">Últimos conteos</h3>
+        <p className="text-sm text-muted-foreground">
+          {conteos.length} registro{conteos.length === 1 ? "" : "s"}
+        </p>
+      </div>
+
+      <div className="mt-4 overflow-x-auto rounded-xl border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Día</TableHead>
+              <TableHead>Sesión</TableHead>
+              <TableHead>Área</TableHead>
+              <TableHead className="text-right">Conteo</TableHead>
+              <TableHead className="text-right">Asistencia</TableHead>
+              <TableHead className="w-12 text-right">
+                <span className="sr-only">Editar</span>
+              </TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {conteos.length === 0 ? (
+              <TableRow>
+                <TableCell
+                  colSpan={6}
+                  className="h-24 text-center text-muted-foreground"
+                >
+                  Sin conteos. Registra el primero para comenzar.
+                </TableCell>
+              </TableRow>
+            ) : (
+              conteos.map((c) => (
+                <TableRow key={c.id}>
+                  <TableCell className="text-muted-foreground">
+                    {formatDia(c.dia)}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {c.sesion ? SESION_LABEL[c.sesion] : "—"}
+                  </TableCell>
+                  <TableCell className="font-medium">
+                    <span>{c.areaNombre}</span>
+                    {c.reportadoPor && c.origen !== "manual" && (
+                      <span className="ml-2 inline-flex items-center rounded-full border border-primary/30 bg-primary/5 px-2 py-0.5 text-[10px] text-primary">
+                        {c.reportadoPor}
+                      </span>
+                    )}
+                    {c.origen === "acomodador" && (
+                      <span className="ml-2 inline-flex items-center rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10px] text-amber-600 dark:text-amber-400">
+                        Sin validar
+                      </span>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {c.modo === "vacios" ? (
+                      <>
+                        <span className="font-medium">{c.valor}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {" "}
+                          vacíos
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="font-medium">+{c.valor}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {" "}
+                          asist.
+                        </span>
+                      </>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-right font-medium tabular-nums">
+                    {asistenciaFromConteo(c)}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    {c.origen === "manual" ? (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-sm"
+                        onClick={() => onEdit(c)}
+                        aria-label="Editar conteo"
+                      >
+                        <PencilIcon />
+                      </Button>
+                    ) : (
+                      (() => {
+                        const asignacionId = c.id.startsWith("db-")
+                          ? c.id.slice(3)
+                          : null
+                        if (!asignacionId) return null
+                        const tieneHistorial =
+                          (historialPorAsignacion.get(asignacionId)?.length ??
+                            0) > 0
+                        if (!tieneHistorial) return null
+                        return (
                           <Button
                             type="button"
                             variant="ghost"
                             size="icon-sm"
-                            onClick={() => setEditing(c)}
-                            aria-label="Editar conteo"
+                            onClick={() =>
+                              onVerHistorial({
+                                asignacionId,
+                                areaNombre: c.areaNombre,
+                                slot: `${formatDia(c.dia)} · ${
+                                  c.sesion ? SESION_LABEL[c.sesion] : ""
+                                }`,
+                              })
+                            }
+                            aria-label="Ver historial"
                           >
-                            <PencilIcon />
+                            <HistoryIcon />
                           </Button>
-                        ) : (
-                          (() => {
-                            const asignacionId = c.id.startsWith("db-")
-                              ? c.id.slice(3)
-                              : null
-                            if (!asignacionId) return null
-                            const tieneHistorial =
-                              (historialPorAsignacion.get(asignacionId)
-                                ?.length ?? 0) > 0
-                            if (!tieneHistorial) return null
-                            return (
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon-sm"
-                                onClick={() =>
-                                  setHistorialAbierto({
-                                    asignacionId,
-                                    areaNombre: c.areaNombre,
-                                    slot: `${formatDia(c.dia)} · ${
-                                      c.sesion
-                                        ? SESION_LABEL[c.sesion]
-                                        : ""
-                                    }`,
-                                  })
-                                }
-                                aria-label="Ver historial"
-                              >
-                                <HistoryIcon />
-                              </Button>
-                            )
-                          })()
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        </section>
+                        )
+                      })()
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
       </div>
+    </section>
+  )
+}
 
-      <EditConteoDialog
-        conteo={editing}
-        areas={areas}
-        onClose={() => setEditing(null)}
-        onSave={applyEdit}
-        onDelete={deleteConteo}
-      />
+function HistorialListaDialog({
+  open,
+  onOpenChange,
+  historialPorAsignacion,
+  asignacionInfo,
+  onVer,
+}: {
+  open: boolean
+  onOpenChange: (v: boolean) => void
+  historialPorAsignacion: Map<string, HistorialEntry[]>
+  asignacionInfo: Map<
+    string,
+    { areaNombre: string; dia: string; sesion: Sesion }
+  >
+  onVer: (asignacionId: string, areaNombre: string, slot?: string) => void
+}) {
+  // Una fila por asignación con historial, ordenadas por movimiento más reciente.
+  const items = React.useMemo(() => {
+    const list: {
+      asignacionId: string
+      areaNombre: string
+      slot?: string
+      vigente: HistorialEntry
+      movimientos: number
+    }[] = []
+    for (const [asignacionId, entradas] of historialPorAsignacion) {
+      if (entradas.length === 0) continue
+      const info = asignacionInfo.get(asignacionId)
+      list.push({
+        asignacionId,
+        areaNombre: info?.areaNombre ?? "Área",
+        slot: info
+          ? `${formatDia(info.dia)} · ${SESION_LABEL[info.sesion]}`
+          : undefined,
+        vigente: entradas[0],
+        movimientos: entradas.length,
+      })
+    }
+    list.sort((a, b) =>
+      a.vigente.reportadoAt < b.vigente.reportadoAt ? 1 : -1,
+    )
+    return list
+  }, [historialPorAsignacion, asignacionInfo])
 
-      <HistorialDialog
-        abierto={historialAbierto}
-        entradas={
-          historialAbierto
-            ? historialPorAsignacion.get(historialAbierto.asignacionId) ?? []
-            : []
-        }
-        onClose={() => setHistorialAbierto(null)}
-      />
-    </>
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[85svh] overflow-y-auto sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Historial de asistencia</DialogTitle>
+          <DialogDescription>
+            Áreas con movimientos registrados. Abre una para ver el detalle y
+            regresar a un reporte anterior.
+          </DialogDescription>
+        </DialogHeader>
+
+        {items.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            Aún no hay movimientos registrados.
+          </p>
+        ) : (
+          <ul className="grid gap-2">
+            {items.map((it) => (
+              <li key={it.asignacionId}>
+                <button
+                  type="button"
+                  onClick={() => onVer(it.asignacionId, it.areaNombre, it.slot)}
+                  className="flex w-full items-center justify-between gap-3 rounded-lg border bg-background p-3 text-left transition-colors hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate font-medium text-foreground">
+                      {it.areaNombre}
+                    </p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      {it.slot ? `${it.slot} · ` : ""}
+                      {it.movimientos} movimiento
+                      {it.movimientos === 1 ? "" : "s"} · último cambio{" "}
+                      {formatTimestamp(it.vigente.reportadoAt)}
+                    </p>
+                  </div>
+                  <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground" />
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        <DialogFooter>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+          >
+            Cerrar
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
 
@@ -807,9 +1271,7 @@ function HistorialDialog({
             </ul>
           )}
 
-          {error && (
-            <p className="text-sm text-destructive">{error}</p>
-          )}
+          {error && <p className="text-sm text-destructive">{error}</p>}
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>
@@ -853,9 +1315,7 @@ function HistorialDialog({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={enviando}>
-              Cancelar
-            </AlertDialogCancel>
+            <AlertDialogCancel disabled={enviando}>Cancelar</AlertDialogCancel>
             <AlertDialogAction
               onClick={(e) => {
                 e.preventDefault()
@@ -872,81 +1332,27 @@ function HistorialDialog({
   )
 }
 
-function ResumenAsistencia({
-  areas,
-  conteos,
-}: {
-  areas: Area[]
-  conteos: Conteo[]
-}) {
-  type Key = string
-  type Row = {
-    key: Key
-    dia: string
-    sesion: Sesion
-    areaId: string
-    areaNombre: string
-    modo: Modo
-    capacidad: number
-    asistencia: number
+function ResumenAsistencia({ rows }: { rows: ResumenRow[] }) {
+  if (rows.length === 0) {
+    return (
+      <section>
+        <h3 className="text-base font-semibold">Resumen de asistencia</h3>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Aún no hay conteos validados.
+        </p>
+      </section>
+    )
   }
 
-  const filas = React.useMemo<Row[]>(() => {
-    const byKey = new Map<Key, Conteo[]>()
-    for (const c of conteos) {
-      // El conteo del acomodador es solo referencia: no entra al total oficial.
-      if (c.origen === "acomodador") continue
-      const k = `${c.dia}|${c.sesion}|${c.areaId}`
-      const list = byKey.get(k) ?? []
-      list.push(c)
-      byKey.set(k, list)
-    }
-    const rows: Row[] = []
-    for (const [key, list] of byKey) {
-      // El conteo vigente por área+sesión es el más reciente, venga de capitán
-      // o de administrador: un reporte nuevo reemplaza al anterior, no se suma
-      // ni se resta.
-      list.sort((a, b) => (a.timestamp < b.timestamp ? 1 : -1))
-      const head = list[0]
-      const liveArea = areas.find((a) => a.id === head.areaId)
-      const capacidad = liveArea?.capacidad ?? head.capacidadSnapshot
-      const modo: Modo = liveArea
-        ? modoDeArea(liveArea)
-        : head.modo
-      const asistencia =
-        modo === "asistentes"
-          ? Math.max(0, head.valor)
-          : Math.max(0, capacidad - head.valor)
-      rows.push({
-        key,
-        dia: head.dia,
-        sesion: head.sesion,
-        areaId: head.areaId,
-        areaNombre: liveArea?.nombre ?? head.areaNombre,
-        modo,
-        capacidad,
-        asistencia,
-      })
-    }
-    rows.sort((a, b) => {
-      if (a.dia !== b.dia) return a.dia.localeCompare(b.dia)
-      if (a.sesion !== b.sesion) return a.sesion.localeCompare(b.sesion)
-      return a.areaNombre.localeCompare(b.areaNombre)
-    })
-    return rows
-  }, [areas, conteos])
-
-  if (filas.length === 0) return null
-
   const totalesPorSesion = new Map<string, number>()
-  for (const f of filas) {
+  for (const f of rows) {
     const k = `${f.dia}|${f.sesion}`
     totalesPorSesion.set(k, (totalesPorSesion.get(k) ?? 0) + f.asistencia)
   }
 
   return (
     <section>
-      <h2 className="text-lg font-semibold">Resumen de asistencia</h2>
+      <h3 className="text-base font-semibold">Resumen de asistencia</h3>
       <p className="text-sm text-muted-foreground">
         Calculado por área y sesión a partir de los conteos validados por
         capitanes. Los reportes de acomodadores son solo de referencia.
@@ -963,7 +1369,7 @@ function ResumenAsistencia({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filas.map((f) => (
+            {rows.map((f) => (
               <TableRow key={f.key}>
                 <TableCell className="text-muted-foreground">
                   {formatDia(f.dia)}
@@ -984,9 +1390,7 @@ function ResumenAsistencia({
               const [dia, sesion] = k.split("|") as [string, Sesion]
               return (
                 <TableRow key={`total-${k}`} className="bg-muted/40">
-                  <TableCell className="font-medium">
-                    {formatDia(dia)}
-                  </TableCell>
+                  <TableCell className="font-medium">{formatDia(dia)}</TableCell>
                   <TableCell className="font-medium">
                     {SESION_LABEL[sesion]}
                   </TableCell>
@@ -1105,117 +1509,115 @@ function EditConteoForm({
 
   return (
     <form onSubmit={handleSubmit} className="grid gap-4">
-          <div>
-            <label
-              htmlFor="edit-area"
-              className="block text-sm font-medium text-foreground"
-            >
-              Área
-            </label>
-            <Select value={areaId} onValueChange={setAreaId}>
-              <SelectTrigger id="edit-area" className="mt-2 w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {options.map((a) => (
-                  <SelectItem key={a.id} value={a.id}>
-                    {a.nombre}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+      <div>
+        <label
+          htmlFor="edit-area"
+          className="block text-sm font-medium text-foreground"
+        >
+          Área
+        </label>
+        <Select value={areaId} onValueChange={setAreaId}>
+          <SelectTrigger id="edit-area" className="mt-2 w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {options.map((a) => (
+              <SelectItem key={a.id} value={a.id}>
+                {a.nombre}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <label
-                htmlFor="edit-dia"
-                className="block text-sm font-medium text-foreground"
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div>
+          <label
+            htmlFor="edit-dia"
+            className="block text-sm font-medium text-foreground"
+          >
+            Día
+          </label>
+          <Select value={dia} onValueChange={setDia}>
+            <SelectTrigger id="edit-dia" className="mt-2 w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {DIAS.map((d) => (
+                <SelectItem key={d.value} value={d.value}>
+                  {d.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div>
+          <p className="block text-sm font-medium text-foreground">Sesión</p>
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            {(Object.keys(SESION_LABEL) as Sesion[]).map((s) => (
+              <Button
+                key={s}
+                type="button"
+                variant={sesion === s ? "default" : "outline"}
+                onClick={() => setSesion(s)}
               >
-                Día
-              </label>
-              <Select value={dia} onValueChange={setDia}>
-                <SelectTrigger id="edit-dia" className="mt-2 w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {DIAS.map((d) => (
-                    <SelectItem key={d.value} value={d.value}>
-                      {d.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <p className="block text-sm font-medium text-foreground">
-                Sesión
-              </p>
-              <div className="mt-2 grid grid-cols-2 gap-2">
-                {(Object.keys(SESION_LABEL) as Sesion[]).map((s) => (
-                  <Button
-                    key={s}
-                    type="button"
-                    variant={sesion === s ? "default" : "outline"}
-                    onClick={() => setSesion(s)}
-                  >
-                    {SESION_LABEL[s]}
-                  </Button>
-                ))}
-              </div>
-            </div>
+                {SESION_LABEL[s]}
+              </Button>
+            ))}
           </div>
+        </div>
+      </div>
 
-          <div>
-            <label
-              htmlFor="edit-valor"
-              className="block text-sm font-medium text-foreground"
-            >
-              {modo === "vacios" ? "Lugares vacíos" : "Asistentes contados"}
-            </label>
-            {currentArea && (
-              <p className="mt-1 text-xs text-muted-foreground">
-                {modo === "vacios"
-                  ? `Se restarán a la capacidad (${currentArea.capacidad}).`
-                  : "Se sumarán al total del área."}
-              </p>
-            )}
-            <Input
-              id="edit-valor"
-              type="number"
-              inputMode="numeric"
-              min={0}
-              max={modo === "vacios" ? currentArea?.capacidad : undefined}
-              value={valor}
-              onChange={(e) => setValor(e.target.value)}
-              required
-              className="mt-2 tabular-nums"
-            />
-            {excedeCapacidad && currentArea && (
-              <p className="mt-2 text-sm text-destructive">
-                No puede ser mayor a la capacidad ({currentArea.capacidad}).
-              </p>
-            )}
-          </div>
+      <div>
+        <label
+          htmlFor="edit-valor"
+          className="block text-sm font-medium text-foreground"
+        >
+          {modo === "vacios" ? "Lugares vacíos" : "Asistentes contados"}
+        </label>
+        {currentArea && (
+          <p className="mt-1 text-xs text-muted-foreground">
+            {modo === "vacios"
+              ? `Se restarán a la capacidad (${currentArea.capacidad}).`
+              : "Se sumarán al total del área."}
+          </p>
+        )}
+        <Input
+          id="edit-valor"
+          type="number"
+          inputMode="numeric"
+          min={0}
+          max={modo === "vacios" ? currentArea?.capacidad : undefined}
+          value={valor}
+          onChange={(e) => setValor(e.target.value)}
+          required
+          className="mt-2 tabular-nums"
+        />
+        {excedeCapacidad && currentArea && (
+          <p className="mt-2 text-sm text-destructive">
+            No puede ser mayor a la capacidad ({currentArea.capacidad}).
+          </p>
+        )}
+      </div>
 
-          <DialogFooter className="sm:justify-between">
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={() => onDelete(conteo.id)}
-              className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-            >
-              <Trash2Icon />
-              Eliminar
-            </Button>
-            <Button
-              type="submit"
-              className="w-full sm:w-auto"
-              disabled={!valorValido || excedeCapacidad}
-            >
-              Guardar cambios
-            </Button>
-          </DialogFooter>
+      <DialogFooter className="sm:justify-between">
+        <Button
+          type="button"
+          variant="ghost"
+          onClick={() => onDelete(conteo.id)}
+          className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+        >
+          <Trash2Icon />
+          Eliminar
+        </Button>
+        <Button
+          type="submit"
+          className="w-full sm:w-auto"
+          disabled={!valorValido || excedeCapacidad}
+        >
+          Guardar cambios
+        </Button>
+      </DialogFooter>
     </form>
   )
 }
