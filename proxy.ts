@@ -18,6 +18,9 @@ const PUBLIC_PREFIXES = [
   "/asistencia/",
   // Vista pública de una incidencia compartida por WhatsApp (token uuid).
   "/incidencia/",
+  // Pase de acceso a un área restringida (palco, departamentos, etc.). Ligado
+  // al primer dispositivo que lo confirma; no requiere sesión.
+  "/acceso/",
 ]
 // /register no entra aquí: un usuario con sesión pero sin asamblea necesita
 // poder llegar a /register para crear su primera asamblea (la propia página
@@ -28,6 +31,8 @@ const ACOMODADOR_PREFIX = "/acomodador/"
 const HERMANA_APOYO_PREFIX = "/hermana-apoyo/"
 const DEVICE_COOKIE = "acomodador_device_key"
 const HERMANA_DEVICE_COOKIE = "hermana_apoyo_device_key"
+const ACCESO_PREFIX = "/acceso/"
+const ACCESO_DEVICE_COOKIE = "acceso_device_key"
 const CAPITAN_ALLOWED_PREFIXES = [
   // Menú simple de capitán (landing); desde ahí un botón lleva al sistema
   // administrativo completo (/acomodadores y demás).
@@ -110,6 +115,20 @@ export async function proxy(request: NextRequest) {
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
       path: HERMANA_APOYO_PREFIX,
+      maxAge: 60 * 60 * 24 * 365 * 10,
+    })
+  }
+
+  // Identifica el dispositivo que abre un pase de acceso /acceso/<token>. Es la
+  // huella que ata el pase al primer dispositivo que lo confirma.
+  if (path.startsWith(ACCESO_PREFIX) && !request.cookies.has(ACCESO_DEVICE_COOKIE)) {
+    const deviceKey = randomHex(32)
+    request.cookies.set(ACCESO_DEVICE_COOKIE, deviceKey)
+    response.cookies.set(ACCESO_DEVICE_COOKIE, deviceKey, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: ACCESO_PREFIX,
       maxAge: 60 * 60 * 24 * 365 * 10,
     })
   }

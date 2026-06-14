@@ -73,7 +73,10 @@ const data = {
     },
     {
       title: "Configuración",
-      items: [{ title: "Ajustes", url: "/ajustes" }],
+      items: [
+        { title: "Accesos", url: "/accesos" },
+        { title: "Ajustes", url: "/ajustes" },
+      ],
     },
   ],
 }
