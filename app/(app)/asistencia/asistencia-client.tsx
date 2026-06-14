@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import {
   ArrowLeftIcon,
   CheckIcon,
@@ -69,10 +70,13 @@ import {
   type Reporte,
   type Sesion,
 } from "@/lib/asistencia"
-import { useLocalStorage } from "@/lib/use-local-storage"
-import { uid } from "@/lib/uid"
 
-import { revertirAsistencia } from "./actions"
+import {
+  agregarConteoAdmin,
+  editarConteoAdmin,
+  eliminarConteoAdmin,
+  revertirAsistencia,
+} from "./actions"
 import { ResumenAsistencia, TurnoResumenGrid } from "./turno-resumen"
 
 export type { Area, Reporte } from "@/lib/asistencia"
@@ -96,46 +100,25 @@ function defaultSesion(): Sesion {
   return new Date().getHours() < 14 ? "manana" : "tarde"
 }
 
-type StoredConteo = Partial<Conteo> & {
-  id: string
-  areaId: string
-  areaNombre: string
-  dia: string
-  sesion: Sesion
-  timestamp: string
-}
-
-function normalizeConteo(c: StoredConteo): Conteo {
-  return {
-    id: c.id,
-    areaId: c.areaId,
-    areaNombre: c.areaNombre,
-    dia: c.dia,
-    sesion: c.sesion,
-    timestamp: c.timestamp,
-    modo: c.modo ?? "vacios",
-    capacidadSnapshot: c.capacidadSnapshot ?? 0,
-    valor: c.valor ?? c.vacios ?? 0,
-    origen: "manual",
-  }
-}
-
 export function AsistenciaClient({
+  asambleaId,
   areas,
   reportes,
   historial,
   capitanMode = false,
   shareToken,
 }: {
+  asambleaId: string
   areas: Area[]
   reportes: Reporte[]
   historial: HistorialEntry[]
-  // Un capitán solo ve sus áreas y sus conteos se guardan en la base, para
-  // que administración los vea; el flujo local (localStorage) es del owner.
+  // Un capitán solo ve sus áreas y sus conteos se guardan en la base con su
+  // RPC; el owner captura conteos manuales que también se guardan en la base.
   capitanMode?: boolean
   // Token del enlace público de asistencia en vivo (solo para el owner).
   shareToken?: string | null
 }) {
+  const router = useRouter()
   const historialPorAsignacion = React.useMemo(() => {
     const map = new Map<string, HistorialEntry[]>()
     for (const h of historial) {
@@ -172,19 +155,13 @@ export function AsistenciaClient({
     areaNombre: string
     slot?: string
   } | null>(null)
-  const [conteosRaw, setConteos] = useLocalStorage<StoredConteo[]>(
-    "ams-os.asistencia",
-    [],
-  )
   const conteos = React.useMemo(() => {
-    const locales = conteosRaw.map(normalizeConteo)
-    const remotos = reportes
+    const all = reportes
       .map(reporteToConteo)
       .filter((c): c is Conteo => c !== null)
-    const all = [...locales, ...remotos]
     all.sort((a, b) => (a.timestamp < b.timestamp ? 1 : -1))
     return all
-  }, [conteosRaw, reportes])
+  }, [reportes])
 
   const resumenRows = React.useMemo(
     () => computeResumenRows(areas, conteos),
@@ -196,20 +173,6 @@ export function AsistenciaClient({
   const [desgloseOpen, setDesgloseOpen] = React.useState(false)
   const [historialListaOpen, setHistorialListaOpen] = React.useState(false)
   const [compartirOpen, setCompartirOpen] = React.useState(false)
-
-  function onAddLocal(conteo: Conteo) {
-    setConteos((prev) => [conteo, ...prev])
-  }
-
-  function applyEdit(updated: Conteo) {
-    setConteos((prev) => prev.map((c) => (c.id === updated.id ? updated : c)))
-    setEditing(null)
-  }
-
-  function deleteConteo(id: string) {
-    setConteos((prev) => prev.filter((c) => c.id !== id))
-    setEditing(null)
-  }
 
   const hayHistorial = historialPorAsignacion.size > 0
 
@@ -272,9 +235,10 @@ export function AsistenciaClient({
       <AgregarAsistenciaDialog
         open={agregarOpen}
         onOpenChange={setAgregarOpen}
+        asambleaId={asambleaId}
         areas={areas}
         capitanMode={capitanMode}
-        onAddLocal={onAddLocal}
+        onSaved={() => router.refresh()}
       />
 
       <DesgloseDialog
@@ -310,8 +274,7 @@ export function AsistenciaClient({
         conteo={editing}
         areas={areas}
         onClose={() => setEditing(null)}
-        onSave={applyEdit}
-        onDelete={deleteConteo}
+        onSaved={() => router.refresh()}
       />
 
       <HistorialDialog
@@ -420,15 +383,17 @@ function CompartirDialog({
 function AgregarAsistenciaDialog({
   open,
   onOpenChange,
+  asambleaId,
   areas,
   capitanMode,
-  onAddLocal,
+  onSaved,
 }: {
   open: boolean
   onOpenChange: (v: boolean) => void
+  asambleaId: string
   areas: Area[]
   capitanMode: boolean
-  onAddLocal: (c: Conteo) => void
+  onSaved: () => void
 }) {
   const [step, setStep] = React.useState<"area" | "valor">("area")
   const [selected, setSelected] = React.useState<Area | null>(null)
@@ -478,41 +443,28 @@ function AgregarAsistenciaDialog({
     if (Number.isNaN(n) || n < 0) return
     const modo = modoDeArea(selected)
     if (modo === "vacios" && n > selected.capacidad) return
+    const diaKey = DIA_A_SLOT[dia]
+    if (!diaKey) return
+    const slot = `${diaKey}-${sesion}`
 
-    if (capitanMode) {
-      const diaKey = DIA_A_SLOT[dia]
-      if (!diaKey) return
-      setGuardando(true)
-      setSaveError(null)
-      const { ok, error } = await reportarConteoCapitan({
-        areaId: selected.id,
-        slot: `${diaKey}-${sesion}`,
-        valor: n,
-      })
-      setGuardando(false)
-      if (!ok) {
-        setSaveError(error ?? "No se pudo guardar el conteo.")
-        return
-      }
-      setSavedAt(Date.now())
-      backToAreas()
+    setGuardando(true)
+    setSaveError(null)
+    const { ok, error } = capitanMode
+      ? await reportarConteoCapitan({ areaId: selected.id, slot, valor: n })
+      : await agregarConteoAdmin({
+          asambleaId,
+          areaId: selected.id,
+          slot,
+          valor: n,
+        })
+    setGuardando(false)
+    if (!ok) {
+      setSaveError(error ?? "No se pudo guardar el conteo.")
       return
     }
-
-    onAddLocal({
-      id: uid(),
-      areaId: selected.id,
-      areaNombre: selected.nombre,
-      modo,
-      capacidadSnapshot: selected.capacidad,
-      valor: n,
-      dia,
-      sesion,
-      timestamp: new Date().toISOString(),
-      origen: "manual",
-    })
     setSavedAt(Date.now())
     backToAreas()
+    onSaved()
   }
 
   const selectedModo = selected ? modoDeArea(selected) : "vacios"
@@ -1182,14 +1134,12 @@ function EditConteoDialog({
   conteo,
   areas,
   onClose,
-  onSave,
-  onDelete,
+  onSaved,
 }: {
   conteo: Conteo | null
   areas: Area[]
   onClose: () => void
-  onSave: (c: Conteo) => void
-  onDelete: (id: string) => void
+  onSaved: () => void
 }) {
   return (
     <Dialog
@@ -1210,8 +1160,8 @@ function EditConteoDialog({
             key={conteo.id}
             conteo={conteo}
             areas={areas}
-            onSave={onSave}
-            onDelete={onDelete}
+            onClose={onClose}
+            onSaved={onSaved}
           />
         )}
       </DialogContent>
@@ -1222,18 +1172,23 @@ function EditConteoDialog({
 function EditConteoForm({
   conteo,
   areas,
-  onSave,
-  onDelete,
+  onClose,
+  onSaved,
 }: {
   conteo: Conteo
   areas: Area[]
-  onSave: (c: Conteo) => void
-  onDelete: (id: string) => void
+  onClose: () => void
+  onSaved: () => void
 }) {
   const [areaId, setAreaId] = React.useState(conteo.areaId)
   const [dia, setDia] = React.useState<string>(conteo.dia ?? DIAS[0].value)
   const [sesion, setSesion] = React.useState<Sesion>(conteo.sesion ?? "manana")
   const [valor, setValor] = React.useState(String(conteo.valor))
+  const [guardando, setGuardando] = React.useState(false)
+  const [error, setError] = React.useState<string | null>(null)
+
+  // El id real en la base (sin el prefijo "db-" que usa la vista).
+  const conteoId = conteo.id.startsWith("db-") ? conteo.id.slice(3) : conteo.id
 
   // include the original area even if it's been deleted, so the select stays valid
   const options = React.useMemo<Area[]>(() => {
@@ -1259,20 +1214,41 @@ function EditConteoForm({
     valorValido &&
     valorNum > currentArea.capacidad
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!currentArea) return
+    if (!currentArea || guardando) return
     if (!valorValido || excedeCapacidad) return
-    onSave({
-      ...conteo,
+    const diaKey = DIA_A_SLOT[dia]
+    if (!diaKey) return
+    setGuardando(true)
+    setError(null)
+    const { ok, error: err } = await editarConteoAdmin({
+      id: conteoId,
       areaId,
-      areaNombre: currentArea.nombre.replace(" (eliminada)", ""),
-      dia,
-      sesion,
-      modo,
-      capacidadSnapshot: currentArea.capacidad,
+      slot: `${diaKey}-${sesion}`,
       valor: valorNum,
     })
+    setGuardando(false)
+    if (!ok) {
+      setError(err ?? "No se pudo guardar.")
+      return
+    }
+    onSaved()
+    onClose()
+  }
+
+  async function handleDelete() {
+    if (guardando) return
+    setGuardando(true)
+    setError(null)
+    const { ok, error: err } = await eliminarConteoAdmin(conteoId)
+    setGuardando(false)
+    if (!ok) {
+      setError(err ?? "No se pudo eliminar.")
+      return
+    }
+    onSaved()
+    onClose()
   }
 
   return (
@@ -1368,11 +1344,14 @@ function EditConteoForm({
         )}
       </div>
 
+      {error && <p className="text-sm text-destructive">{error}</p>}
+
       <DialogFooter className="sm:justify-between">
         <Button
           type="button"
           variant="ghost"
-          onClick={() => onDelete(conteo.id)}
+          onClick={handleDelete}
+          disabled={guardando}
           className="text-destructive hover:bg-destructive/10 hover:text-destructive"
         >
           <Trash2Icon />
@@ -1381,9 +1360,9 @@ function EditConteoForm({
         <Button
           type="submit"
           className="w-full sm:w-auto"
-          disabled={!valorValido || excedeCapacidad}
+          disabled={!valorValido || excedeCapacidad || guardando}
         >
-          Guardar cambios
+          {guardando ? "Guardando…" : "Guardar cambios"}
         </Button>
       </DialogFooter>
     </form>

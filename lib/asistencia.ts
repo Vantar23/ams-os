@@ -18,8 +18,9 @@ export type Reporte = {
   areaNombre: string
   areaCapacidad: number
   acomodadorNombre: string
-  // "acomodador" es solo referencia (no cuenta); "capitan" es el conteo oficial.
-  fuente: "acomodador" | "capitan"
+  // "acomodador" es solo referencia (no cuenta); "capitan" y "admin" (conteo
+  // manual de administración) son oficiales y sí cuentan.
+  fuente: "acomodador" | "capitan" | "admin"
 }
 
 export type Sesion = "manana" | "tarde"
@@ -101,7 +102,8 @@ export function reporteToConteo(r: Reporte): Conteo | null {
     dia,
     sesion: sesionKey,
     timestamp: r.reportadoAt,
-    origen: r.fuente,
+    // El conteo manual de admin se trata como "manual" (editable en el panel).
+    origen: r.fuente === "admin" ? "manual" : r.fuente,
     reportadoPor: r.acomodadorNombre,
   }
 }

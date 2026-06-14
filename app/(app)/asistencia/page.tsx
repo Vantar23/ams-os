@@ -175,6 +175,43 @@ export default async function AsistenciaPage() {
     })
   }
 
+  // Conteos manuales de administración (en base). Se incluyen todos para poder
+  // editarlos/eliminarlos; el resumen toma el más reciente por área+slot.
+  const { data: conteosAdminRaw } = await supabase
+    .from("conteos_admin")
+    .select(
+      "id, slot, valor, reportado_at, area_id, areas(nombre, capacidad)",
+    )
+    .eq("asamblea_id", asamblea.id)
+    .order("reportado_at", { ascending: false })
+
+  type ConteoAdminRow = {
+    id: string
+    slot: string
+    valor: number
+    reportado_at: string
+    area_id: string
+    areas:
+      | { nombre: string; capacidad: number }
+      | { nombre: string; capacidad: number }[]
+      | null
+  }
+  for (const c of (conteosAdminRaw ?? []) as unknown as ConteoAdminRow[]) {
+    if (capitanAreaLabels !== null && !areaIdsVisibles.has(c.area_id)) continue
+    const area = first(c.areas)
+    reportes.push({
+      id: c.id,
+      slot: c.slot,
+      valor: c.valor,
+      reportadoAt: c.reportado_at,
+      areaId: c.area_id,
+      areaNombre: area?.nombre ?? "—",
+      areaCapacidad: area?.capacidad ?? 0,
+      acomodadorNombre: "Admin",
+      fuente: "admin",
+    })
+  }
+
   const { data: historialRaw } = await supabase
     .from("asistencia_historial")
     .select(
@@ -224,6 +261,7 @@ export default async function AsistenciaPage() {
     <>
       <PageHeader parent="Reportes" title="Asistencia" />
       <AsistenciaClient
+        asambleaId={asamblea.id}
         areas={areas as Area[]}
         reportes={reportes}
         historial={historial}

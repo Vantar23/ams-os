@@ -50,30 +50,39 @@ export default async function Page({
 
   const asambleaId = asamblea.id as string
 
-  const [{ data: areasRaw }, { data: asignacionesRaw }, { data: conteosCapRaw }] =
-    await Promise.all([
-      admin
-        .from("areas")
-        .select("id, piso, nombre, capacidad")
-        .eq("asamblea_id", asambleaId)
-        .order("piso", { ascending: true })
-        .order("nombre", { ascending: true }),
-      admin
-        .from("asignaciones")
-        .select(
-          "id, slot, lugares_vacios, reportado_at, area_id, areas(nombre, capacidad), acomodadores(nombre, apellido)",
-        )
-        .eq("asamblea_id", asambleaId)
-        .not("lugares_vacios", "is", null)
-        .order("reportado_at", { ascending: false }),
-      admin
-        .from("conteos_capitan")
-        .select(
-          "id, slot, valor, reportado_at, area_id, areas(nombre, capacidad), capitanes(nombre, apellido)",
-        )
-        .eq("asamblea_id", asambleaId)
-        .order("reportado_at", { ascending: false }),
-    ])
+  const [
+    { data: areasRaw },
+    { data: asignacionesRaw },
+    { data: conteosCapRaw },
+    { data: conteosAdminRaw },
+  ] = await Promise.all([
+    admin
+      .from("areas")
+      .select("id, piso, nombre, capacidad")
+      .eq("asamblea_id", asambleaId)
+      .order("piso", { ascending: true })
+      .order("nombre", { ascending: true }),
+    admin
+      .from("asignaciones")
+      .select(
+        "id, slot, lugares_vacios, reportado_at, area_id, areas(nombre, capacidad), acomodadores(nombre, apellido)",
+      )
+      .eq("asamblea_id", asambleaId)
+      .not("lugares_vacios", "is", null)
+      .order("reportado_at", { ascending: false }),
+    admin
+      .from("conteos_capitan")
+      .select(
+        "id, slot, valor, reportado_at, area_id, areas(nombre, capacidad), capitanes(nombre, apellido)",
+      )
+      .eq("asamblea_id", asambleaId)
+      .order("reportado_at", { ascending: false }),
+    admin
+      .from("conteos_admin")
+      .select("id, slot, valor, reportado_at, area_id, areas(nombre, capacidad)")
+      .eq("asamblea_id", asambleaId)
+      .order("reportado_at", { ascending: false }),
+  ])
 
   const areas = (areasRaw ?? []) as Area[]
 
@@ -144,6 +153,32 @@ export default async function Page({
         ? `${cap.nombre} ${cap.apellido} · Capitán`.trim()
         : "Capitán",
       fuente: "capitan",
+    })
+  }
+
+  type ConteoAdminRow = {
+    id: string
+    slot: string
+    valor: number
+    reportado_at: string
+    area_id: string
+    areas:
+      | { nombre: string; capacidad: number }
+      | { nombre: string; capacidad: number }[]
+      | null
+  }
+  for (const c of (conteosAdminRaw ?? []) as unknown as ConteoAdminRow[]) {
+    const area = first(c.areas)
+    reportes.push({
+      id: c.id,
+      slot: c.slot,
+      valor: c.valor,
+      reportadoAt: c.reportado_at,
+      areaId: c.area_id,
+      areaNombre: area?.nombre ?? "—",
+      areaCapacidad: area?.capacidad ?? 0,
+      acomodadorNombre: "Admin",
+      fuente: "admin",
     })
   }
 
