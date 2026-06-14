@@ -78,8 +78,8 @@ export default function Lanyard({ data }: { data: LanyardData }) {
 
   return (
     <Canvas
-      camera={{ position: [0, 0, 9.5], fov: 25 }}
-      dpr={[1, isMobile ? 1.5 : 2]}
+      camera={{ position: [0, 0, isMobile ? 7 : 9.5], fov: 25 }}
+      dpr={[1, 2]}
       gl={{ alpha: true }}
       className="!touch-none"
       onCreated={({ gl }) => gl.setClearColor(new THREE.Color(0x000000), 0)}
@@ -176,13 +176,16 @@ function Band({
     const baseMap = materials.base.map
     const baseImg = baseMap?.image as HTMLImageElement | undefined
     if (!baseMap || !baseImg) return baseMap ?? null
-    const W = baseImg.width
-    const H = baseImg.height
+    // El atlas nativo (~1678px) deja el frente en ~839px → borroso. Componemos
+    // a mayor resolución para que la cara salga nítida.
+    const W = Math.max(baseImg.width, 3400)
+    const H = Math.round((W * baseImg.height) / baseImg.width)
     const canvas = document.createElement("canvas")
     canvas.width = W
     canvas.height = H
     const ctx = canvas.getContext("2d")
     if (!ctx) return baseMap
+    ctx.imageSmoothingQuality = "high"
     ctx.drawImage(baseImg, 0, 0, W, H)
 
     const drawFitted = (
@@ -373,11 +376,17 @@ function Band({
 const SERIF = "Georgia, 'Times New Roman', serif"
 const SANS = "system-ui, -apple-system, 'Segoe UI', sans-serif"
 
+// Espacio de diseño (1024 de ancho) con el aspecto real de la cara del modelo
+// (~0.66), y factor de escala para render nítido en alta resolución.
+const FACE_W = 1024
+const FACE_H = 1547
+const FACE_SCALE = 1.8
+
 /** Cara frontal: credencial completa. Devuelve un data URL PNG. */
 function makeFrontFace(data: LanyardData): string {
-  const W = 1024
-  const H = 1448
-  const { canvas, ctx } = newCanvas(W, H)
+  const W = FACE_W
+  const H = FACE_H
+  const { canvas, ctx } = newCanvas(W, H, FACE_SCALE)
 
   ctx.fillStyle = PALETTE.card
   ctx.fillRect(0, 0, W, H)
@@ -494,9 +503,9 @@ function makeFrontFace(data: LanyardData): string {
 
 /** Reverso: sage con identidad sobria. */
 function makeBackFace(data: LanyardData): string {
-  const W = 1024
-  const H = 1448
-  const { canvas, ctx } = newCanvas(W, H)
+  const W = FACE_W
+  const H = FACE_H
+  const { canvas, ctx } = newCanvas(W, H, FACE_SCALE)
 
   ctx.fillStyle = PALETTE.primary
   ctx.fillRect(0, 0, W, H)
@@ -522,12 +531,14 @@ function makeBackFace(data: LanyardData): string {
   return canvas.toDataURL("image/png")
 }
 
-function newCanvas(w: number, h: number) {
+function newCanvas(w: number, h: number, scale = 1) {
   const canvas = document.createElement("canvas")
-  canvas.width = w
-  canvas.height = h
+  canvas.width = Math.round(w * scale)
+  canvas.height = Math.round(h * scale)
   const ctx = canvas.getContext("2d")!
+  ctx.scale(scale, scale)
   ctx.textBaseline = "alphabetic"
+  ctx.imageSmoothingQuality = "high"
   return { canvas, ctx }
 }
 
