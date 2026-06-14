@@ -5,11 +5,13 @@ import Link from "next/link"
 import {
   ArrowLeftIcon,
   CheckIcon,
-  ChevronDownIcon,
   ChevronRightIcon,
+  CopyIcon,
   HistoryIcon,
+  MessageCircleIcon,
   PencilIcon,
   PlusIcon,
+  Share2Icon,
   TableIcon,
   Trash2Icon,
   Undo2Icon,
@@ -51,30 +53,29 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { reportarConteoCapitan } from "@/app/capitan/asistencia/actions"
+import {
+  DIAS,
+  DIA_A_SLOT,
+  SESION_LABEL,
+  SLOT_DIA,
+  asistenciaFromConteo,
+  computeResumenRows,
+  formatDia,
+  formatTimestamp,
+  modoDeArea,
+  reporteToConteo,
+  type Area,
+  type Conteo,
+  type Reporte,
+  type Sesion,
+} from "@/lib/asistencia"
 import { useLocalStorage } from "@/lib/use-local-storage"
 import { uid } from "@/lib/uid"
 
 import { revertirAsistencia } from "./actions"
+import { ResumenAsistencia, TurnoResumenGrid } from "./turno-resumen"
 
-export type Area = {
-  id: string
-  piso: string
-  nombre: string
-  capacidad: number
-}
-
-export type Reporte = {
-  id: string
-  slot: string
-  valor: number
-  reportadoAt: string
-  areaId: string
-  areaNombre: string
-  areaCapacidad: number
-  acomodadorNombre: string
-  // "acomodador" es solo referencia (no cuenta); "capitan" es el conteo oficial.
-  fuente: "acomodador" | "capitan"
-}
+export type { Area, Reporte } from "@/lib/asistencia"
 
 export type HistorialEntry = {
   id: string
@@ -86,70 +87,6 @@ export type HistorialEntry = {
   esRevert: boolean
 }
 
-type Sesion = "manana" | "tarde"
-
-type Modo = "vacios" | "asistentes"
-
-type Conteo = {
-  id: string
-  areaId: string
-  areaNombre: string
-  modo: Modo
-  capacidadSnapshot: number
-  valor: number
-  dia: string
-  sesion: Sesion
-  timestamp: string
-  // "acomodador" es referencia y no cuenta; "capitan" y "manual" (admin) cuentan.
-  origen: "manual" | "acomodador" | "capitan"
-  reportadoPor?: string
-  // legacy field, kept for backward-compat reads
-  vacios?: number
-}
-
-const SLOT_DIA: Record<string, string> = {
-  viernes: "2026-10-02",
-  sabado: "2026-10-03",
-  domingo: "2026-10-04",
-}
-
-const DIA_A_SLOT: Record<string, string> = Object.fromEntries(
-  Object.entries(SLOT_DIA).map(([k, v]) => [v, k]),
-)
-
-function reporteToConteo(r: Reporte): Conteo | null {
-  const [diaKey, sesionKey] = r.slot.split("-") as [string, Sesion]
-  const dia = SLOT_DIA[diaKey]
-  if (!dia || (sesionKey !== "manana" && sesionKey !== "tarde")) return null
-  const modo: Modo = r.areaCapacidad > 0 ? "vacios" : "asistentes"
-  return {
-    id: `db-${r.id}`,
-    areaId: r.areaId,
-    areaNombre: r.areaNombre,
-    modo,
-    capacidadSnapshot: r.areaCapacidad,
-    valor: r.valor,
-    dia,
-    sesion: sesionKey,
-    timestamp: r.reportadoAt,
-    origen: r.fuente,
-    reportadoPor: r.acomodadorNombre,
-  }
-}
-
-const DIAS = [
-  { value: "2026-10-02", label: "Vie 2 oct" },
-  { value: "2026-10-03", label: "Sáb 3 oct" },
-  { value: "2026-10-04", label: "Dom 4 oct" },
-] as const
-
-const SESION_LABEL: Record<Sesion, string> = {
-  manana: "Mañana",
-  tarde: "Tarde",
-}
-
-const SESIONES: Sesion[] = ["manana", "tarde"]
-
 function defaultDia(): string {
   const today = new Date().toISOString().slice(0, 10)
   return DIAS.find((d) => d.value === today)?.value ?? DIAS[0].value
@@ -157,10 +94,6 @@ function defaultDia(): string {
 
 function defaultSesion(): Sesion {
   return new Date().getHours() < 14 ? "manana" : "tarde"
-}
-
-function modoDeArea(area: Pick<Area, "capacidad">): Modo {
-  return area.capacidad > 0 ? "vacios" : "asistentes"
 }
 
 type StoredConteo = Partial<Conteo> & {
@@ -187,68 +120,12 @@ function normalizeConteo(c: StoredConteo): Conteo {
   }
 }
 
-function asistenciaFromConteo(c: Conteo): number {
-  if (c.modo === "asistentes") return Math.max(0, c.valor)
-  return Math.max(0, c.capacidadSnapshot - c.valor)
-}
-
-type ResumenRow = {
-  key: string
-  dia: string
-  sesion: Sesion
-  areaId: string
-  areaNombre: string
-  modo: Modo
-  capacidad: number
-  asistencia: number
-}
-
-// Asistencia vigente por área+sesión: el conteo más reciente (de capitán o
-// admin) gana; los reportes de acomodadores son solo referencia y no cuentan.
-function computeResumenRows(areas: Area[], conteos: Conteo[]): ResumenRow[] {
-  const byKey = new Map<string, Conteo[]>()
-  for (const c of conteos) {
-    if (c.origen === "acomodador") continue
-    const k = `${c.dia}|${c.sesion}|${c.areaId}`
-    const list = byKey.get(k) ?? []
-    list.push(c)
-    byKey.set(k, list)
-  }
-  const rows: ResumenRow[] = []
-  for (const [key, list] of byKey) {
-    list.sort((a, b) => (a.timestamp < b.timestamp ? 1 : -1))
-    const head = list[0]
-    const liveArea = areas.find((a) => a.id === head.areaId)
-    const capacidad = liveArea?.capacidad ?? head.capacidadSnapshot
-    const modo: Modo = liveArea ? modoDeArea(liveArea) : head.modo
-    const asistencia =
-      modo === "asistentes"
-        ? Math.max(0, head.valor)
-        : Math.max(0, capacidad - head.valor)
-    rows.push({
-      key,
-      dia: head.dia,
-      sesion: head.sesion,
-      areaId: head.areaId,
-      areaNombre: liveArea?.nombre ?? head.areaNombre,
-      modo,
-      capacidad,
-      asistencia,
-    })
-  }
-  rows.sort((a, b) => {
-    if (a.dia !== b.dia) return a.dia.localeCompare(b.dia)
-    if (a.sesion !== b.sesion) return a.sesion.localeCompare(b.sesion)
-    return a.areaNombre.localeCompare(b.areaNombre)
-  })
-  return rows
-}
-
 export function AsistenciaClient({
   areas,
   reportes,
   historial,
   capitanMode = false,
+  shareToken,
 }: {
   areas: Area[]
   reportes: Reporte[]
@@ -256,6 +133,8 @@ export function AsistenciaClient({
   // Un capitán solo ve sus áreas y sus conteos se guardan en la base, para
   // que administración los vea; el flujo local (localStorage) es del owner.
   capitanMode?: boolean
+  // Token del enlace público de asistencia en vivo (solo para el owner).
+  shareToken?: string | null
 }) {
   const historialPorAsignacion = React.useMemo(() => {
     const map = new Map<string, HistorialEntry[]>()
@@ -312,24 +191,11 @@ export function AsistenciaClient({
     [areas, conteos],
   )
 
-  // Totales por turno (día+sesión) para las tarjetas del inicio. `contadas`
-  // son las áreas con conteo validado; el resto faltan por contar.
-  const resumenPorTurno = React.useMemo(() => {
-    const map = new Map<string, { asistencia: number; contadas: Set<string> }>()
-    for (const r of resumenRows) {
-      const k = `${r.dia}|${r.sesion}`
-      const prev = map.get(k) ?? { asistencia: 0, contadas: new Set<string>() }
-      prev.asistencia += r.asistencia
-      prev.contadas.add(r.areaId)
-      map.set(k, prev)
-    }
-    return map
-  }, [resumenRows])
-
   const [editing, setEditing] = React.useState<Conteo | null>(null)
   const [agregarOpen, setAgregarOpen] = React.useState(false)
   const [desgloseOpen, setDesgloseOpen] = React.useState(false)
   const [historialListaOpen, setHistorialListaOpen] = React.useState(false)
+  const [compartirOpen, setCompartirOpen] = React.useState(false)
 
   function onAddLocal(conteo: Conteo) {
     setConteos((prev) => [conteo, ...prev])
@@ -383,34 +249,22 @@ export function AsistenciaClient({
                 <HistoryIcon className="size-4" />
                 Historial
               </Button>
+              {!capitanMode && shareToken && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setCompartirOpen(true)}
+                >
+                  <Share2Icon className="size-4" />
+                  Compartir
+                </Button>
+              )}
             </div>
           </div>
 
           {/* Tarjetas de turno agrupadas por día */}
-          <div className="grid gap-6 border-t px-4 py-4 sm:px-5">
-            {DIAS.map((d) => (
-              <div key={d.value}>
-                <p className="px-1 text-xs font-medium uppercase tracking-[0.15em] text-muted-foreground">
-                  {d.label}
-                </p>
-                <div className="mt-3 grid grid-cols-2 gap-3">
-                  {SESIONES.map((s) => {
-                    const datos = resumenPorTurno.get(`${d.value}|${s}`)
-                    const contadas = datos?.contadas
-                    const faltantes = areas.filter((a) => !contadas?.has(a.id))
-                    return (
-                      <TurnoCard
-                        key={s}
-                        sesionLabel={SESION_LABEL[s]}
-                        asistencia={datos?.asistencia ?? 0}
-                        areasTotal={areas.length}
-                        faltantes={faltantes}
-                      />
-                    )
-                  })}
-                </div>
-              </div>
-            ))}
+          <div className="border-t px-4 py-4 sm:px-5">
+            <TurnoResumenGrid areas={areas} conteos={conteos} />
           </div>
         </section>
       </div>
@@ -444,6 +298,14 @@ export function AsistenciaClient({
         }}
       />
 
+      {shareToken && (
+        <CompartirDialog
+          open={compartirOpen}
+          onOpenChange={setCompartirOpen}
+          token={shareToken}
+        />
+      )}
+
       <EditConteoDialog
         conteo={editing}
         areas={areas}
@@ -465,96 +327,93 @@ export function AsistenciaClient({
   )
 }
 
-function TurnoCard({
-  sesionLabel,
-  asistencia,
-  areasTotal,
-  faltantes,
+function CompartirDialog({
+  open,
+  onOpenChange,
+  token,
 }: {
-  sesionLabel: string
-  asistencia: number
-  areasTotal: number
-  faltantes: Area[]
+  open: boolean
+  onOpenChange: (v: boolean) => void
+  token: string
 }) {
-  const [abierto, setAbierto] = React.useState(false)
-  const areasRep = areasTotal - faltantes.length
-  const interactivo = areasTotal > 0 && faltantes.length > 0
-
-  const contenido = (
-    <>
-      <div className="flex items-start justify-between gap-2">
-        <p className="text-sm font-medium text-foreground">{sesionLabel}</p>
-        {interactivo && (
-          <ChevronDownIcon
-            className={
-              "size-4 shrink-0 text-foreground transition-transform " +
-              (abierto ? "rotate-180" : "")
-            }
-            strokeWidth={2.5}
-          />
-        )}
-      </div>
-      <p className="mt-3 font-serif text-3xl tabular-nums text-foreground">
-        {asistencia}
-      </p>
-
-      {areasTotal === 0 ? (
-        <p className="mt-0.5 text-xs text-muted-foreground">
-          Sin áreas registradas
-        </p>
-      ) : faltantes.length === 0 ? (
-        <p className="mt-0.5 flex items-center gap-1 text-xs text-primary">
-          <CheckIcon className="size-3.5" />
-          {areasRep} de {areasTotal} área{areasTotal === 1 ? "" : "s"} · todas
-          contadas
-        </p>
-      ) : (
-        <>
-          <p className="mt-0.5 text-xs text-muted-foreground">
-            {areasRep} de {areasTotal} área{areasTotal === 1 ? "" : "s"} contada
-            {areasRep === 1 ? "" : "s"}
-          </p>
-          {abierto && (
-            <div className="mt-2">
-              <p className="text-[10px] font-medium uppercase tracking-[0.1em] text-amber-600 dark:text-amber-400">
-                Faltan por contar
-              </p>
-              <div className="mt-1 flex flex-wrap gap-1">
-                {faltantes.map((a) => (
-                  <span
-                    key={a.id}
-                    className="inline-flex max-w-full items-center truncate rounded-full border border-border bg-surface px-2 py-0.5 text-[10px] text-muted-foreground"
-                    title={`${a.piso} · ${a.nombre}`}
-                  >
-                    {a.nombre}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-        </>
-      )}
-    </>
+  const [copied, setCopied] = React.useState(false)
+  const [origin] = React.useState(() =>
+    typeof window !== "undefined" ? window.location.origin : "",
   )
 
-  if (!interactivo) {
-    return (
-      <div className="rounded-xl border border-border bg-background p-4">
-        {contenido}
-      </div>
-    )
+  const url = `${origin}/asistencia/en-vivo/${token}`
+
+  async function copy() {
+    if (!origin) return
+    try {
+      await navigator.clipboard.writeText(url)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      /* ignored */
+    }
   }
 
+  const waText = encodeURIComponent(
+    `Sigue la asistencia de la asamblea en tiempo real: ${url}`,
+  )
+
   return (
-    <button
-      type="button"
-      onClick={() => setAbierto((v) => !v)}
-      aria-expanded={abierto}
-      aria-label={`Ver las ${faltantes.length} áreas que faltan por contar`}
-      className="rounded-xl border border-border bg-background p-4 text-left transition-colors hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-    >
-      {contenido}
-    </button>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Compartir asistencia en vivo</DialogTitle>
+          <DialogDescription>
+            Cualquiera con este enlace puede ver el resumen de asistencia en
+            tiempo real, sin iniciar sesión. Es de solo lectura.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="grid gap-3">
+          <div className="flex gap-2">
+            <Input
+              readOnly
+              value={url}
+              className="font-mono text-xs"
+              onFocus={(e) => e.currentTarget.select()}
+            />
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              onClick={copy}
+              aria-label={copied ? "Copiado" : "Copiar enlace"}
+            >
+              {copied ? <CheckIcon /> : <CopyIcon />}
+            </Button>
+          </div>
+          <Button asChild className="w-full">
+            <a
+              href={`https://wa.me/?text=${waText}`}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <MessageCircleIcon />
+              Compartir por WhatsApp
+            </a>
+          </Button>
+          <p className="text-xs text-muted-foreground">
+            El enlace muestra siempre la asistencia actualizada. Para invalidarlo
+            tendrías que cambiar el token (pídelo a soporte).
+          </p>
+        </div>
+
+        <DialogFooter>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+          >
+            Cerrar
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
 
@@ -866,7 +725,7 @@ function DesgloseDialog({
   open: boolean
   onOpenChange: (v: boolean) => void
   conteos: Conteo[]
-  resumenRows: ResumenRow[]
+  resumenRows: ReturnType<typeof computeResumenRows>
   historialPorAsignacion: Map<string, HistorialEntry[]>
   onEdit: (c: Conteo) => void
   onVerHistorial: (info: {
@@ -1144,19 +1003,6 @@ function HistorialListaDialog({
   )
 }
 
-function formatTimestamp(iso: string): string {
-  try {
-    return new Date(iso).toLocaleString("es-MX", {
-      day: "2-digit",
-      month: "short",
-      hour: "2-digit",
-      minute: "2-digit",
-    })
-  } catch {
-    return iso
-  }
-}
-
 function origenLabel(origen: HistorialEntry["origen"]): string {
   if (origen === "acomodador") return "Acomodador"
   if (origen === "admin") return "Admin"
@@ -1332,84 +1178,6 @@ function HistorialDialog({
   )
 }
 
-function ResumenAsistencia({ rows }: { rows: ResumenRow[] }) {
-  if (rows.length === 0) {
-    return (
-      <section>
-        <h3 className="text-base font-semibold">Resumen de asistencia</h3>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Aún no hay conteos validados.
-        </p>
-      </section>
-    )
-  }
-
-  const totalesPorSesion = new Map<string, number>()
-  for (const f of rows) {
-    const k = `${f.dia}|${f.sesion}`
-    totalesPorSesion.set(k, (totalesPorSesion.get(k) ?? 0) + f.asistencia)
-  }
-
-  return (
-    <section>
-      <h3 className="text-base font-semibold">Resumen de asistencia</h3>
-      <p className="text-sm text-muted-foreground">
-        Calculado por área y sesión a partir de los conteos validados por
-        capitanes. Los reportes de acomodadores son solo de referencia.
-      </p>
-      <div className="mt-4 overflow-x-auto rounded-xl border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Día</TableHead>
-              <TableHead>Sesión</TableHead>
-              <TableHead>Área</TableHead>
-              <TableHead className="text-right">Capacidad</TableHead>
-              <TableHead className="text-right">Asistencia</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {rows.map((f) => (
-              <TableRow key={f.key}>
-                <TableCell className="text-muted-foreground">
-                  {formatDia(f.dia)}
-                </TableCell>
-                <TableCell className="text-muted-foreground">
-                  {SESION_LABEL[f.sesion]}
-                </TableCell>
-                <TableCell className="font-medium">{f.areaNombre}</TableCell>
-                <TableCell className="text-right tabular-nums text-muted-foreground">
-                  {f.modo === "vacios" ? f.capacidad : "—"}
-                </TableCell>
-                <TableCell className="text-right font-medium tabular-nums">
-                  {f.asistencia}
-                </TableCell>
-              </TableRow>
-            ))}
-            {Array.from(totalesPorSesion.entries()).map(([k, total]) => {
-              const [dia, sesion] = k.split("|") as [string, Sesion]
-              return (
-                <TableRow key={`total-${k}`} className="bg-muted/40">
-                  <TableCell className="font-medium">{formatDia(dia)}</TableCell>
-                  <TableCell className="font-medium">
-                    {SESION_LABEL[sesion]}
-                  </TableCell>
-                  <TableCell className="font-medium" colSpan={2}>
-                    Total de la sesión
-                  </TableCell>
-                  <TableCell className="text-right font-semibold tabular-nums">
-                    {total}
-                  </TableCell>
-                </TableRow>
-              )
-            })}
-          </TableBody>
-        </Table>
-      </div>
-    </section>
-  )
-}
-
 function EditConteoDialog({
   conteo,
   areas,
@@ -1482,7 +1250,7 @@ function EditConteoForm({
   }, [areas, conteo])
 
   const currentArea = options.find((a) => a.id === areaId)
-  const modo: Modo = currentArea ? modoDeArea(currentArea) : conteo.modo
+  const modo = currentArea ? modoDeArea(currentArea) : conteo.modo
   const valorNum = Number.parseInt(valor, 10)
   const valorValido = !Number.isNaN(valorNum) && valorNum >= 0
   const excedeCapacidad =
@@ -1620,19 +1388,4 @@ function EditConteoForm({
       </DialogFooter>
     </form>
   )
-}
-
-function formatDia(iso: string | undefined): string {
-  if (!iso) return "—"
-  const known = DIAS.find((d) => d.value === iso)
-  if (known) return known.label
-  try {
-    return new Date(iso).toLocaleDateString("es-MX", {
-      weekday: "short",
-      day: "numeric",
-      month: "short",
-    })
-  } catch {
-    return iso
-  }
 }

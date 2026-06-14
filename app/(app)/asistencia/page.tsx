@@ -19,7 +19,7 @@ export default async function AsistenciaPage() {
 
   const { data: asambleas } = await supabase
     .from("asambleas")
-    .select("id, numero, edicion")
+    .select("id, numero, edicion, asistencia_share_token")
     .order("created_at", { ascending: false })
     .limit(1)
 
@@ -228,6 +228,10 @@ export default async function AsistenciaPage() {
         reportes={reportes}
         historial={historial}
         capitanMode={capitanAreaLabels !== null}
+        shareToken={
+          (asamblea as { asistencia_share_token?: string })
+            .asistencia_share_token ?? null
+        }
       />
     </>
   )
