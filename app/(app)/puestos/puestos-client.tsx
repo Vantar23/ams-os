@@ -31,6 +31,7 @@ import {
   type DisponibilidadSesion,
   type DisponibilidadSlot,
 } from "@/lib/disponibilidad"
+import { createRealtimeClient } from "@/lib/supabase/realtime"
 import { useMediaQuery } from "@/lib/use-media-query"
 import { cn } from "@/lib/utils"
 
@@ -256,6 +257,74 @@ export function PuestosClient({
     // eslint-disable-next-line react-hooks/set-state-in-effect -- reinicia los cambios locales al cambiar de turno/rol
     setState({ overrides: {} })
   }, [slot, rol])
+
+  // Suscripción realtime: dos personas pueden asignar a la vez y cada una ve
+  // los cambios de la otra sin recargar. Necesita el JWT del usuario (sin él,
+  // RLS no entrega eventos). Sondeo de respaldo + refresco al enfocar por si el
+  // socket falla. Cubre ambas tablas porque la pestaña de rol comparte pantalla.
+  React.useEffect(() => {
+    let cancelado = false
+    let cleanup: (() => void) | null = null
+    createRealtimeClient().then((supabase) => {
+      if (cancelado) return
+      const channel = supabase
+        .channel(`puestos-${asamblea.id}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "asignaciones",
+            filter: `asamblea_id=eq.${asamblea.id}`,
+          },
+          () => router.refresh(),
+        )
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "asignaciones_hermanas",
+            filter: `asamblea_id=eq.${asamblea.id}`,
+          },
+          () => router.refresh(),
+        )
+        .subscribe()
+      cleanup = () => {
+        supabase.removeChannel(channel)
+      }
+    })
+    const interval = setInterval(() => router.refresh(), 15000)
+    const onFocus = () => router.refresh()
+    window.addEventListener("focus", onFocus)
+    return () => {
+      cancelado = true
+      cleanup?.()
+      clearInterval(interval)
+      window.removeEventListener("focus", onFocus)
+    }
+  }, [asamblea.id, router])
+
+  // Descarta los cambios locales que ya coinciden con lo persistido. Así, una
+  // vez confirmada mi acción, si la otra persona mueve a alguien, su cambio se
+  // refleja (el override deja de tapar el dato del servidor).
+  React.useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reconcilia los cambios locales con lo persistido tras un refresco
+    setState((s) => {
+      const keys = Object.keys(s.overrides)
+      if (keys.length === 0) return s
+      let changed = false
+      const next = { ...s.overrides }
+      for (const personaId of keys) {
+        const persisted = persistedAreaFor.get(personaId) ?? null
+        if (persisted === next[personaId]) {
+          delete next[personaId]
+          changed = true
+        }
+      }
+      return changed ? { overrides: next } : s
+    })
+  }, [persistedAreaFor])
 
   async function asignar(personaId: string) {
     if (!area) return
