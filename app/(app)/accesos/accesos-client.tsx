@@ -934,15 +934,34 @@ function PaseRow({ pase }: { pase: Pase }) {
   const [copiado, setCopiado] = React.useState(false)
   const lleno = pase.usados >= pase.cupo
   const enUso = pase.usados > 0
+  // Un enlace de varios dispositivos no es de una persona en concreto.
+  const esVarios = pase.cupo > 1
 
   // Estado legible del pase según cuántos lugares se han ocupado.
   const estado = lleno
     ? "Completo"
     : enUso
       ? `${pase.usados}/${pase.cupo} en uso`
-      : pase.cupo > 1
+      : esVarios
         ? `Sin abrir · ${pase.cupo} accesos`
         : "Sin abrir"
+
+  // Título: un enlace personal (1 dispositivo) lleva el nombre de quien lo usará.
+  // Un enlace de varios no corresponde a una sola persona, así que lleva un
+  // título genérico que deja claro que sirve para varios dispositivos; si se le
+  // puso un nombre (p. ej. «Familia García») se respeta.
+  const titulo = esVarios
+    ? pase.nombre || `Enlace para varios (${pase.cupo} accesos)`
+    : pase.nombre || estado
+
+  // Detalle secundario: muestra el estado salvo cuando ya es el propio título.
+  const detalle = [
+    titulo === estado ? null : estado,
+    pase.telefono,
+    `creado ${fechaCorta(pase.created_at)}`,
+  ]
+    .filter(Boolean)
+    .join(" · ")
 
   async function onCopiar() {
     try {
@@ -965,21 +984,15 @@ function PaseRow({ pase }: { pase: Pase }) {
               : "bg-muted text-muted-foreground")
           }
         >
-          <SmartphoneIcon className="size-4" />
+          {esVarios ? (
+            <UsersIcon className="size-4" />
+          ) : (
+            <SmartphoneIcon className="size-4" />
+          )}
         </span>
         <div className="min-w-0">
-          <p className="truncate text-sm font-medium">
-            {pase.nombre || estado}
-          </p>
-          <p className="truncate text-xs text-muted-foreground">
-            {[
-              pase.nombre ? estado : null,
-              pase.telefono,
-              `creado ${fechaCorta(pase.created_at)}`,
-            ]
-              .filter(Boolean)
-              .join(" · ")}
-          </p>
+          <p className="truncate text-sm font-medium">{titulo}</p>
+          <p className="truncate text-xs text-muted-foreground">{detalle}</p>
         </div>
       </div>
       <div className="flex shrink-0 items-center gap-1">
