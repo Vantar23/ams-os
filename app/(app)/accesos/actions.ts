@@ -87,6 +87,64 @@ export async function generarPase(input: {
   return { token, error: null }
 }
 
+export type PersonaEncontrada = {
+  tipo: "Sup/Aux" | "Capitán" | "Acomodador" | "Hermana"
+  nombre: string
+  telefono: string | null
+}
+
+/**
+ * Busca personal ya registrado (sub-aux, capitanes, acomodadores, hermanas)
+ * por nombre, apellido o teléfono, para rellenar el pase con sus datos.
+ */
+export async function buscarPersonal(
+  asambleaId: string,
+  query: string,
+): Promise<PersonaEncontrada[]> {
+  const q = query.trim()
+  if (q.length < 2) return []
+
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return []
+
+  // Sanitiza: las comas y paréntesis rompen la sintaxis de .or() de PostgREST.
+  const safe = q.replace(/[,()*%]/g, " ").trim()
+  if (!safe) return []
+  const like = `%${safe}%`
+  const filtro = `nombre.ilike.${like},apellido.ilike.${like},telefono.ilike.${like}`
+
+  const fuentes: [string, PersonaEncontrada["tipo"]][] = [
+    ["sub_aux", "Sup/Aux"],
+    ["capitanes", "Capitán"],
+    ["acomodadores", "Acomodador"],
+    ["hermanas_apoyo", "Hermana"],
+  ]
+
+  const listas = await Promise.all(
+    fuentes.map(async ([tabla, tipo]) => {
+      const { data } = await supabase
+        .from(tabla)
+        .select("nombre, apellido, telefono")
+        .eq("asamblea_id", asambleaId)
+        .or(filtro)
+        .limit(8)
+      return (data ?? []).map((p) => ({
+        tipo,
+        nombre: `${p.nombre ?? ""} ${p.apellido ?? ""}`.trim(),
+        telefono: (p.telefono as string | null) ?? null,
+      }))
+    }),
+  )
+
+  return listas
+    .flat()
+    .sort((a, b) => a.nombre.localeCompare(b.nombre))
+    .slice(0, 20)
+}
+
 /** Revoca un pase borrándolo. El enlace deja de funcionar de inmediato. */
 export async function eliminarPase(
   paseId: string,

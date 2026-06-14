@@ -11,6 +11,7 @@ import {
   PlusIcon,
   SmartphoneIcon,
   Trash2Icon,
+  UsersIcon,
 } from "lucide-react"
 
 import {
@@ -35,7 +36,14 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 
-import { crearArea, eliminarArea, eliminarPase, generarPase } from "./actions"
+import {
+  buscarPersonal,
+  crearArea,
+  eliminarArea,
+  eliminarPase,
+  generarPase,
+  type PersonaEncontrada,
+} from "./actions"
 
 type Asamblea = { id: string; numero: string; edicion: string }
 
@@ -164,6 +172,7 @@ function AreaCard({
   asambleaId: string
 }) {
   const [shareOpen, setShareOpen] = React.useState(false)
+  const [variosOpen, setVariosOpen] = React.useState(false)
   const [borrarArea, setBorrarArea] = React.useState(false)
 
   const ligados = pases.filter((p) => p.device_bound_at).length
@@ -184,6 +193,10 @@ function AreaCard({
           <Button size="sm" onClick={() => setShareOpen(true)}>
             <LinkIcon className="size-4" />
             Compartir enlace
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => setVariosOpen(true)}>
+            <UsersIcon className="size-4" />
+            Varios
           </Button>
           <Button
             size="icon"
@@ -217,6 +230,13 @@ function AreaCard({
         area={area}
       />
 
+      <EnviarVariosDialog
+        open={variosOpen}
+        onOpenChange={setVariosOpen}
+        asambleaId={asambleaId}
+        area={area}
+      />
+
       <EliminarAreaDialog
         open={borrarArea}
         onOpenChange={setBorrarArea}
@@ -246,6 +266,12 @@ function CompartirDialog({
   const [error, setError] = React.useState<string | null>(null)
   const [copied, setCopied] = React.useState(false)
 
+  // Buscador de personal ya registrado.
+  const [search, setSearch] = React.useState("")
+  const [resultados, setResultados] = React.useState<PersonaEncontrada[]>([])
+  const [buscando, setBuscando] = React.useState(false)
+  const [abierto, setAbierto] = React.useState(false)
+
   const url = token ? paseUrl(token) : ""
 
   // Cada vez que se abre el diálogo arranca limpio: el enlace anterior ya no se
@@ -257,8 +283,47 @@ function CompartirDialog({
       setTelefono("")
       setError(null)
       setCopied(false)
+      setSearch("")
+      setResultados([])
+      setAbierto(false)
     }
     onOpenChange(v)
+  }
+
+  // Búsqueda con debounce. Todo el setState ocurre dentro del timeout (async),
+  // no en el cuerpo del efecto, para no disparar renders en cascada.
+  React.useEffect(() => {
+    const q = search.trim()
+    if (q.length < 2) return
+    let cancelado = false
+    const t = setTimeout(async () => {
+      setBuscando(true)
+      const r = await buscarPersonal(asambleaId, q)
+      if (cancelado) return
+      setResultados(r)
+      setBuscando(false)
+      setAbierto(true)
+    }, 250)
+    return () => {
+      cancelado = true
+      clearTimeout(t)
+    }
+  }, [search, asambleaId])
+
+  function onSearchChange(v: string) {
+    setSearch(v)
+    if (v.trim().length < 2) {
+      setResultados([])
+      setAbierto(false)
+    }
+  }
+
+  function elegirPersona(p: PersonaEncontrada) {
+    setNombre(p.nombre)
+    setTelefono(p.telefono ?? "")
+    setSearch("")
+    setResultados([])
+    setAbierto(false)
   }
 
   // Acuña un pase NUEVO y único cada vez, registrando de quién es (nombre y
@@ -306,6 +371,65 @@ function CompartirDialog({
 
         {!token ? (
           <div className="grid gap-4 py-2">
+            <div className="grid gap-2">
+              <Label htmlFor={`buscar-${area.id}`}>
+                Buscar persona registrada
+              </Label>
+              <div className="relative">
+                <Input
+                  id={`buscar-${area.id}`}
+                  value={search}
+                  onChange={(e) => onSearchChange(e.target.value)}
+                  onFocus={() => {
+                    if (resultados.length > 0) setAbierto(true)
+                  }}
+                  onBlur={() => setTimeout(() => setAbierto(false), 150)}
+                  placeholder="Nombre o teléfono…"
+                  autoComplete="off"
+                />
+                {abierto && search.trim().length >= 2 && (
+                  <ul className="absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-md border bg-popover p-1 shadow-md">
+                    {buscando && (
+                      <li className="px-2 py-2 text-sm text-muted-foreground">
+                        Buscando…
+                      </li>
+                    )}
+                    {!buscando && resultados.length === 0 && (
+                      <li className="px-2 py-2 text-sm text-muted-foreground">
+                        Sin resultados
+                      </li>
+                    )}
+                    {resultados.map((p, i) => (
+                      <li key={`${p.nombre}-${i}`}>
+                        <button
+                          type="button"
+                          onClick={() => elegirPersona(p)}
+                          className="flex w-full items-center justify-between gap-2 rounded px-2 py-1.5 text-left text-sm hover:bg-accent hover:text-accent-foreground"
+                        >
+                          <span className="min-w-0">
+                            <span className="block truncate font-medium">
+                              {p.nombre}
+                            </span>
+                            {p.telefono && (
+                              <span className="block truncate text-xs text-muted-foreground">
+                                {p.telefono}
+                              </span>
+                            )}
+                          </span>
+                          <span className="shrink-0 rounded-full border px-2 py-0.5 text-[10px] text-muted-foreground">
+                            {p.tipo}
+                          </span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Sup/Aux, capitanes, acomodadores y hermanas. O escribe los datos
+                a mano abajo.
+              </p>
+            </div>
             <div className="grid gap-2">
               <Label htmlFor={`tel-${area.id}`}>
                 Teléfono{" "}
@@ -423,6 +547,344 @@ function CompartirDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  )
+}
+
+function personaKey(p: PersonaEncontrada): string {
+  return `${p.nombre}|${p.telefono ?? ""}`
+}
+
+function EnviarVariosDialog({
+  open,
+  onOpenChange,
+  asambleaId,
+  area,
+}: {
+  open: boolean
+  onOpenChange: (v: boolean) => void
+  asambleaId: string
+  area: Area
+}) {
+  const router = useRouter()
+  const [search, setSearch] = React.useState("")
+  const [resultados, setResultados] = React.useState<PersonaEncontrada[]>([])
+  const [buscando, setBuscando] = React.useState(false)
+  const [abierto, setAbierto] = React.useState(false)
+  const [seleccionados, setSeleccionados] = React.useState<PersonaEncontrada[]>(
+    [],
+  )
+  const [generando, setGenerando] = React.useState(false)
+  const [error, setError] = React.useState<string | null>(null)
+  const [enlaces, setEnlaces] = React.useState<
+    { persona: PersonaEncontrada; url: string }[] | null
+  >(null)
+
+  function handleOpenChange(v: boolean) {
+    if (!v) {
+      setSearch("")
+      setResultados([])
+      setAbierto(false)
+      setSeleccionados([])
+      setGenerando(false)
+      setError(null)
+      setEnlaces(null)
+    }
+    onOpenChange(v)
+  }
+
+  React.useEffect(() => {
+    const q = search.trim()
+    if (q.length < 2) return
+    let cancelado = false
+    const t = setTimeout(async () => {
+      setBuscando(true)
+      const r = await buscarPersonal(asambleaId, q)
+      if (cancelado) return
+      setResultados(r)
+      setBuscando(false)
+      setAbierto(true)
+    }, 250)
+    return () => {
+      cancelado = true
+      clearTimeout(t)
+    }
+  }, [search, asambleaId])
+
+  function onSearchChange(v: string) {
+    setSearch(v)
+    if (v.trim().length < 2) {
+      setResultados([])
+      setAbierto(false)
+    }
+  }
+
+  function agregar(p: PersonaEncontrada) {
+    setSeleccionados((prev) =>
+      prev.some((x) => personaKey(x) === personaKey(p)) ? prev : [...prev, p],
+    )
+    setSearch("")
+    setResultados([])
+    setAbierto(false)
+  }
+
+  function quitar(p: PersonaEncontrada) {
+    setSeleccionados((prev) =>
+      prev.filter((x) => personaKey(x) !== personaKey(p)),
+    )
+  }
+
+  // Genera un pase ÚNICO por cada persona seleccionada (token irrepetible).
+  async function generar() {
+    if (seleccionados.length === 0) return
+    setError(null)
+    setGenerando(true)
+    const out: { persona: PersonaEncontrada; url: string }[] = []
+    for (const p of seleccionados) {
+      const { token, error: err } = await generarPase({
+        asambleaId,
+        areaId: area.id,
+        nombre: p.nombre,
+        telefono: p.telefono ?? undefined,
+      })
+      if (!token) {
+        setError(err)
+        setGenerando(false)
+        return
+      }
+      out.push({ persona: p, url: paseUrl(token) })
+    }
+    setEnlaces(out)
+    setGenerando(false)
+    router.refresh()
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Enviar acceso a varios · {area.nombre}</DialogTitle>
+          <DialogDescription>
+            Selecciona personas ya registradas. Cada una recibe un enlace único
+            ligado a su primer dispositivo.
+          </DialogDescription>
+        </DialogHeader>
+
+        {!enlaces ? (
+          <div className="grid gap-3">
+            <div className="relative">
+              <Input
+                value={search}
+                onChange={(e) => onSearchChange(e.target.value)}
+                onFocus={() => {
+                  if (resultados.length > 0) setAbierto(true)
+                }}
+                onBlur={() => setTimeout(() => setAbierto(false), 150)}
+                placeholder="Buscar nombre o teléfono…"
+                autoComplete="off"
+              />
+              {abierto && search.trim().length >= 2 && (
+                <ul className="absolute z-50 mt-1 max-h-56 w-full overflow-auto rounded-md border bg-popover p-1 shadow-md">
+                  {buscando && (
+                    <li className="px-2 py-2 text-sm text-muted-foreground">
+                      Buscando…
+                    </li>
+                  )}
+                  {!buscando && resultados.length === 0 && (
+                    <li className="px-2 py-2 text-sm text-muted-foreground">
+                      Sin resultados
+                    </li>
+                  )}
+                  {resultados.map((p, i) => {
+                    const ya = seleccionados.some(
+                      (x) => personaKey(x) === personaKey(p),
+                    )
+                    return (
+                      <li key={`${p.nombre}-${i}`}>
+                        <button
+                          type="button"
+                          disabled={ya}
+                          onClick={() => agregar(p)}
+                          className="flex w-full items-center justify-between gap-2 rounded px-2 py-1.5 text-left text-sm hover:bg-accent hover:text-accent-foreground disabled:opacity-50"
+                        >
+                          <span className="min-w-0">
+                            <span className="block truncate font-medium">
+                              {p.nombre}
+                            </span>
+                            {p.telefono && (
+                              <span className="block truncate text-xs text-muted-foreground">
+                                {p.telefono}
+                              </span>
+                            )}
+                          </span>
+                          <span className="shrink-0 rounded-full border px-2 py-0.5 text-[10px] text-muted-foreground">
+                            {ya ? "Agregado" : p.tipo}
+                          </span>
+                        </button>
+                      </li>
+                    )
+                  })}
+                </ul>
+              )}
+            </div>
+
+            {seleccionados.length === 0 ? (
+              <p className="py-2 text-sm text-muted-foreground">
+                Aún no has seleccionado a nadie.
+              </p>
+            ) : (
+              <ul className="max-h-52 space-y-1.5 overflow-auto">
+                {seleccionados.map((p) => (
+                  <li
+                    key={personaKey(p)}
+                    className="flex items-center justify-between gap-2 rounded-md border bg-surface px-3 py-2"
+                  >
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm font-medium">
+                        {p.nombre}
+                      </span>
+                      {p.telefono && (
+                        <span className="block truncate text-xs text-muted-foreground">
+                          {p.telefono}
+                        </span>
+                      )}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => quitar(p)}
+                      className="shrink-0 text-muted-foreground hover:text-destructive"
+                      aria-label="Quitar"
+                    >
+                      <Trash2Icon className="size-4" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            {error && <p className="text-sm text-destructive">{error}</p>}
+
+            <Button
+              type="button"
+              onClick={generar}
+              disabled={generando || seleccionados.length === 0}
+              className="w-full"
+            >
+              {generando
+                ? "Generando…"
+                : `Generar ${seleccionados.length || ""} enlace${
+                    seleccionados.length === 1 ? "" : "s"
+                  }`}
+            </Button>
+          </div>
+        ) : (
+          <div className="grid gap-2">
+            <p className="text-xs uppercase tracking-[0.15em] text-muted-foreground">
+              {enlaces.length} enlace{enlaces.length === 1 ? "" : "s"} generado
+              {enlaces.length === 1 ? "" : "s"}
+            </p>
+            <ul className="max-h-72 space-y-2 overflow-auto">
+              {enlaces.map(({ persona, url }) => (
+                <EnlaceVariosRow
+                  key={personaKey(persona)}
+                  persona={persona}
+                  url={url}
+                  areaNombre={area.nombre}
+                />
+              ))}
+            </ul>
+          </div>
+        )}
+
+        <DialogFooter className="sm:justify-between">
+          {enlaces ? (
+            <Button
+              type="button"
+              variant="link"
+              onClick={() => {
+                setEnlaces(null)
+                setSeleccionados([])
+              }}
+              className="px-0 text-xs uppercase tracking-[0.15em] text-muted-foreground"
+            >
+              Enviar a otros
+            </Button>
+          ) : (
+            <span />
+          )}
+          <Button
+            type="button"
+            onClick={() => handleOpenChange(false)}
+            className="w-full sm:w-auto"
+          >
+            Listo
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function EnlaceVariosRow({
+  persona,
+  url,
+  areaNombre,
+}: {
+  persona: PersonaEncontrada
+  url: string
+  areaNombre: string
+}) {
+  const [copied, setCopied] = React.useState(false)
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(url)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      /* ignored */
+    }
+  }
+  return (
+    <li className="flex items-center justify-between gap-2 rounded-md border bg-surface px-3 py-2">
+      <span className="min-w-0">
+        <span className="block truncate text-sm font-medium">
+          {persona.nombre}
+        </span>
+        <span className="block truncate text-xs text-muted-foreground">
+          {persona.telefono || "Sin teléfono"}
+        </span>
+      </span>
+      <div className="flex shrink-0 items-center gap-1">
+        <Button
+          type="button"
+          size="icon"
+          variant="ghost"
+          onClick={copy}
+          aria-label={copied ? "Copiado" : "Copiar enlace"}
+          className="text-muted-foreground"
+        >
+          {copied ? (
+            <CheckIcon className="size-4 text-primary" />
+          ) : (
+            <CopyIcon className="size-4" />
+          )}
+        </Button>
+        <Button type="button" size="icon" asChild>
+          <a
+            href={whatsappShareUrl(
+              areaNombre,
+              url,
+              persona.nombre,
+              persona.telefono,
+            )}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Enviar por WhatsApp"
+          >
+            <MessageCircleIcon className="size-4" />
+          </a>
+        </Button>
+      </div>
+    </li>
   )
 }
 
