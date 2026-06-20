@@ -1,5 +1,6 @@
 "use server"
 
+import { registrarConsentimiento } from "@/lib/consentimiento"
 import { isValidPhone, normalizePhone, TELEFONO_INVALIDO_MSG } from "@/lib/phone"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
@@ -72,6 +73,16 @@ export async function submitSubAuxRegistro(input: {
       return { ok: false, error: miembroErr.message }
     }
   }
+
+  await registrarConsentimiento({
+    tipo: "registro",
+    rol: (persona?.role as string) ?? "sub_aux",
+    asambleaId: persona?.asamblea_id ?? null,
+    titularNombre: `${input.nombre} ${input.apellido}`.trim(),
+    titularTelefono: telefono,
+    otorganteUserId: user.id,
+    referencia: input.token,
+  })
 
   return { ok: true, error: null }
 }

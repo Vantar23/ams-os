@@ -3,6 +3,7 @@
 import { randomBytes } from "crypto"
 import { revalidatePath } from "next/cache"
 
+import { registrarConsentimiento } from "@/lib/consentimiento"
 import { isValidPhone, normalizePhone, TELEFONO_INVALIDO_MSG } from "@/lib/phone"
 import { createClient } from "@/lib/supabase/server"
 
@@ -176,6 +177,15 @@ export async function agregarAcomodadorManual(
     }
     return { accessToken: null, error: error.message }
   }
+
+  await registrarConsentimiento({
+    tipo: "autorizacion_tercero",
+    rol: "acomodador",
+    asambleaId,
+    titularNombre: `${values.nombre} ${values.apellido}`.trim(),
+    titularTelefono: telefono,
+    otorganteUserId: user.id,
+  })
 
   revalidatePath("/acomodadores")
   return { accessToken, error: null }

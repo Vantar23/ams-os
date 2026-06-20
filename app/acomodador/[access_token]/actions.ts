@@ -3,6 +3,7 @@
 import { cookies } from "next/headers"
 import { revalidatePath } from "next/cache"
 
+import { registrarConsentimiento } from "@/lib/consentimiento"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
 
@@ -23,6 +24,26 @@ export async function claimAccess(
   })
 
   if (error) return { ok: false, error: error.message }
+
+  try {
+    const admin = createAdminClient()
+    const { data: persona } = await admin
+      .from("acomodadores")
+      .select("nombre, apellido, telefono, asamblea_id")
+      .eq("access_token", accessToken)
+      .maybeSingle()
+    if (persona) {
+      await registrarConsentimiento({
+        tipo: "aviso_primer_acceso",
+        rol: "acomodador",
+        asambleaId: persona.asamblea_id,
+        titularNombre: `${persona.nombre ?? ""} ${persona.apellido ?? ""}`.trim(),
+        titularTelefono: persona.telefono,
+      })
+    }
+  } catch {
+    /* no bloqueamos el claim si falla el registro de auditoría */
+  }
 
   revalidatePath(`/acomodador/${accessToken}`)
   return { ok: true, error: null }

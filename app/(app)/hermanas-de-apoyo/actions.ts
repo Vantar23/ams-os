@@ -3,6 +3,7 @@
 import { randomBytes } from "crypto"
 import { revalidatePath } from "next/cache"
 
+import { registrarConsentimiento } from "@/lib/consentimiento"
 import { isValidPhone, normalizePhone, TELEFONO_INVALIDO_MSG } from "@/lib/phone"
 import { createClient } from "@/lib/supabase/server"
 
@@ -175,6 +176,15 @@ export async function agregarHermanaManual(
     }
     return { accessToken: null, error: error.message }
   }
+
+  await registrarConsentimiento({
+    tipo: "autorizacion_tercero",
+    rol: "hermana",
+    asambleaId,
+    titularNombre: `${values.nombre} ${values.apellido}`.trim(),
+    titularTelefono: telefono,
+    otorganteUserId: user.id,
+  })
 
   revalidatePath("/hermanas-de-apoyo")
   return { accessToken, error: null }

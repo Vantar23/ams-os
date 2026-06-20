@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache"
 
+import { registrarConsentimiento } from "@/lib/consentimiento"
 import { createClient } from "@/lib/supabase/server"
 
 /** Token aleatorio de 24 bytes en hex; va en la URL del pase y es el secreto. */
@@ -88,6 +89,19 @@ export async function generarPase(input: {
     cupo,
   })
   if (error) return { token: null, error: error.message }
+
+  // Solo registramos autorización cuando se capturan datos de una persona.
+  if (nombre || telefono) {
+    await registrarConsentimiento({
+      tipo: "autorizacion_tercero",
+      rol: "pase",
+      asambleaId: input.asambleaId,
+      titularNombre: nombre,
+      titularTelefono: telefono,
+      otorganteUserId: user.id,
+    })
+  }
+
   revalidatePath("/accesos")
   return { token, error: null }
 }

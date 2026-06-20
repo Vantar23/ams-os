@@ -24,6 +24,15 @@ seguridad) debe validarla un abogado en protección de datos.
   pase), para informar al titular en el primer contacto. Bloquea la
   confirmación del dispositivo hasta aceptar.
   Componente: `AvisoAceptacion` en `components/aviso-aceptacion.tsx`.
+- [x] **Persistencia de consentimientos** — bitácora `consentimientos`
+  (migración `20260620000002_consentimientos.sql`) donde el backend registra,
+  con fecha, versión del aviso, user-agent e IP: el consentimiento al
+  registrarse (`registro`), la autorización de quien captura datos de un
+  tercero (`autorizacion_tercero`) y la aceptación en el primer acceso
+  (`aviso_primer_acceso`). Helper: `lib/consentimiento.ts`. Es una tabla nueva
+  e independiente, por eso **no** necesitó el `db pull`.
+  ⚠️ Requiere aplicar la migración (`supabase db push`) para que los registros
+  se guarden.
 - [x] **Derechos ARCO (Cancelación)** — ya existía: borrado por persona desde
   el panel (`eliminarAcomodador`, `eliminarHermana`, `eliminarCapitan`).
 - [x] **Revocación de acceso** — ya existía: regenerar enlace
@@ -39,11 +48,6 @@ seguridad) debe validarla un abogado en protección de datos.
 
 ## Pendiente que SÍ necesita el `db pull`
 
-- [ ] **Registrar el consentimiento y la autorización** (fecha/versión del
-  aviso aceptado) por persona, tanto del titular como de quien captura datos de
-  un tercero. Hoy las casillas bloquean la acción pero no se persiste el
-  registro, porque guardar esa marca requiere una columna nueva y tocar los RPC
-  de registro, que viven solo en la BD. Pendiente junto al cifrado de campo.
 - [ ] **Cifrado de campo** de telefono/nombre/apellido — ver
   `docs/pii-encryption-plan.md`.
 - [ ] **Borrado en cascada**: confirmar que `eliminar*` borra también datos
