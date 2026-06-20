@@ -1,5 +1,6 @@
 "use server"
 
+import { registrarConsentimiento } from "@/lib/consentimiento"
 import { isValidPhone, normalizePhone, TELEFONO_INVALIDO_MSG } from "@/lib/phone"
 import { createClient } from "@/lib/supabase/server"
 
@@ -36,5 +37,14 @@ export async function submitRegistro(input: {
     }
     return { accessToken: null, error: message }
   }
+
+  await registrarConsentimiento({
+    tipo: "registro",
+    rol: "acomodador",
+    titularNombre: `${input.nombre} ${input.apellido}`.trim(),
+    titularTelefono: telefono,
+    referencia: input.token,
+  })
+
   return { accessToken: data as string, error: null }
 }

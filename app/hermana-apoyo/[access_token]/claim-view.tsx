@@ -4,6 +4,7 @@ import * as React from "react"
 import { useRouter } from "next/navigation"
 import { ShieldCheckIcon } from "lucide-react"
 
+import { AvisoAceptacion } from "@/components/aviso-aceptacion"
 import { Button } from "@/components/ui/button"
 
 import { claimAccess } from "./actions"
@@ -25,6 +26,7 @@ export function ClaimView({
 }) {
   const router = useRouter()
   const [submitting, setSubmitting] = React.useState(false)
+  const [aceptado, setAceptado] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
 
   async function onConfirm() {
@@ -67,12 +69,14 @@ export function ClaimView({
           </p>
         )}
 
+        <AvisoAceptacion checked={aceptado} onCheckedChange={setAceptado} />
+
         <Button
           type="button"
           size="lg"
-          className="mt-8 w-full"
+          className="mt-6 w-full"
           onClick={onConfirm}
-          disabled={submitting}
+          disabled={submitting || !aceptado}
         >
           {submitting ? "Confirmando…" : "Confirmar este dispositivo"}
         </Button>

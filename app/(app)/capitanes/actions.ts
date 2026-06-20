@@ -3,6 +3,7 @@
 import { randomBytes } from "crypto"
 import { revalidatePath } from "next/cache"
 
+import { anonimizarConsentimientos } from "@/lib/consentimiento"
 import { isValidPhone, normalizePhone, TELEFONO_INVALIDO_MSG } from "@/lib/phone"
 import { createClient } from "@/lib/supabase/server"
 
@@ -168,12 +169,21 @@ export async function eliminarCapitan(
   } = await supabase.auth.getUser()
   if (!user) return { error: "No autenticado" }
 
+  const { data: persona } = await supabase
+    .from("capitanes")
+    .select("telefono")
+    .eq("id", capitanId)
+    .maybeSingle()
+
   const { error } = await supabase
     .from("capitanes")
     .delete()
     .eq("id", capitanId)
 
   if (error) return { error: error.message }
+
+  await anonimizarConsentimientos(persona?.telefono ?? null)
+
   revalidatePath("/capitanes")
   revalidatePath("/acomodadores")
   return { error: null }

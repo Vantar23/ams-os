@@ -20,6 +20,7 @@ import {
   BuscadorPersonal,
   coincideBusqueda,
 } from "@/components/buscador-personal"
+import { AutorizacionTercero } from "@/components/aviso-aceptacion"
 import { DisponibilidadSelector } from "@/components/disponibilidad-selector"
 import {
   formatPuestosAsignados,
@@ -336,6 +337,7 @@ function ManualAddDialog({
     DisponibilidadSlot[]
   >([])
   const [datos, setDatos] = React.useState<DraftDatos | null>(null)
+  const [autorizado, setAutorizado] = React.useState(false)
 
   const origin = typeof window === "undefined" ? "" : window.location.origin
   const accessUrl = createdToken ? `${origin}/hermana-apoyo/${createdToken}` : ""
@@ -351,6 +353,7 @@ function ManualAddDialog({
       setCapitanId(initialCapitanId)
       setDisponibilidad([])
       setDatos(null)
+      setAutorizado(false)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
@@ -479,10 +482,19 @@ function ManualAddDialog({
                   onChange={setCapitanId}
                 />
 
+                <AutorizacionTercero
+                  checked={autorizado}
+                  onCheckedChange={setAutorizado}
+                />
+
                 {error && <p className="text-sm text-destructive">{error}</p>}
 
                 <DialogFooter>
-                  <Button type="submit" className="w-full sm:w-auto">
+                  <Button
+                    type="submit"
+                    className="w-full sm:w-auto"
+                    disabled={!autorizado}
+                  >
                     Continuar
                   </Button>
                 </DialogFooter>

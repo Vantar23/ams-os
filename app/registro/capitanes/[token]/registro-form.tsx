@@ -7,6 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import { z } from "zod"
 
+import { ConsentimientoField } from "@/components/consentimiento-field"
 import { DisponibilidadSelector } from "@/components/disponibilidad-selector"
 import { Button } from "@/components/ui/button"
 import {
@@ -41,6 +42,9 @@ const schema = z
     email: z.email("Correo inválido"),
     password: z.string().min(8, "Mínimo 8 caracteres"),
     confirmPassword: z.string().min(1, "Requerido"),
+    consentimiento: z
+      .boolean()
+      .refine((v) => v === true, "Debes aceptar el aviso de privacidad"),
   })
   .refine((d) => d.password === d.confirmPassword, {
     path: ["confirmPassword"],
@@ -87,6 +91,7 @@ export function CapitanRegistroForm({
       email: "",
       password: "",
       confirmPassword: "",
+      consentimiento: false,
     },
   })
 
@@ -379,6 +384,8 @@ export function CapitanRegistroForm({
                 options={{ theme: "auto" }}
               />
             </div>
+
+            <ConsentimientoField control={form.control} name="consentimiento" />
 
             {submitError && (
               <p className="text-sm text-destructive">{submitError}</p>

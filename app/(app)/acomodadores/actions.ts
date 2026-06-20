@@ -3,6 +3,10 @@
 import { randomBytes } from "crypto"
 import { revalidatePath } from "next/cache"
 
+import {
+  anonimizarConsentimientos,
+  registrarConsentimiento,
+} from "@/lib/consentimiento"
 import { isValidPhone, normalizePhone, TELEFONO_INVALIDO_MSG } from "@/lib/phone"
 import { createClient } from "@/lib/supabase/server"
 
@@ -118,12 +122,21 @@ export async function eliminarAcomodador(
   } = await supabase.auth.getUser()
   if (!user) return { error: "No autenticado" }
 
+  const { data: persona } = await supabase
+    .from("acomodadores")
+    .select("telefono")
+    .eq("id", acomodadorId)
+    .maybeSingle()
+
   const { error } = await supabase
     .from("acomodadores")
     .delete()
     .eq("id", acomodadorId)
 
   if (error) return { error: error.message }
+
+  await anonimizarConsentimientos(persona?.telefono ?? null)
+
   revalidatePath("/acomodadores")
   return { error: null }
 }
@@ -176,6 +189,15 @@ export async function agregarAcomodadorManual(
     }
     return { accessToken: null, error: error.message }
   }
+
+  await registrarConsentimiento({
+    tipo: "autorizacion_tercero",
+    rol: "acomodador",
+    asambleaId,
+    titularNombre: `${values.nombre} ${values.apellido}`.trim(),
+    titularTelefono: telefono,
+    otorganteUserId: user.id,
+  })
 
   revalidatePath("/acomodadores")
   return { accessToken, error: null }
