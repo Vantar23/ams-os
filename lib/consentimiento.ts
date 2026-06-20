@@ -48,3 +48,25 @@ export async function registrarConsentimiento(input: {
     console.error("registrarConsentimiento:", e)
   }
 }
+
+// Anonimiza en la bitácora los registros de una persona al atender una
+// solicitud de borrado (derecho de cancelación). Conserva el evento de
+// consentimiento como prueba anónima, pero elimina el nombre y el teléfono
+// para que no quede PII tras la cancelación. Best-effort.
+export async function anonimizarConsentimientos(
+  telefono: string | null,
+): Promise<void> {
+  if (!telefono) return
+  try {
+    const admin = createAdminClient()
+    const { error } = await admin
+      .from("consentimientos")
+      .update({ titular_nombre: null, titular_telefono: null })
+      .eq("titular_telefono", telefono)
+    if (error) {
+      console.error("anonimizarConsentimientos:", error.message)
+    }
+  } catch (e) {
+    console.error("anonimizarConsentimientos:", e)
+  }
+}

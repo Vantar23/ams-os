@@ -2,7 +2,10 @@
 
 import { revalidatePath } from "next/cache"
 
-import { registrarConsentimiento } from "@/lib/consentimiento"
+import {
+  anonimizarConsentimientos,
+  registrarConsentimiento,
+} from "@/lib/consentimiento"
 import { createClient } from "@/lib/supabase/server"
 
 /** Token aleatorio de 24 bytes en hex; va en la URL del pase y es el secreto. */
@@ -174,11 +177,20 @@ export async function eliminarPase(
   } = await supabase.auth.getUser()
   if (!user) return { error: "No autenticado" }
 
+  const { data: pase } = await supabase
+    .from("accesos_pases")
+    .select("telefono")
+    .eq("id", paseId)
+    .maybeSingle()
+
   const { error } = await supabase
     .from("accesos_pases")
     .delete()
     .eq("id", paseId)
   if (error) return { error: error.message }
+
+  await anonimizarConsentimientos(pase?.telefono ?? null)
+
   revalidatePath("/accesos")
   return { error: null }
 }

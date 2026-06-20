@@ -33,8 +33,14 @@ seguridad) debe validarla un abogado en protección de datos.
   e independiente, por eso **no** necesitó el `db pull`.
   ⚠️ Requiere aplicar la migración (`supabase db push`) para que los registros
   se guarden.
-- [x] **Derechos ARCO (Cancelación)** — ya existía: borrado por persona desde
-  el panel (`eliminarAcomodador`, `eliminarHermana`, `eliminarCapitan`).
+- [x] **Derechos ARCO (Cancelación) / borrado a solicitud** — borrado por
+  persona desde el panel para los 4 roles (`eliminarAcomodador`,
+  `eliminarHermana`, `eliminarCapitan`, `eliminarSubAux`) y para pases
+  (`eliminarPase`). Las reglas de borrado de las tablas del repo son seguras
+  (reportes/incidencias quedan con autor `NULL`; asignaciones/reemplazos/
+  conteos en cascada). Al borrar también se **anonimiza** la bitácora
+  `consentimientos` de esa persona (`anonimizarConsentimientos`), de modo que
+  no queda PII tras la cancelación.
 - [x] **Revocación de acceso** — ya existía: regenerar enlace
   (`regenerarAcceso`, `regenerarAccesoHermana`) invalida un token filtrado.
 - [x] **Cifrado en tránsito** (TLS) y **en reposo a nivel disco** (Supabase).
@@ -50,9 +56,10 @@ seguridad) debe validarla un abogado en protección de datos.
 
 - [ ] **Cifrado de campo** de telefono/nombre/apellido — ver
   `docs/pii-encryption-plan.md`.
-- [ ] **Borrado en cascada**: confirmar que `eliminar*` borra también datos
-  relacionados (asignaciones, mensajes, incidencias) según las llaves foráneas
-  del esquema real.
+- [ ] **Borrado en cascada (verificación final)**: las FK del repo son
+  seguras, pero conviene confirmar contra el esquema real que tablas base
+  fuera del repo (p. ej. `asignaciones.acomodador_id`) tengan
+  `on delete cascade`/`set null`, para que el borrado nunca falle por FK.
 
 ## Notas
 
