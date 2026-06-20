@@ -7,6 +7,7 @@ import { useForm } from "react-hook-form"
 import { z } from "zod"
 import { CheckIcon, CopyIcon } from "lucide-react"
 
+import { ConsentimientoField } from "@/components/consentimiento-field"
 import { DisponibilidadSelector } from "@/components/disponibilidad-selector"
 import { Button } from "@/components/ui/button"
 import {
@@ -32,6 +33,9 @@ const schema = z.object({
     .transform(normalizePhone)
     .refine(isValidPhone, TELEFONO_INVALIDO_MSG),
   notas: z.string().optional(),
+  consentimiento: z
+    .boolean()
+    .refine((v) => v === true, "Debes aceptar el aviso de privacidad"),
 })
 
 type Values = z.infer<typeof schema>
@@ -65,6 +69,7 @@ export function RegistroForm({
       congregacion: "",
       telefono: "",
       notas: "",
+      consentimiento: false,
     },
   })
 
@@ -203,6 +208,8 @@ export function RegistroForm({
               />
             </div>
 
+            <ConsentimientoField control={form.control} name="consentimiento" />
+
             {submitError && (
               <p className="text-sm text-destructive">{submitError}</p>
             )}
@@ -215,10 +222,6 @@ export function RegistroForm({
             >
               {submitting ? "Enviando registro…" : "Enviar registro"}
             </Button>
-            <p className="text-center text-xs text-muted-foreground">
-              Al enviar, aceptas que el departamento te contacte para coordinar
-              tu asignación.
-            </p>
           </form>
         </Form>
       </div>
