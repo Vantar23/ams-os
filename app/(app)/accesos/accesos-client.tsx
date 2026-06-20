@@ -24,6 +24,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import { AutorizacionTercero } from "@/components/aviso-aceptacion"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -280,6 +281,7 @@ function CompartirDialog({
   const [creating, setCreating] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
   const [copied, setCopied] = React.useState(false)
+  const [autorizado, setAutorizado] = React.useState(false)
 
   // Buscador de personal ya registrado.
   const [search, setSearch] = React.useState("")
@@ -302,6 +304,7 @@ function CompartirDialog({
       setSearch("")
       setResultados([])
       setAbierto(false)
+      setAutorizado(false)
     }
     onOpenChange(v)
   }
@@ -503,11 +506,20 @@ function CompartirDialog({
                 familiares o invitados.
               </p>
             </div>
+            {(nombre.trim() || telefono.trim()) && (
+              <AutorizacionTercero
+                checked={autorizado}
+                onCheckedChange={setAutorizado}
+              />
+            )}
             {error && <p className="text-sm text-destructive">{error}</p>}
             <Button
               type="button"
               onClick={generar}
-              disabled={creating}
+              disabled={
+                creating ||
+                (Boolean(nombre.trim() || telefono.trim()) && !autorizado)
+              }
               className="w-full"
             >
               {creating ? "Generando…" : "Generar enlace"}

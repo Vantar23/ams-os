@@ -14,6 +14,16 @@ seguridad) debe validarla un abogado en protección de datos.
   de registro (acomodadores, hermanas, capitanes, sub-aux). El envío —y la
   creación de cuenta— se bloquea hasta aceptar.
   Componente: `components/consentimiento-field.tsx`.
+- [x] **Datos de terceros — capa A (quien captura).** Casilla
+  "Confirmo que tengo autorización de esta persona…" al dar de alta
+  manualmente a un acomodador/hermana o al generar un pase con nombre/
+  teléfono. Bloquea la acción hasta confirmar.
+  Componente: `AutorizacionTercero` en `components/aviso-aceptacion.tsx`.
+- [x] **Datos de terceros — capa B (el titular).** El aviso + aceptación
+  aparece en el primer acceso a los portales (claim de acomodador, hermana y
+  pase), para informar al titular en el primer contacto. Bloquea la
+  confirmación del dispositivo hasta aceptar.
+  Componente: `AvisoAceptacion` en `components/aviso-aceptacion.tsx`.
 - [x] **Derechos ARCO (Cancelación)** — ya existía: borrado por persona desde
   el panel (`eliminarAcomodador`, `eliminarHermana`, `eliminarCapitan`).
 - [x] **Revocación de acceso** — ya existía: regenerar enlace
@@ -29,10 +39,11 @@ seguridad) debe validarla un abogado en protección de datos.
 
 ## Pendiente que SÍ necesita el `db pull`
 
-- [ ] **Registrar el consentimiento** (fecha/versión del aviso aceptado) por
-  persona. Hoy la casilla bloquea el envío pero no se persiste el registro,
-  porque guardar esa marca requiere una columna nueva y tocar los RPC de
-  registro, que viven solo en la BD. Pendiente junto al cifrado de campo.
+- [ ] **Registrar el consentimiento y la autorización** (fecha/versión del
+  aviso aceptado) por persona, tanto del titular como de quien captura datos de
+  un tercero. Hoy las casillas bloquean la acción pero no se persiste el
+  registro, porque guardar esa marca requiere una columna nueva y tocar los RPC
+  de registro, que viven solo en la BD. Pendiente junto al cifrado de campo.
 - [ ] **Cifrado de campo** de telefono/nombre/apellido — ver
   `docs/pii-encryption-plan.md`.
 - [ ] **Borrado en cascada**: confirmar que `eliminar*` borra también datos
@@ -45,3 +56,6 @@ seguridad) debe validarla un abogado en protección de datos.
   expreso (la casilla) es obligatorio, no opcional.
 - El aviso debe estar disponible **antes** de recabar datos: por eso se enlaza
   desde la propia casilla de registro.
+- Los teléfonos puramente operativos (primeros auxilios, seguridad, limpieza en
+  `asambleas`; contactos de pase) son terceros que no usan el sistema: hay que
+  informarles **por fuera** de la app; no se puede automatizar.
