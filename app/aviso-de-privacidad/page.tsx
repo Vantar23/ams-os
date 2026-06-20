@@ -4,12 +4,12 @@ export const metadata: Metadata = {
   title: "Aviso de privacidad",
 }
 
-// ⚠️ BORRADOR — revisar y completar con asesoría legal antes de publicar.
-// Completa estos datos del responsable. Se muestran en el aviso.
+// Datos del responsable del tratamiento. Conviene que un asesor legal valide
+// el texto final del aviso antes de publicarlo.
 const RESPONSABLE = {
-  nombre: "[NOMBRE LEGAL DEL RESPONSABLE]",
-  domicilio: "[DOMICILIO PARA OÍR Y RECIBIR NOTIFICACIONES]",
-  contacto: "[CORREO DE CONTACTO PARA DATOS PERSONALES]",
+  nombre: "David Antonio Arenas",
+  domicilio: "Carretera Paso de Cortés 3311, Puebla, Puebla, México",
+  contacto: "davidantarenas@icloud.com",
 }
 const ULTIMA_ACTUALIZACION = "20 de junio de 2026"
 

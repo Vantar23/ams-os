@@ -8,9 +8,7 @@ seguridad) debe validarla un abogado en protección de datos.
 ## Hecho en código
 
 - [x] **Aviso de privacidad** — página pública en `/aviso-de-privacidad`
-  (`app/aviso-de-privacidad/page.tsx`).
-  ⚠️ Completar los datos del responsable (`RESPONSABLE`) en el archivo:
-  nombre legal, domicilio y correo de contacto. Está marcado como BORRADOR.
+  (`app/aviso-de-privacidad/page.tsx`). Responsable: David Antonio Arenas.
 - [x] **Consentimiento en el registro** — casilla obligatoria que enlaza al
   aviso y cubre el dato sensible (afiliación religiosa), en los 4 formularios
   de registro (acomodadores, hermanas, capitanes, sub-aux). El envío —y la
@@ -24,7 +22,6 @@ seguridad) debe validarla un abogado en protección de datos.
 
 ## Pendiente que NO necesita el `db pull`
 
-- [ ] **Completar el aviso** con los datos legales del responsable.
 - [ ] **Texto legal revisado** por asesoría (el aviso es una plantilla).
 - [ ] **Documento de seguridad** y **política de retención** (organizativo).
 - [ ] **Protocolo de notificación de brechas** (organizativo).
